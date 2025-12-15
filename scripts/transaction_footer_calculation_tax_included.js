@@ -1,0 +1,29 @@
+function check_taxincls()
+{
+	if(document.getElementById("taxincl").checked==true)
+	{
+		//document.getElementById("selecttax").value="ZR"; 
+		//document.getElementById("pTax").value=0; 
+		//document.getElementById("totaldisc1").value=0; 
+		//document.getElementById("totaldisc2").value=0; 
+		//document.getElementById("totaldisc3").value=0; 
+		//document.getElementById("totalamtdisc").value=0;
+		//document.getElementById("totalamttax").value=0; 
+		getDiscountControl();
+		getTaxControl();
+		getCashCount();
+	}
+	else
+	{
+		//document.getElementById("selecttax").value="STAX"; 
+		//document.getElementById("pTax").value=default_gst;
+		//document.getElementById("totaldisc1").value=0; 
+		//document.getElementById("totaldisc2").value=0; 
+		//document.getElementById("totaldisc3").value=0; 
+		//document.getElementById("totalamtdisc").value=0;
+		//document.getElementById("totalamttax").value=0; 
+		getDiscountControl();
+		getTaxControl();
+		getCashCount();
+	}
+}

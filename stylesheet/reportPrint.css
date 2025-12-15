@@ -1,0 +1,29 @@
+td
+{
+	vertical-align:top;
+}
+
+tbody tr td
+{
+	text-align:left;
+}
+
+body
+{ 
+	margin-top:5px; 
+	margin_bottom:5px; 
+	margin-left:5px; 
+	margin-right:5px; 
+	background-color:#FFF5F6;
+	font-size:12px;
+	font-family:monospace;
+}
+
+
+@media print 
+{
+	.noprint 
+	{ 
+		display: none; 
+	}
+}

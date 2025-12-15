@@ -1,0 +1,1 @@
+print /d:lpt1 c:\ocd.DTL

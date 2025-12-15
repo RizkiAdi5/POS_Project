@@ -1,0 +1,403 @@
+@import url(/stylesheet/stylesheet.css);
+
+table.example
+{
+	border: 1px solid black;
+	border-collapse: collapse;
+}
+
+table.example th, table.example td
+{
+	border:1px solid #aaaaaa;
+	padding: 2px 15px 2px 15px;
+}
+
+table.example thead th
+{
+	background-color: #ccccff;
+}
+
+table.example tfoot td
+{
+	cursor:pointer;
+	background-color: #ffccff;
+}
+
+table.example tr.tbody_header
+{
+	font-weight: bold;
+	text-align: center;
+	background-color: #dddddd;
+}
+
+table.example a.pagelink
+{
+	padding-left: 5px;
+	padding-right: 5px;
+	border: 1px solid #666666;
+	margin: 0px 5px 0px 5px;
+}
+
+table.example a.currentpage
+{
+	background-color: yellow;
+}
+
+tr.alternate
+{
+	background-color: #ffffcc;
+}
+
+th.table-sortable
+{
+	cursor: pointer;
+	background-image: url(sorting_icon/01_unsorted.gif);
+	
+	background-position: center left;
+	background-repeat: no-repeat;
+	padding-left: 12px;
+}
+
+th.table-sorted-asc
+{
+	background-image: url(sorting_icon/01_ascending.gif);
+	background-position: center left;
+	background-repeat: no-repeat;
+}
+
+th.table-sorted-desc
+{
+	background-image: url(sorting_icon/01_descending.gif);
+	background-position: center left;
+	background-repeat: no-repeat;
+}
+
+th.table-filtered
+{
+	background-image: url(sorting_icon/01_unsorted.gif);
+	background-position: center left;
+	background-repeat: no-repeat;
+}
+
+select.table-autofilter
+{
+	font-size: smaller;
+}
+
+table.altstripe tr.alternate2
+{
+	background-color: #ccffff;
+}
+
+table.sort01 th.table-sortable
+{
+	background-image: url(sorting_icon/01_unsorted.gif);
+}
+
+table.sort01 th.table-sorted-asc
+{
+	background-image: url(sorting_icon/01_ascending.gif);
+}
+
+table.sort01 th.table-sorted-desc
+{
+	background-image: url(sorting_icon/01_descending.gif);
+}
+
+table.sort02 th.table-sortable
+{
+	background-image: none; 
+	padding-left: 16px;
+}
+
+table.sort02 th.table-sorted-asc
+{
+	background-image: url(sorting_icon/02_ascending.gif);
+}
+
+table.sort02 th.table-sorted-desc
+{
+	background-image: url(sorting_icon/02_descending.gif);
+}
+
+table.sort03 th.table-sortable
+{
+	background-image: none;
+}
+
+table.sort03 th.table-sorted-asc
+{
+	background-image: url(sorting_icon/03_ascending.gif);
+}
+
+table.sort03 th.table-sorted-desc
+{
+	background-image: url(sorting_icon/03_descending.gif);
+}
+
+table.sort04 th.table-sortable
+{
+	background-image: none;
+}
+
+table.sort04 th.table-sorted-asc
+{
+	background-image: url(sorting_icon/04_ascending.gif);
+}
+
+table.sort04 th.table-sorted-desc
+{
+	background-image: url(sorting_icon/04_descending.gif);
+}
+
+table.sort05 th.table-sortable
+{
+	background-image: url(sorting_icon/05_unsorted.gif);
+	padding-left: 16px;
+}
+
+table.sort05 th.table-sorted-asc
+{
+	background-image: url(sorting_icon/05_ascending.gif);
+}
+
+table.sort05 th.table-sorted-desc
+{
+	background-image: url(sorting_icon/05_descending.gif);
+}
+
+table.sort06 th.table-sortable
+{
+	background-image: none;
+	padding-left: 16px;
+}
+
+table.sort06 th.table-sorted-asc
+{
+	background-image: url(sorting_icon/06_ascending.gif);
+}
+
+table.sort06 th.table-sorted-desc
+{
+	background-image: url(sorting_icon/06_descending.gif);
+}
+
+table.sort07 th.table-sortable
+{
+	background-image: none;
+}
+
+table.sort07 th.table-sorted-asc
+{
+	background-image: url(sorting_icon/07_ascending.gif);
+}
+
+table.sort07 th.table-sorted-desc
+{
+	background-image: url(sorting_icon/07_descending.gif);
+}
+
+table.sort08 th.table-sortable
+{
+	background-image: none;
+}
+
+table.sort08 th.table-sorted-asc
+{
+	background-image: url(sorting_icon/08_ascending.gif);
+}
+
+table.sort08 th.table-sorted-desc
+{
+	background-image: url(sorting_icon/08_descending.gif);
+}
+
+table.sort09 th.table-sortable
+{
+	background-image: none;
+	padding-left: 30px;
+}
+
+table.sort09 th.table-sorted-asc
+{
+	background-image: url(sorting_icon/09_ascending.gif);
+}
+
+table.sort09 th.table-sorted-desc 
+{
+	background-image: url(sorting_icon/09_descending.gif);
+}
+
+table.sort10 th.table-sortable
+{
+	background-image: url(sorting_icon/10_unsorted.gif);
+}
+
+table.sort10 th.table-sorted-asc
+{
+	background-image: url(sorting_icon/10_ascending.gif);
+}
+
+table.sort10 th.table-sorted-desc
+{
+	background-image: url(sorting_icon/10_descending.gif);
+}
+
+table.sort11 th.table-sortable
+{
+	background-image: url(sorting_icon/11_unsorted.gif);
+	padding-left: 24px;
+}
+
+table.sort11 th.table-sorted-asc
+{
+	background-image: url(sorting_icon/11_ascending.gif);
+}
+
+table.sort11 th.table-sorted-desc
+{
+	background-image: url(sorting_icon/11_descending.gif);
+}
+
+table.sort12 th.table-sortable
+{
+	background-image: none;
+}
+
+table.sort12 th.table-sorted-asc
+{
+	background-image: url(sorting_icon/12_ascending.gif);
+}
+
+table.sort12 th.table-sorted-desc
+{
+	background-image: url(sorting_icon/12_descending.gif);
+}
+
+table.sort13 th.table-sortable
+{
+	background-image: none;
+}
+
+table.sort13 th.table-sorted-asc
+{
+	background-image: url(sorting_icon/13_ascending.gif);
+}
+
+table.sort13 th.table-sorted-desc
+{
+	background-image: url(sorting_icon/13_descending.gif);
+}
+
+table.sort14 th.table-sortable
+{
+	background-image: none;
+}
+
+table.sort14 th.table-sorted-asc
+{
+	background-image: url(sorting_icon/14_ascending.gif);
+}
+
+table.sort14 th.table-sorted-desc
+{
+	background-image: url(sorting_icon/14_descending.gif);
+}
+
+table.sort15 th.table-sortable
+{
+	background-image: none;
+}
+
+table.sort15 th.table-sorted-asc
+{
+	background-image: url(sorting_icon/15_ascending.gif);
+}
+
+table.sort15 th.table-sorted-desc
+{
+	background-image: url(sorting_icon/15_descending.gif);
+}
+
+table.sort16 th.table-sortable
+{
+	background-image: none;
+}
+
+table.sort16 th.table-sorted-asc
+{
+	background-image: url(sorting_icon/16_ascending.gif);
+}
+
+table.sort16 th.table-sorted-desc
+{
+	background-image: url(sorting_icon/16_descending.gif);
+}
+
+table.sort17 th.table-sortable
+{
+	background-image:none;
+}
+
+table.sort17 th.table-sorted-asc
+{
+	background-image: url(sorting_icon/17_ascending.gif);
+}
+
+table.sort17 th.table-sorted-desc
+{
+	background-image: url(sorting_icon/17_descending.gif);
+}
+
+table.sort18 th.table-sortable
+{
+	background-image: url(sorting_icon/18_unsorted.gif);
+}
+
+table.sort18 th.table-sorted-asc
+{
+	background-image: url(sorting_icon/18_ascending.gif);
+}
+
+table.sort18 th.table-sorted-desc
+{
+	background-image: url(sorting_icon/18_descending.gif);
+}
+
+table.sort19 th.table-sortable
+{
+	background-image: url(sorting_icon/19_unsorted.gif);
+	padding-left: 24px;
+}
+
+table.sort19 th.table-sorted-asc
+{
+	background-image: url(sorting_icon/19_ascending.gif);
+}
+
+table.sort19 th.table-sorted-desc
+{
+	background-image: url(sorting_icon/19_descending.gif);
+}
+
+.iconset
+{
+	margin: 5px;
+	border: 1px solid #cccccc;
+	border-color: #cccccc #666666 #666666 #cccccc;
+	text-align: center;
+	cursor: pointer;
+	width: 100px;
+}
+
+.iconset img
+{
+	margin: 3px;
+}
+
+tr.doc_section
+{
+	font-weight: bold;
+	text-align: center;
+	background-color: #dddddd;
+}

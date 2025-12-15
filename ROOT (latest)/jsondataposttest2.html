@@ -1,0 +1,63 @@
+<html>
+<head>
+<title>Examing JSON Data To the CRM for Sixcapital</title>
+<script type="text/javascript" src="/scripts/jquery-1.6.1.min.js"></script>
+<script type="text/javascript">
+function getpost()
+{
+	alert(1);
+var postdata = $('#jsondata').val();
+var urlpostto = $('#posttourl').val();
+var ajaxResponse = $.ajax({
+type: "post",
+url: urlpostto,
+contentType: "application/json",
+data: postdata
+})
+
+alert(apiResponse);
+ajaxResponse.then(
+function(apiResponse){
+	alert(1);
+alert(apiResponse);
+
+$("#responsedata").html(apiResponse);
+
+}
+);
+	alert(3);
+}
+</script>
+</head>
+<body>
+<h1>Examing JSON Data To the IMS</h1>
+<table>
+<tr>
+<th>
+POST TO
+</th>
+<td>
+<input type="text" name="posttourl" id="posttourl" value="" size="100">
+</td>
+</tr>
+<tr>
+<th>JSON DATA</th>
+<td>
+<textarea name="jsondata" id="jsondata" wrap="off" cols="70" rows="10"></textarea>
+<br/> EG:   {"name":"Joanna","hair":"Brunette","age":35,"favoriteMovies":"HP7p2"}
+</td>
+</tr>
+<tr>
+<th>Submited Data & Response</th>
+<td>
+<div id="responsedata">a</div>
+</td>
+</tr>
+<tr>
+<td colspan="2">
+<input type="button" name="testbtn" id="testbtn"  value="POST" onClick="getpost();">
+</td>
+</tr>
+</table>
+</body>
+</html>

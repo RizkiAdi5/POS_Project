@@ -1,0 +1,40 @@
+body
+{
+	background-color: #C0CFE2;
+	filter:progid:DXImageTransform.Microsoft.Gradient(endColorstr='#FFFFFF', startColorstr='#C0CFE2', gradientType='0');
+	font-family: Arial;
+}
+
+li
+{
+	font-size: 10px;
+}
+
+.menutitle
+{
+	cursor:hand;
+	margin-bottom: 5px;
+	background-color:#999999;
+	color:#FFFFFF;
+	width:140px;
+	padding:2px;
+	text-align:center;
+	font-weight:bold;
+	font-size: 12px;
+	border:1px solid #FFFFFF;
+	font-family: Tahoma, Arial, "Times New Roman";
+}
+
+.submenu
+{
+	margin-bottom: 0.5em;
+	list-style-image:  url(../images/foldoutmenu2_arrow.gif);
+}
+
+
+a:link
+{ color:#0000FF; font-family: Arial, Verdana; }
+a:visited
+{ color:#0000FF; font-family: Arial, Verdana }
+a:hover
+{ color:#660099; }

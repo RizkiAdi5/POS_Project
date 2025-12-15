@@ -1,0 +1,1 @@
+Copy /b C:\railo\tomcat\webapps\ROOT\default\transaction\POS\open2.txt \\ThatCD-PC1\printershare

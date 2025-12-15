@@ -1,0 +1,1 @@
+Copy /b p ú lpt2

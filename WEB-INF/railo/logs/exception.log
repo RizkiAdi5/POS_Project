@@ -1,0 +1,455 @@
+"Severity","ThreadID","Date","Time","Application","Message"
+"ERROR","web-0","12/10/2025","21:06:22","","variable [DTS] doesn't exist
+	at railo.runtime.type.scope.UndefinedImpl.get(UndefinedImpl.java:252):252
+	at index_cfm$cf.call(C:\railo\tomcat\webapps\ROOT\index.cfm:2):2
+	at railo.runtime.PageContextImpl.doInclude(PageContextImpl.java:799):799
+	at railo.runtime.PageContextImpl.doInclude(PageContextImpl.java:751):751
+	at railo.runtime.listener.ModernAppListener._onRequest(ModernAppListener.java:179):179
+	at railo.runtime.listener.MixedAppListener.onRequest(MixedAppListener.java:23):23
+	at railo.runtime.PageContextImpl.execute(PageContextImpl.java:2035):2035
+	at railo.runtime.PageContextImpl.execute(PageContextImpl.java:2002):2002
+	at railo.runtime.engine.CFMLEngineImpl.serviceCFML(CFMLEngineImpl.java:297):297
+	at railo.loader.servlet.CFMLServlet.service(CFMLServlet.java:32):32
+	at javax.servlet.http.HttpServlet.service(HttpServlet.java:722):722
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:305):305
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:210):210
+	at org.apache.catalina.core.StandardWrapperValve.invoke(StandardWrapperValve.java:225):225
+	at org.apache.catalina.core.StandardContextValve.invoke(StandardContextValve.java:169):169
+	at org.apache.catalina.authenticator.AuthenticatorBase.invoke(AuthenticatorBase.java:472):472
+	at org.apache.catalina.core.StandardHostValve.invoke(StandardHostValve.java:168):168
+	at org.apache.catalina.valves.ErrorReportValve.invoke(ErrorReportValve.java:98):98
+	at mod_cfml.core.invoke(core.java:121):121
+	at org.apache.catalina.valves.AccessLogValve.invoke(AccessLogValve.java:927):927
+	at org.apache.catalina.core.StandardEngineValve.invoke(StandardEngineValve.java:118):118
+	at org.apache.catalina.connector.CoyoteAdapter.service(CoyoteAdapter.java:407):407
+	at org.apache.coyote.http11.AbstractHttp11Processor.process(AbstractHttp11Processor.java:999):999
+	at org.apache.coyote.AbstractProtocol$AbstractConnectionHandler.process(AbstractProtocol.java:565):565
+	at org.apache.tomcat.util.net.JIoEndpoint$SocketProcessor.run(JIoEndpoint.java:307):307
+	at java.util.concurrent.ThreadPoolExecutor$Worker.runTask(Unknown Source):-1
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(Unknown Source):-1
+	at java.lang.Thread.run(Unknown Source):-1
+"
+"ERROR","web-0","12/10/2025","21:06:36","","variable [DTS] doesn't exist
+	at railo.runtime.type.scope.UndefinedImpl.get(UndefinedImpl.java:252):252
+	at index_cfm$cf.call(C:\railo\tomcat\webapps\ROOT\index.cfm:2):2
+	at railo.runtime.PageContextImpl.doInclude(PageContextImpl.java:799):799
+	at railo.runtime.PageContextImpl.doInclude(PageContextImpl.java:751):751
+	at railo.runtime.listener.ModernAppListener._onRequest(ModernAppListener.java:179):179
+	at railo.runtime.listener.MixedAppListener.onRequest(MixedAppListener.java:23):23
+	at railo.runtime.PageContextImpl.execute(PageContextImpl.java:2035):2035
+	at railo.runtime.PageContextImpl.execute(PageContextImpl.java:2002):2002
+	at railo.runtime.engine.CFMLEngineImpl.serviceCFML(CFMLEngineImpl.java:297):297
+	at railo.loader.servlet.CFMLServlet.service(CFMLServlet.java:32):32
+	at javax.servlet.http.HttpServlet.service(HttpServlet.java:722):722
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:305):305
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:210):210
+	at org.apache.catalina.core.StandardWrapperValve.invoke(StandardWrapperValve.java:225):225
+	at org.apache.catalina.core.StandardContextValve.invoke(StandardContextValve.java:169):169
+	at org.apache.catalina.authenticator.AuthenticatorBase.invoke(AuthenticatorBase.java:472):472
+	at org.apache.catalina.core.StandardHostValve.invoke(StandardHostValve.java:168):168
+	at org.apache.catalina.valves.ErrorReportValve.invoke(ErrorReportValve.java:98):98
+	at mod_cfml.core.invoke(core.java:121):121
+	at org.apache.catalina.valves.AccessLogValve.invoke(AccessLogValve.java:927):927
+	at org.apache.catalina.core.StandardEngineValve.invoke(StandardEngineValve.java:118):118
+	at org.apache.catalina.connector.CoyoteAdapter.service(CoyoteAdapter.java:407):407
+	at org.apache.coyote.http11.AbstractHttp11Processor.process(AbstractHttp11Processor.java:999):999
+	at org.apache.coyote.AbstractProtocol$AbstractConnectionHandler.process(AbstractProtocol.java:565):565
+	at org.apache.tomcat.util.net.JIoEndpoint$SocketProcessor.run(JIoEndpoint.java:307):307
+	at java.util.concurrent.ThreadPoolExecutor$Worker.runTask(Unknown Source):-1
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(Unknown Source):-1
+	at java.lang.Thread.run(Unknown Source):-1
+"
+"ERROR","web-0","12/10/2025","21:17:28","","variable [DTS] doesn't exist
+	at railo.runtime.type.scope.UndefinedImpl.get(UndefinedImpl.java:252):252
+	at index_cfm$cf.call(C:\railo\tomcat\webapps\ROOT\index.cfm:2):2
+	at railo.runtime.PageContextImpl.doInclude(PageContextImpl.java:799):799
+	at railo.runtime.PageContextImpl.doInclude(PageContextImpl.java:751):751
+	at railo.runtime.listener.ModernAppListener._onRequest(ModernAppListener.java:179):179
+	at railo.runtime.listener.MixedAppListener.onRequest(MixedAppListener.java:23):23
+	at railo.runtime.PageContextImpl.execute(PageContextImpl.java:2035):2035
+	at railo.runtime.PageContextImpl.execute(PageContextImpl.java:2002):2002
+	at railo.runtime.engine.CFMLEngineImpl.serviceCFML(CFMLEngineImpl.java:297):297
+	at railo.loader.servlet.CFMLServlet.service(CFMLServlet.java:32):32
+	at javax.servlet.http.HttpServlet.service(HttpServlet.java:722):722
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:305):305
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:210):210
+	at org.apache.catalina.core.StandardWrapperValve.invoke(StandardWrapperValve.java:225):225
+	at org.apache.catalina.core.StandardContextValve.invoke(StandardContextValve.java:169):169
+	at org.apache.catalina.authenticator.AuthenticatorBase.invoke(AuthenticatorBase.java:472):472
+	at org.apache.catalina.core.StandardHostValve.invoke(StandardHostValve.java:168):168
+	at org.apache.catalina.valves.ErrorReportValve.invoke(ErrorReportValve.java:98):98
+	at mod_cfml.core.invoke(core.java:121):121
+	at org.apache.catalina.valves.AccessLogValve.invoke(AccessLogValve.java:927):927
+	at org.apache.catalina.core.StandardEngineValve.invoke(StandardEngineValve.java:118):118
+	at org.apache.catalina.connector.CoyoteAdapter.service(CoyoteAdapter.java:407):407
+	at org.apache.coyote.http11.AbstractHttp11Processor.process(AbstractHttp11Processor.java:999):999
+	at org.apache.coyote.AbstractProtocol$AbstractConnectionHandler.process(AbstractProtocol.java:565):565
+	at org.apache.tomcat.util.net.JIoEndpoint$SocketProcessor.run(JIoEndpoint.java:309):309
+	at java.util.concurrent.ThreadPoolExecutor$Worker.runTask(Unknown Source):-1
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(Unknown Source):-1
+	at java.lang.Thread.run(Unknown Source):-1
+"
+"ERROR","web-0","12/10/2025","21:17:29","","variable [DTS] doesn't exist
+	at railo.runtime.type.scope.UndefinedImpl.get(UndefinedImpl.java:252):252
+	at index_cfm$cf.call(C:\railo\tomcat\webapps\ROOT\index.cfm:2):2
+	at railo.runtime.PageContextImpl.doInclude(PageContextImpl.java:799):799
+	at railo.runtime.PageContextImpl.doInclude(PageContextImpl.java:751):751
+	at railo.runtime.listener.ModernAppListener._onRequest(ModernAppListener.java:179):179
+	at railo.runtime.listener.MixedAppListener.onRequest(MixedAppListener.java:23):23
+	at railo.runtime.PageContextImpl.execute(PageContextImpl.java:2035):2035
+	at railo.runtime.PageContextImpl.execute(PageContextImpl.java:2002):2002
+	at railo.runtime.engine.CFMLEngineImpl.serviceCFML(CFMLEngineImpl.java:297):297
+	at railo.loader.servlet.CFMLServlet.service(CFMLServlet.java:32):32
+	at javax.servlet.http.HttpServlet.service(HttpServlet.java:722):722
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:305):305
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:210):210
+	at org.apache.catalina.core.StandardWrapperValve.invoke(StandardWrapperValve.java:225):225
+	at org.apache.catalina.core.StandardContextValve.invoke(StandardContextValve.java:169):169
+	at org.apache.catalina.authenticator.AuthenticatorBase.invoke(AuthenticatorBase.java:472):472
+	at org.apache.catalina.core.StandardHostValve.invoke(StandardHostValve.java:168):168
+	at org.apache.catalina.valves.ErrorReportValve.invoke(ErrorReportValve.java:98):98
+	at mod_cfml.core.invoke(core.java:121):121
+	at org.apache.catalina.valves.AccessLogValve.invoke(AccessLogValve.java:927):927
+	at org.apache.catalina.core.StandardEngineValve.invoke(StandardEngineValve.java:118):118
+	at org.apache.catalina.connector.CoyoteAdapter.service(CoyoteAdapter.java:407):407
+	at org.apache.coyote.http11.AbstractHttp11Processor.process(AbstractHttp11Processor.java:999):999
+	at org.apache.coyote.AbstractProtocol$AbstractConnectionHandler.process(AbstractProtocol.java:565):565
+	at org.apache.tomcat.util.net.JIoEndpoint$SocketProcessor.run(JIoEndpoint.java:307):307
+	at java.util.concurrent.ThreadPoolExecutor$Worker.runTask(Unknown Source):-1
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(Unknown Source):-1
+	at java.lang.Thread.run(Unknown Source):-1
+"
+"ERROR","web-0","12/10/2025","21:17:30","","variable [DTS] doesn't exist
+	at railo.runtime.type.scope.UndefinedImpl.get(UndefinedImpl.java:252):252
+	at index_cfm$cf.call(C:\railo\tomcat\webapps\ROOT\index.cfm:2):2
+	at railo.runtime.PageContextImpl.doInclude(PageContextImpl.java:799):799
+	at railo.runtime.PageContextImpl.doInclude(PageContextImpl.java:751):751
+	at railo.runtime.listener.ModernAppListener._onRequest(ModernAppListener.java:179):179
+	at railo.runtime.listener.MixedAppListener.onRequest(MixedAppListener.java:23):23
+	at railo.runtime.PageContextImpl.execute(PageContextImpl.java:2035):2035
+	at railo.runtime.PageContextImpl.execute(PageContextImpl.java:2002):2002
+	at railo.runtime.engine.CFMLEngineImpl.serviceCFML(CFMLEngineImpl.java:297):297
+	at railo.loader.servlet.CFMLServlet.service(CFMLServlet.java:32):32
+	at javax.servlet.http.HttpServlet.service(HttpServlet.java:722):722
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:305):305
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:210):210
+	at org.apache.catalina.core.StandardWrapperValve.invoke(StandardWrapperValve.java:225):225
+	at org.apache.catalina.core.StandardContextValve.invoke(StandardContextValve.java:169):169
+	at org.apache.catalina.authenticator.AuthenticatorBase.invoke(AuthenticatorBase.java:472):472
+	at org.apache.catalina.core.StandardHostValve.invoke(StandardHostValve.java:168):168
+	at org.apache.catalina.valves.ErrorReportValve.invoke(ErrorReportValve.java:98):98
+	at mod_cfml.core.invoke(core.java:121):121
+	at org.apache.catalina.valves.AccessLogValve.invoke(AccessLogValve.java:927):927
+	at org.apache.catalina.core.StandardEngineValve.invoke(StandardEngineValve.java:118):118
+	at org.apache.catalina.connector.CoyoteAdapter.service(CoyoteAdapter.java:407):407
+	at org.apache.coyote.http11.AbstractHttp11Processor.process(AbstractHttp11Processor.java:999):999
+	at org.apache.coyote.AbstractProtocol$AbstractConnectionHandler.process(AbstractProtocol.java:565):565
+	at org.apache.tomcat.util.net.JIoEndpoint$SocketProcessor.run(JIoEndpoint.java:307):307
+	at java.util.concurrent.ThreadPoolExecutor$Worker.runTask(Unknown Source):-1
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(Unknown Source):-1
+	at java.lang.Thread.run(Unknown Source):-1
+"
+"ERROR","web-0","12/10/2025","21:17:30","","variable [DTS] doesn't exist
+	at railo.runtime.type.scope.UndefinedImpl.get(UndefinedImpl.java:252):252
+	at index_cfm$cf.call(C:\railo\tomcat\webapps\ROOT\index.cfm:2):2
+	at railo.runtime.PageContextImpl.doInclude(PageContextImpl.java:799):799
+	at railo.runtime.PageContextImpl.doInclude(PageContextImpl.java:751):751
+	at railo.runtime.listener.ModernAppListener._onRequest(ModernAppListener.java:179):179
+	at railo.runtime.listener.MixedAppListener.onRequest(MixedAppListener.java:23):23
+	at railo.runtime.PageContextImpl.execute(PageContextImpl.java:2035):2035
+	at railo.runtime.PageContextImpl.execute(PageContextImpl.java:2002):2002
+	at railo.runtime.engine.CFMLEngineImpl.serviceCFML(CFMLEngineImpl.java:297):297
+	at railo.loader.servlet.CFMLServlet.service(CFMLServlet.java:32):32
+	at javax.servlet.http.HttpServlet.service(HttpServlet.java:722):722
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:305):305
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:210):210
+	at org.apache.catalina.core.StandardWrapperValve.invoke(StandardWrapperValve.java:225):225
+	at org.apache.catalina.core.StandardContextValve.invoke(StandardContextValve.java:169):169
+	at org.apache.catalina.authenticator.AuthenticatorBase.invoke(AuthenticatorBase.java:472):472
+	at org.apache.catalina.core.StandardHostValve.invoke(StandardHostValve.java:168):168
+	at org.apache.catalina.valves.ErrorReportValve.invoke(ErrorReportValve.java:98):98
+	at mod_cfml.core.invoke(core.java:121):121
+	at org.apache.catalina.valves.AccessLogValve.invoke(AccessLogValve.java:927):927
+	at org.apache.catalina.core.StandardEngineValve.invoke(StandardEngineValve.java:118):118
+	at org.apache.catalina.connector.CoyoteAdapter.service(CoyoteAdapter.java:407):407
+	at org.apache.coyote.http11.AbstractHttp11Processor.process(AbstractHttp11Processor.java:999):999
+	at org.apache.coyote.AbstractProtocol$AbstractConnectionHandler.process(AbstractProtocol.java:565):565
+	at org.apache.tomcat.util.net.JIoEndpoint$SocketProcessor.run(JIoEndpoint.java:307):307
+	at java.util.concurrent.ThreadPoolExecutor$Worker.runTask(Unknown Source):-1
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(Unknown Source):-1
+	at java.lang.Thread.run(Unknown Source):-1
+"
+"ERROR","web-0","12/10/2025","21:17:30","","variable [DTS] doesn't exist
+	at railo.runtime.type.scope.UndefinedImpl.get(UndefinedImpl.java:252):252
+	at index_cfm$cf.call(C:\railo\tomcat\webapps\ROOT\index.cfm:2):2
+	at railo.runtime.PageContextImpl.doInclude(PageContextImpl.java:799):799
+	at railo.runtime.PageContextImpl.doInclude(PageContextImpl.java:751):751
+	at railo.runtime.listener.ModernAppListener._onRequest(ModernAppListener.java:179):179
+	at railo.runtime.listener.MixedAppListener.onRequest(MixedAppListener.java:23):23
+	at railo.runtime.PageContextImpl.execute(PageContextImpl.java:2035):2035
+	at railo.runtime.PageContextImpl.execute(PageContextImpl.java:2002):2002
+	at railo.runtime.engine.CFMLEngineImpl.serviceCFML(CFMLEngineImpl.java:297):297
+	at railo.loader.servlet.CFMLServlet.service(CFMLServlet.java:32):32
+	at javax.servlet.http.HttpServlet.service(HttpServlet.java:722):722
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:305):305
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:210):210
+	at org.apache.catalina.core.StandardWrapperValve.invoke(StandardWrapperValve.java:225):225
+	at org.apache.catalina.core.StandardContextValve.invoke(StandardContextValve.java:169):169
+	at org.apache.catalina.authenticator.AuthenticatorBase.invoke(AuthenticatorBase.java:472):472
+	at org.apache.catalina.core.StandardHostValve.invoke(StandardHostValve.java:168):168
+	at org.apache.catalina.valves.ErrorReportValve.invoke(ErrorReportValve.java:98):98
+	at mod_cfml.core.invoke(core.java:121):121
+	at org.apache.catalina.valves.AccessLogValve.invoke(AccessLogValve.java:927):927
+	at org.apache.catalina.core.StandardEngineValve.invoke(StandardEngineValve.java:118):118
+	at org.apache.catalina.connector.CoyoteAdapter.service(CoyoteAdapter.java:407):407
+	at org.apache.coyote.http11.AbstractHttp11Processor.process(AbstractHttp11Processor.java:999):999
+	at org.apache.coyote.AbstractProtocol$AbstractConnectionHandler.process(AbstractProtocol.java:565):565
+	at org.apache.tomcat.util.net.JIoEndpoint$SocketProcessor.run(JIoEndpoint.java:307):307
+	at java.util.concurrent.ThreadPoolExecutor$Worker.runTask(Unknown Source):-1
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(Unknown Source):-1
+	at java.lang.Thread.run(Unknown Source):-1
+"
+"ERROR","web-0","12/10/2025","21:17:30","","variable [DTS] doesn't exist
+	at railo.runtime.type.scope.UndefinedImpl.get(UndefinedImpl.java:252):252
+	at index_cfm$cf.call(C:\railo\tomcat\webapps\ROOT\index.cfm:2):2
+	at railo.runtime.PageContextImpl.doInclude(PageContextImpl.java:799):799
+	at railo.runtime.PageContextImpl.doInclude(PageContextImpl.java:751):751
+	at railo.runtime.listener.ModernAppListener._onRequest(ModernAppListener.java:179):179
+	at railo.runtime.listener.MixedAppListener.onRequest(MixedAppListener.java:23):23
+	at railo.runtime.PageContextImpl.execute(PageContextImpl.java:2035):2035
+	at railo.runtime.PageContextImpl.execute(PageContextImpl.java:2002):2002
+	at railo.runtime.engine.CFMLEngineImpl.serviceCFML(CFMLEngineImpl.java:297):297
+	at railo.loader.servlet.CFMLServlet.service(CFMLServlet.java:32):32
+	at javax.servlet.http.HttpServlet.service(HttpServlet.java:722):722
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:305):305
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:210):210
+	at org.apache.catalina.core.StandardWrapperValve.invoke(StandardWrapperValve.java:225):225
+	at org.apache.catalina.core.StandardContextValve.invoke(StandardContextValve.java:169):169
+	at org.apache.catalina.authenticator.AuthenticatorBase.invoke(AuthenticatorBase.java:472):472
+	at org.apache.catalina.core.StandardHostValve.invoke(StandardHostValve.java:168):168
+	at org.apache.catalina.valves.ErrorReportValve.invoke(ErrorReportValve.java:98):98
+	at mod_cfml.core.invoke(core.java:121):121
+	at org.apache.catalina.valves.AccessLogValve.invoke(AccessLogValve.java:927):927
+	at org.apache.catalina.core.StandardEngineValve.invoke(StandardEngineValve.java:118):118
+	at org.apache.catalina.connector.CoyoteAdapter.service(CoyoteAdapter.java:407):407
+	at org.apache.coyote.http11.AbstractHttp11Processor.process(AbstractHttp11Processor.java:999):999
+	at org.apache.coyote.AbstractProtocol$AbstractConnectionHandler.process(AbstractProtocol.java:565):565
+	at org.apache.tomcat.util.net.JIoEndpoint$SocketProcessor.run(JIoEndpoint.java:307):307
+	at java.util.concurrent.ThreadPoolExecutor$Worker.runTask(Unknown Source):-1
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(Unknown Source):-1
+	at java.lang.Thread.run(Unknown Source):-1
+"
+"ERROR","web-0","12/10/2025","21:17:30","","variable [DTS] doesn't exist
+	at railo.runtime.type.scope.UndefinedImpl.get(UndefinedImpl.java:252):252
+	at index_cfm$cf.call(C:\railo\tomcat\webapps\ROOT\index.cfm:2):2
+	at railo.runtime.PageContextImpl.doInclude(PageContextImpl.java:799):799
+	at railo.runtime.PageContextImpl.doInclude(PageContextImpl.java:751):751
+	at railo.runtime.listener.ModernAppListener._onRequest(ModernAppListener.java:179):179
+	at railo.runtime.listener.MixedAppListener.onRequest(MixedAppListener.java:23):23
+	at railo.runtime.PageContextImpl.execute(PageContextImpl.java:2035):2035
+	at railo.runtime.PageContextImpl.execute(PageContextImpl.java:2002):2002
+	at railo.runtime.engine.CFMLEngineImpl.serviceCFML(CFMLEngineImpl.java:297):297
+	at railo.loader.servlet.CFMLServlet.service(CFMLServlet.java:32):32
+	at javax.servlet.http.HttpServlet.service(HttpServlet.java:722):722
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:305):305
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:210):210
+	at org.apache.catalina.core.StandardWrapperValve.invoke(StandardWrapperValve.java:225):225
+	at org.apache.catalina.core.StandardContextValve.invoke(StandardContextValve.java:169):169
+	at org.apache.catalina.authenticator.AuthenticatorBase.invoke(AuthenticatorBase.java:472):472
+	at org.apache.catalina.core.StandardHostValve.invoke(StandardHostValve.java:168):168
+	at org.apache.catalina.valves.ErrorReportValve.invoke(ErrorReportValve.java:98):98
+	at mod_cfml.core.invoke(core.java:121):121
+	at org.apache.catalina.valves.AccessLogValve.invoke(AccessLogValve.java:927):927
+	at org.apache.catalina.core.StandardEngineValve.invoke(StandardEngineValve.java:118):118
+	at org.apache.catalina.connector.CoyoteAdapter.service(CoyoteAdapter.java:407):407
+	at org.apache.coyote.http11.AbstractHttp11Processor.process(AbstractHttp11Processor.java:999):999
+	at org.apache.coyote.AbstractProtocol$AbstractConnectionHandler.process(AbstractProtocol.java:565):565
+	at org.apache.tomcat.util.net.JIoEndpoint$SocketProcessor.run(JIoEndpoint.java:307):307
+	at java.util.concurrent.ThreadPoolExecutor$Worker.runTask(Unknown Source):-1
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(Unknown Source):-1
+	at java.lang.Thread.run(Unknown Source):-1
+"
+"ERROR","web-0","12/10/2025","21:17:31","","variable [DTS] doesn't exist
+	at railo.runtime.type.scope.UndefinedImpl.get(UndefinedImpl.java:252):252
+	at index_cfm$cf.call(C:\railo\tomcat\webapps\ROOT\index.cfm:2):2
+	at railo.runtime.PageContextImpl.doInclude(PageContextImpl.java:799):799
+	at railo.runtime.PageContextImpl.doInclude(PageContextImpl.java:751):751
+	at railo.runtime.listener.ModernAppListener._onRequest(ModernAppListener.java:179):179
+	at railo.runtime.listener.MixedAppListener.onRequest(MixedAppListener.java:23):23
+	at railo.runtime.PageContextImpl.execute(PageContextImpl.java:2035):2035
+	at railo.runtime.PageContextImpl.execute(PageContextImpl.java:2002):2002
+	at railo.runtime.engine.CFMLEngineImpl.serviceCFML(CFMLEngineImpl.java:297):297
+	at railo.loader.servlet.CFMLServlet.service(CFMLServlet.java:32):32
+	at javax.servlet.http.HttpServlet.service(HttpServlet.java:722):722
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:305):305
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:210):210
+	at org.apache.catalina.core.StandardWrapperValve.invoke(StandardWrapperValve.java:225):225
+	at org.apache.catalina.core.StandardContextValve.invoke(StandardContextValve.java:169):169
+	at org.apache.catalina.authenticator.AuthenticatorBase.invoke(AuthenticatorBase.java:472):472
+	at org.apache.catalina.core.StandardHostValve.invoke(StandardHostValve.java:168):168
+	at org.apache.catalina.valves.ErrorReportValve.invoke(ErrorReportValve.java:98):98
+	at mod_cfml.core.invoke(core.java:121):121
+	at org.apache.catalina.valves.AccessLogValve.invoke(AccessLogValve.java:927):927
+	at org.apache.catalina.core.StandardEngineValve.invoke(StandardEngineValve.java:118):118
+	at org.apache.catalina.connector.CoyoteAdapter.service(CoyoteAdapter.java:407):407
+	at org.apache.coyote.http11.AbstractHttp11Processor.process(AbstractHttp11Processor.java:999):999
+	at org.apache.coyote.AbstractProtocol$AbstractConnectionHandler.process(AbstractProtocol.java:565):565
+	at org.apache.tomcat.util.net.JIoEndpoint$SocketProcessor.run(JIoEndpoint.java:307):307
+	at java.util.concurrent.ThreadPoolExecutor$Worker.runTask(Unknown Source):-1
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(Unknown Source):-1
+	at java.lang.Thread.run(Unknown Source):-1
+"
+"ERROR","web-0","12/10/2025","21:17:31","","variable [DTS] doesn't exist
+	at railo.runtime.type.scope.UndefinedImpl.get(UndefinedImpl.java:252):252
+	at index_cfm$cf.call(C:\railo\tomcat\webapps\ROOT\index.cfm:2):2
+	at railo.runtime.PageContextImpl.doInclude(PageContextImpl.java:799):799
+	at railo.runtime.PageContextImpl.doInclude(PageContextImpl.java:751):751
+	at railo.runtime.listener.ModernAppListener._onRequest(ModernAppListener.java:179):179
+	at railo.runtime.listener.MixedAppListener.onRequest(MixedAppListener.java:23):23
+	at railo.runtime.PageContextImpl.execute(PageContextImpl.java:2035):2035
+	at railo.runtime.PageContextImpl.execute(PageContextImpl.java:2002):2002
+	at railo.runtime.engine.CFMLEngineImpl.serviceCFML(CFMLEngineImpl.java:297):297
+	at railo.loader.servlet.CFMLServlet.service(CFMLServlet.java:32):32
+	at javax.servlet.http.HttpServlet.service(HttpServlet.java:722):722
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:305):305
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:210):210
+	at org.apache.catalina.core.StandardWrapperValve.invoke(StandardWrapperValve.java:225):225
+	at org.apache.catalina.core.StandardContextValve.invoke(StandardContextValve.java:169):169
+	at org.apache.catalina.authenticator.AuthenticatorBase.invoke(AuthenticatorBase.java:472):472
+	at org.apache.catalina.core.StandardHostValve.invoke(StandardHostValve.java:168):168
+	at org.apache.catalina.valves.ErrorReportValve.invoke(ErrorReportValve.java:98):98
+	at mod_cfml.core.invoke(core.java:121):121
+	at org.apache.catalina.valves.AccessLogValve.invoke(AccessLogValve.java:927):927
+	at org.apache.catalina.core.StandardEngineValve.invoke(StandardEngineValve.java:118):118
+	at org.apache.catalina.connector.CoyoteAdapter.service(CoyoteAdapter.java:407):407
+	at org.apache.coyote.http11.AbstractHttp11Processor.process(AbstractHttp11Processor.java:999):999
+	at org.apache.coyote.AbstractProtocol$AbstractConnectionHandler.process(AbstractProtocol.java:565):565
+	at org.apache.tomcat.util.net.JIoEndpoint$SocketProcessor.run(JIoEndpoint.java:307):307
+	at java.util.concurrent.ThreadPoolExecutor$Worker.runTask(Unknown Source):-1
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(Unknown Source):-1
+	at java.lang.Thread.run(Unknown Source):-1
+"
+"ERROR","web-0","12/10/2025","21:17:31","","variable [DTS] doesn't exist
+	at railo.runtime.type.scope.UndefinedImpl.get(UndefinedImpl.java:252):252
+	at index_cfm$cf.call(C:\railo\tomcat\webapps\ROOT\index.cfm:2):2
+	at railo.runtime.PageContextImpl.doInclude(PageContextImpl.java:799):799
+	at railo.runtime.PageContextImpl.doInclude(PageContextImpl.java:751):751
+	at railo.runtime.listener.ModernAppListener._onRequest(ModernAppListener.java:179):179
+	at railo.runtime.listener.MixedAppListener.onRequest(MixedAppListener.java:23):23
+	at railo.runtime.PageContextImpl.execute(PageContextImpl.java:2035):2035
+	at railo.runtime.PageContextImpl.execute(PageContextImpl.java:2002):2002
+	at railo.runtime.engine.CFMLEngineImpl.serviceCFML(CFMLEngineImpl.java:297):297
+	at railo.loader.servlet.CFMLServlet.service(CFMLServlet.java:32):32
+	at javax.servlet.http.HttpServlet.service(HttpServlet.java:722):722
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:305):305
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:210):210
+	at org.apache.catalina.core.StandardWrapperValve.invoke(StandardWrapperValve.java:225):225
+	at org.apache.catalina.core.StandardContextValve.invoke(StandardContextValve.java:169):169
+	at org.apache.catalina.authenticator.AuthenticatorBase.invoke(AuthenticatorBase.java:472):472
+	at org.apache.catalina.core.StandardHostValve.invoke(StandardHostValve.java:168):168
+	at org.apache.catalina.valves.ErrorReportValve.invoke(ErrorReportValve.java:98):98
+	at mod_cfml.core.invoke(core.java:121):121
+	at org.apache.catalina.valves.AccessLogValve.invoke(AccessLogValve.java:927):927
+	at org.apache.catalina.core.StandardEngineValve.invoke(StandardEngineValve.java:118):118
+	at org.apache.catalina.connector.CoyoteAdapter.service(CoyoteAdapter.java:407):407
+	at org.apache.coyote.http11.AbstractHttp11Processor.process(AbstractHttp11Processor.java:999):999
+	at org.apache.coyote.AbstractProtocol$AbstractConnectionHandler.process(AbstractProtocol.java:565):565
+	at org.apache.tomcat.util.net.JIoEndpoint$SocketProcessor.run(JIoEndpoint.java:307):307
+	at java.util.concurrent.ThreadPoolExecutor$Worker.runTask(Unknown Source):-1
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(Unknown Source):-1
+	at java.lang.Thread.run(Unknown Source):-1
+"
+"ERROR","web-0","12/10/2025","21:17:31","","variable [DTS] doesn't exist
+	at railo.runtime.type.scope.UndefinedImpl.get(UndefinedImpl.java:252):252
+	at index_cfm$cf.call(C:\railo\tomcat\webapps\ROOT\index.cfm:2):2
+	at railo.runtime.PageContextImpl.doInclude(PageContextImpl.java:799):799
+	at railo.runtime.PageContextImpl.doInclude(PageContextImpl.java:751):751
+	at railo.runtime.listener.ModernAppListener._onRequest(ModernAppListener.java:179):179
+	at railo.runtime.listener.MixedAppListener.onRequest(MixedAppListener.java:23):23
+	at railo.runtime.PageContextImpl.execute(PageContextImpl.java:2035):2035
+	at railo.runtime.PageContextImpl.execute(PageContextImpl.java:2002):2002
+	at railo.runtime.engine.CFMLEngineImpl.serviceCFML(CFMLEngineImpl.java:297):297
+	at railo.loader.servlet.CFMLServlet.service(CFMLServlet.java:32):32
+	at javax.servlet.http.HttpServlet.service(HttpServlet.java:722):722
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:305):305
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:210):210
+	at org.apache.catalina.core.StandardWrapperValve.invoke(StandardWrapperValve.java:225):225
+	at org.apache.catalina.core.StandardContextValve.invoke(StandardContextValve.java:169):169
+	at org.apache.catalina.authenticator.AuthenticatorBase.invoke(AuthenticatorBase.java:472):472
+	at org.apache.catalina.core.StandardHostValve.invoke(StandardHostValve.java:168):168
+	at org.apache.catalina.valves.ErrorReportValve.invoke(ErrorReportValve.java:98):98
+	at mod_cfml.core.invoke(core.java:121):121
+	at org.apache.catalina.valves.AccessLogValve.invoke(AccessLogValve.java:927):927
+	at org.apache.catalina.core.StandardEngineValve.invoke(StandardEngineValve.java:118):118
+	at org.apache.catalina.connector.CoyoteAdapter.service(CoyoteAdapter.java:407):407
+	at org.apache.coyote.http11.AbstractHttp11Processor.process(AbstractHttp11Processor.java:999):999
+	at org.apache.coyote.AbstractProtocol$AbstractConnectionHandler.process(AbstractProtocol.java:565):565
+	at org.apache.tomcat.util.net.JIoEndpoint$SocketProcessor.run(JIoEndpoint.java:307):307
+	at java.util.concurrent.ThreadPoolExecutor$Worker.runTask(Unknown Source):-1
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(Unknown Source):-1
+	at java.lang.Thread.run(Unknown Source):-1
+"
+"ERROR","web-0","12/10/2025","21:17:31","","variable [DTS] doesn't exist
+	at railo.runtime.type.scope.UndefinedImpl.get(UndefinedImpl.java:252):252
+	at index_cfm$cf.call(C:\railo\tomcat\webapps\ROOT\index.cfm:2):2
+	at railo.runtime.PageContextImpl.doInclude(PageContextImpl.java:799):799
+	at railo.runtime.PageContextImpl.doInclude(PageContextImpl.java:751):751
+	at railo.runtime.listener.ModernAppListener._onRequest(ModernAppListener.java:179):179
+	at railo.runtime.listener.MixedAppListener.onRequest(MixedAppListener.java:23):23
+	at railo.runtime.PageContextImpl.execute(PageContextImpl.java:2035):2035
+	at railo.runtime.PageContextImpl.execute(PageContextImpl.java:2002):2002
+	at railo.runtime.engine.CFMLEngineImpl.serviceCFML(CFMLEngineImpl.java:297):297
+	at railo.loader.servlet.CFMLServlet.service(CFMLServlet.java:32):32
+	at javax.servlet.http.HttpServlet.service(HttpServlet.java:722):722
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:305):305
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:210):210
+	at org.apache.catalina.core.StandardWrapperValve.invoke(StandardWrapperValve.java:225):225
+	at org.apache.catalina.core.StandardContextValve.invoke(StandardContextValve.java:169):169
+	at org.apache.catalina.authenticator.AuthenticatorBase.invoke(AuthenticatorBase.java:472):472
+	at org.apache.catalina.core.StandardHostValve.invoke(StandardHostValve.java:168):168
+	at org.apache.catalina.valves.ErrorReportValve.invoke(ErrorReportValve.java:98):98
+	at mod_cfml.core.invoke(core.java:121):121
+	at org.apache.catalina.valves.AccessLogValve.invoke(AccessLogValve.java:927):927
+	at org.apache.catalina.core.StandardEngineValve.invoke(StandardEngineValve.java:118):118
+	at org.apache.catalina.connector.CoyoteAdapter.service(CoyoteAdapter.java:407):407
+	at org.apache.coyote.http11.AbstractHttp11Processor.process(AbstractHttp11Processor.java:999):999
+	at org.apache.coyote.AbstractProtocol$AbstractConnectionHandler.process(AbstractProtocol.java:565):565
+	at org.apache.tomcat.util.net.JIoEndpoint$SocketProcessor.run(JIoEndpoint.java:307):307
+	at java.util.concurrent.ThreadPoolExecutor$Worker.runTask(Unknown Source):-1
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(Unknown Source):-1
+	at java.lang.Thread.run(Unknown Source):-1
+"
+"ERROR","web-0","12/10/2025","21:22:45","","can't create directory C:\railo\tomcat\webapps\ROOT\WEB-INF\railo\temp\graph, directory already exists
+	at railo.commons.io.res.type.file.FileResource.createDirectory(FileResource.java:316):316
+	at railo.runtime.tag.Chart.clean(Chart.java:767):767
+	at railo.runtime.tag.Chart.writeOut(Chart.java:702):702
+	at railo.runtime.tag.Chart.chartBar(Chart.java:800):800
+	at railo.runtime.tag.Chart.doEndTag(Chart.java:444):444
+	at latest.body.chart_cfm$cf.call(C:\railo\tomcat\webapps\ROOT\latest\body\chart.cfm:59):59
+	at railo.runtime.PageContextImpl.doInclude(PageContextImpl.java:799):799
+	at railo.runtime.PageContextImpl.doInclude(PageContextImpl.java:751):751
+	at railo.runtime.listener.ClassicAppListener._onRequest(ClassicAppListener.java:35):35
+	at railo.runtime.listener.ClassicAppListener.onRequest(ClassicAppListener.java:26):26
+	at railo.runtime.PageContextImpl.execute(PageContextImpl.java:2035):2035
+	at railo.runtime.PageContextImpl.execute(PageContextImpl.java:2002):2002
+	at railo.runtime.engine.CFMLEngineImpl.serviceCFML(CFMLEngineImpl.java:297):297
+	at railo.loader.servlet.CFMLServlet.service(CFMLServlet.java:32):32
+	at javax.servlet.http.HttpServlet.service(HttpServlet.java:722):722
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:305):305
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:210):210
+	at org.apache.catalina.core.StandardWrapperValve.invoke(StandardWrapperValve.java:225):225
+	at org.apache.catalina.core.StandardContextValve.invoke(StandardContextValve.java:169):169
+	at org.apache.catalina.authenticator.AuthenticatorBase.invoke(AuthenticatorBase.java:472):472
+	at org.apache.catalina.core.StandardHostValve.invoke(StandardHostValve.java:168):168
+	at org.apache.catalina.valves.ErrorReportValve.invoke(ErrorReportValve.java:98):98
+	at mod_cfml.core.invoke(core.java:121):121
+	at org.apache.catalina.valves.AccessLogValve.invoke(AccessLogValve.java:927):927
+	at org.apache.catalina.core.StandardEngineValve.invoke(StandardEngineValve.java:118):118
+	at org.apache.catalina.connector.CoyoteAdapter.service(CoyoteAdapter.java:407):407
+	at org.apache.coyote.http11.AbstractHttp11Processor.process(AbstractHttp11Processor.java:999):999
+	at org.apache.coyote.AbstractProtocol$AbstractConnectionHandler.process(AbstractProtocol.java:565):565
+	at org.apache.tomcat.util.net.JIoEndpoint$SocketProcessor.run(JIoEndpoint.java:309):309
+	at java.util.concurrent.ThreadPoolExecutor$Worker.runTask(Unknown Source):-1
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(Unknown Source):-1
+	at java.lang.Thread.run(Unknown Source):-1
+"

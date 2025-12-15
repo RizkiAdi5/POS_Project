@@ -1,0 +1,3 @@
+EID,TxnYear,TxnMonth,TxnDate,TxnHour,TxnAmount,TxnVoid
+1030402,2012,10,19,12,36.90,0
+END,,,,,,
