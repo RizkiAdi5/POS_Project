@@ -18,9 +18,6 @@
 -- Create schema pos_i
 --
 
-CREATE DATABASE IF NOT EXISTS pos_i;
-USE pos_i;
-
 --
 -- Definition of table `address`
 --
