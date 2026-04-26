@@ -6,30 +6,60 @@ Program : To SET Application informations to all pages
 --->
 <cfapplication name="webordersystem" sessionmanagement="yes" clientmanagement="no" sessiontimeout="#createTimespan(0,12,0,0)#">
 
-<cfinclude template="/latest/login/loginProcess.cfm">
+<!--- ================================================================
+  CUSTOMER E-MENU ROUTE GUARD
+  If the request path is under /latest/customer/ we skip the staff
+  login block entirely and set up a lightweight customer session.
+  All staff routes below are completely unchanged.
+================================================================ --->
+<cfset REQUEST.isCustomerRoute = (
+    findNoCase("/latest/customer/", CGI.SCRIPT_NAME) gt 0
+    OR findNoCase("/latest/customer/", CGI.PATH_INFO) gt 0
+)>
 
+<cfif REQUEST.isCustomerRoute>
 
-<cfparam name="SESSION.loginTime" default="">  
-<cfparam name="SESSION.isLogIn" default="No">
-<cfparam name="SESSION.path" default="">
-<cfparam name="session.hcredit_limit_exceed" default="">
-<cfparam name="session.bcredit_limit_exceed" default="">
-<cfparam name="session.customercode" default="">
-<cfparam name="session.tran_refno" default="">
+    <!--- Customer session defaults --->
+    <cfparam name="SESSION.emenu_custno"      default="">
+    <cfparam name="SESSION.emenu_name"        default="">
+    <cfparam name="SESSION.emenu_email"       default="">
+    <cfparam name="SESSION.emenu_loggedin"    default="No">
+    <cfparam name="SESSION.emenu_table_id"    default="">
+    <cfparam name="SESSION.emenu_table_number" default="">
+    <cfparam name="SESSION.emenu_qr_token"    default="">
+    <cfparam name="SESSION.emenu_order_id"    default="">
+    <cfparam name="SESSION.emenu_is_guest"    default="No">
+    <!--- dts is still needed by any shared CFCs / queries --->
+    <cfset dts = "pos_i">
 
-<cfquery datasource='main' name="getHQstatus">
-	Select * 
-    from users 
-    where userId = '#GetAuthUser()#'
-</cfquery>
-
-<cfif gethqstatus.userdept neq "">
-	<cfset dts = gethqstatus.userdept>
-	<cfset localdb = gethqstatus.userdept>
 <cfelse>
-	<h2>Please assign a database for this user.</h2>
-	<cfabort>
-</cfif> 
+
+    <!--- ============================================================
+      STAFF LOGIN BLOCK — unchanged from original
+    ============================================================ --->
+    <cfinclude template="/latest/login/loginProcess.cfm">
+
+    <cfparam name="SESSION.loginTime" default="">  
+    <cfparam name="SESSION.isLogIn" default="No">
+    <cfparam name="SESSION.path" default="">
+    <cfparam name="session.hcredit_limit_exceed" default="">
+    <cfparam name="session.bcredit_limit_exceed" default="">
+    <cfparam name="session.customercode" default="">
+    <cfparam name="session.tran_refno" default="">
+
+    <cfquery datasource='main' name="getHQstatus">
+        Select * 
+        from users 
+        where userId = '#GetAuthUser()#'
+    </cfquery>
+
+    <cfif gethqstatus.userdept neq "">
+        <cfset dts = gethqstatus.userdept>
+        <cfset localdb = gethqstatus.userdept>
+    <cfelse>
+        <h2>Please assign a database for this user.</h2>
+        <cfabort>
+    </cfif> 
 
 <cfset HcomID = getHQstatus.userBranch>
 <cfset HUserID = getHQstatus.userId>
@@ -134,4 +164,6 @@ SELECT prf from gsetup
 <cfheader name="pragma" value="no-cache"> 
 <cfheader name="cache-control" value="no-cache, no-store, must-revalidate">
 --->
+
+</cfif><!--- end staff-only block --->
 </cfsilent>
