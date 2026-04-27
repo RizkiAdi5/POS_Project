@@ -20,7 +20,7 @@
     </cfquery>
 
     <cfquery name="qItems" datasource="#dts#">
-        SELECT item_id, quantity, status AS kitchen_status,
+        SELECT quantity, status AS kitchen_status,
                COALESCE(item_name, item_code) AS item_name
         FROM   app_order_items
         WHERE  order_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#SESSION.emenu_order_id#">

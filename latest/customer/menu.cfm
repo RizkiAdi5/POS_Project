@@ -566,7 +566,6 @@ function toggleNote(id) {
 
 /* ---- Save note ---- */
 function saveNote(id) {
-    var note = cart[id] ? cart[id].note : '';
     refreshDrawer();   /* re-render so badge + display update */
 }
 

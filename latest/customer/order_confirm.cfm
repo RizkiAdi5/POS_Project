@@ -26,14 +26,14 @@
 <!--- Fetch order items for the summary --->
 <cftry>
     <cfquery name="qItems" datasource="#dts#">
-        SELECT quantity, unit_price, subtotal, special_instructions, status AS kitchen_status,
+        SELECT quantity, subtotal, special_instructions,
                COALESCE(item_name, item_code) AS item_name
         FROM   app_order_items
         WHERE  order_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#SESSION.emenu_order_id#">
         ORDER  BY item_id ASC
     </cfquery>
     <cfcatch type="any">
-        <cfset qItems = queryNew("quantity,unit_price,subtotal,special_instructions,kitchen_status,item_name")>
+        <cfset qItems = queryNew("quantity,subtotal,special_instructions,item_name")>
     </cfcatch>
 </cftry>
 <!DOCTYPE html>
