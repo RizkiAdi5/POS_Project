@@ -76,6 +76,7 @@ function submitaction(){
 </h4>
 
 <h1>User Group Maintenance</h1>
+<p><a href="userresponsibility.cfm">User responsibility (detailed menu access by group)</a></p>
 <hr>
 
 <form name="itemform" action="index.cfm">
