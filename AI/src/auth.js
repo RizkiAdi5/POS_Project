@@ -2,7 +2,7 @@
 
 const config = require('./config');
 
-const ALLOWED_ROLES = new Set(['super', 'suser']);
+const ALLOWED_ROLES = new Set(['super', 'admin']);
 
 function timingSafeEqual(a, b) {
   if (typeof a !== 'string' || typeof b !== 'string') return false;
