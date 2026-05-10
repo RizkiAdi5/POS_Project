@@ -6,7 +6,7 @@
   Visual style: Bootstrap 3 (Glyphicons font + panel/btn conventions).
   All hashes inside <cfoutput> are escaped (##) for Railo.
 --->
-<cfset AI_ALLOWED_ROLES = "super,suser">
+<cfset AI_ALLOWED_ROLES = "super,admin">
 <cfset aiCanUse = false>
 <cfif isDefined("session.isLogIn") AND session.isLogIn EQ "Yes" AND isDefined("husergrpid") AND listFindNoCase(AI_ALLOWED_ROLES, husergrpid)>
     <cfset aiCanUse = true>

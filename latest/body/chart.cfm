@@ -77,6 +77,7 @@
 
 <cfif url.type EQ 'type1'>
     <cfchart
+		format="png"
         backgroundColor="FFF1EB"
         <!---
         dataBackgroundColor="EBF6F0"
@@ -104,6 +105,7 @@
 
 <cfif url.type EQ 'type2'>
     <cfchart
+		format="png"
         backgroundColor="FFF1EB"
         chartheight="240"
         chartwidth="450"

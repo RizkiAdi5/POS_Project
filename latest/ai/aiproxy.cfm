@@ -22,8 +22,8 @@
     <cfoutput>{"error":"not_logged_in"}</cfoutput>
     <cfabort>
 </cfif>
-<!--- Keep this list in sync with AI_ALLOWED_ROLES in analyst.cfm --->
-<cfset AI_ALLOWED_ROLES = "super,suser">
+<!--- Same list as analyst.cfm, launcher.cfm, AI/src/auth.js --->
+<cfset AI_ALLOWED_ROLES = "super,admin">
 
 <cfif NOT isDefined("husergrpid") OR NOT listFindNoCase(AI_ALLOWED_ROLES, husergrpid)>
     <cfheader statuscode="403">

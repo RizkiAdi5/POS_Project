@@ -10,7 +10,7 @@
     <cflocation url="/latest/login/login.cfm" addtoken="no">
 </cfif>
 <!--- Allowed roles for the AI analyst. Edit this list to add more groups. --->
-<cfset AI_ALLOWED_ROLES = "super,suser">
+<cfset AI_ALLOWED_ROLES = "super,admin">
 
 <cfif NOT isDefined("husergrpid") OR NOT listFindNoCase(AI_ALLOWED_ROLES, husergrpid)>
     <!--- Inside cfoutput, # in CSS hex must be ##. Railo 3.x does not support ? : inside #...#. --->
