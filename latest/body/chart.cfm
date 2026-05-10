@@ -24,48 +24,6 @@
         LIMIT 5;
 	</cfquery>
 </cfif>
-<!--- E-Menu: daily order totals for current calendar month (app_orders) --->
-<cfif url.type EQ 'type3'>
-	<cftry>
-		<cfquery name="getEMenuMonthDaily" datasource="#dts#">
-			SELECT DAY(o.created_at) AS day_num,
-				SUM(o.total_amount) AS day_total
-			FROM app_orders o
-			WHERE o.status NOT IN ('cancelled')
-			AND o.created_at >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
-			AND o.created_at < DATE_FORMAT(DATE_ADD(CURDATE(), INTERVAL 1 MONTH), '%Y-%m-01')
-			GROUP BY DAY(o.created_at), DATE(o.created_at)
-			ORDER BY DATE(o.created_at) ASC
-		</cfquery>
-		<cfset emenuChartOk = true>
-		<cfcatch type="any">
-			<cfset emenuChartOk = false>
-			<cfset emenuChartErr = "E-Menu sales chart is unavailable for this database.">
-		</cfcatch>
-	</cftry>
-</cfif>
-<!--- E-Menu: top lines by line revenue for current month (app_order_items + app_orders) --->
-<cfif url.type EQ 'type4'>
-	<cftry>
-		<cfquery name="getEmenuTopItemsMonth" datasource="#dts#">
-			SELECT TRIM(COALESCE(NULLIF(i.item_name,''), NULLIF(i.item_code,''), '(unnamed)')) AS dish_label,
-				SUM(i.subtotal) AS line_revenue
-			FROM app_order_items i
-			INNER JOIN app_orders o ON o.order_id = i.order_id
-			WHERE o.status NOT IN ('cancelled')
-			AND o.created_at >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
-			AND o.created_at < DATE_FORMAT(DATE_ADD(CURDATE(), INTERVAL 1 MONTH), '%Y-%m-01')
-			GROUP BY TRIM(COALESCE(NULLIF(i.item_name,''), NULLIF(i.item_code,''), '(unnamed)'))
-			ORDER BY line_revenue DESC
-			LIMIT 5
-		</cfquery>
-		<cfset emenuTopOk = true>
-		<cfcatch type="any">
-			<cfset emenuTopOk = false>
-			<cfset emenuTopErr = "E-Menu menu chart is unavailable for this database.">
-		</cfcatch>
-	</cftry>
-</cfif>
 
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
@@ -123,58 +81,6 @@
             
         </cfchartseries>
     </cfchart>
-</cfif>
-
-<cfif url.type EQ 'type3'>
-	<cfif isDefined("emenuChartOk") AND emenuChartOk>
-		<cfchart
-			backgroundColor="FFF1EB"
-			chartheight="240"
-			chartwidth="450"
-			xAxisTitle="Day of month"
-			yAxisTitle="Order total (RM)"
-			showborder="no"
-			show3d="no"
-			>
-			<cfchartseries
-				type="bar"
-				seriesColor="CF5D5D"
-				paintStyle="light"
-				query="getEMenuMonthDaily"
-				valueColumn="day_total"
-				itemColumn="day_num"
-				>
-			</cfchartseries>
-		</cfchart>
-	<cfelse>
-		<p style="font-family:Verdana,Geneva,sans-serif;font-size:12px;color:#666666;padding:24px 16px;line-height:1.5;"><cfoutput>#emenuChartErr#</cfoutput></p>
-	</cfif>
-</cfif>
-
-<cfif url.type EQ 'type4'>
-	<cfif isDefined("emenuTopOk") AND emenuTopOk>
-		<cfchart
-			backgroundColor="FFF1EB"
-			chartheight="240"
-			chartwidth="450"
-			xAxisTitle="Menu item"
-			yAxisTitle="Line revenue (RM)"
-			showborder="no"
-			show3d="no"
-			>
-			<cfchartseries
-				type="bar"
-				seriesColor="CF5D5D"
-				paintStyle="light"
-				query="getEmenuTopItemsMonth"
-				valueColumn="line_revenue"
-				itemColumn="dish_label"
-				>
-			</cfchartseries>
-		</cfchart>
-	<cfelse>
-		<p style="font-family:Verdana,Geneva,sans-serif;font-size:12px;color:#666666;padding:24px 16px;line-height:1.5;"><cfoutput>#emenuTopErr#</cfoutput></p>
-	</cfif>
-</cfif>
+</cfif>    
 </body>
 </html>
