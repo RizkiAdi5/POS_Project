@@ -30,6 +30,11 @@ $defaultFiles = @(
     "latest\customer\open_order.cfm",
     "latest\customer\inc_emenu_order.cfm",
     "latest\customer\qr.cfm",
+    "latest\customer\qr_error.cfm",
+    "latest\customer\menu.cfm",
+    "latest\customer\inc_bootstrap_head.cfm",
+    "latest\customer\customer-bootstrap-overrides.css",
+    "latest\customer\customer-emenu-fullbleed.css",
     "latest\js\vendor\qrcode.min.js",
     "latest\body\bodymenu.cfm",
     "application.cfm"
