@@ -1,5 +1,5 @@
 <cfprocessingdirective pageencoding="UTF-8">
-<cfinclude template="../../application.cfm">
+<cfinclude template="../application.cfm">
 <cfsetting enablecfoutputonly="false">
 <cfsetting showdebugoutput="false">
 
@@ -80,13 +80,21 @@
 <!--- ── Load active orders ── --->
 <cfset pageError = "">
 <cfset orders    = []>
+<cfset itemsByOrder = structNew()>
+<cfset qOrders = queryNew("order_id,order_number,table_number,custno,status,total_amount,created_at")>
+<cfset qAllItems = queryNew("item_id,order_id,quantity,kitchen_status,item_name")>
+
+<cfif NOT isDefined("dts") OR NOT len(trim(dts))>
+    <cfset pageError = "Database not configured for this user. Log in via the staff menu or assign a branch database (userdept).">
+<cfelse>
 <cftry>
     <cfquery name="qOrders" datasource="#dts#">
-        SELECT order_id, order_number, table_number, custno,
-               status, total_amount, created_at
-        FROM   app_orders
-        WHERE  status NOT IN ('paid','cancelled','completed')
-        ORDER  BY created_at ASC
+        SELECT o.order_id, o.order_number, t.table_number AS table_number, o.custno,
+               o.status, o.total_amount, o.created_at
+        FROM   app_orders o
+        LEFT JOIN app_tables t ON o.table_id = t.table_id
+        WHERE  o.status NOT IN ('paid','cancelled','completed')
+        ORDER  BY o.created_at ASC
     </cfquery>
 
     <cfquery name="qAllItems" datasource="#dts#">
@@ -117,8 +125,12 @@
 
     <cfcatch type="any">
         <cfset pageError = "Query failed: " & left(cfcatch.message,300)>
+        <cfif structKeyExists(cfcatch, "detail") AND len(trim(cfcatch.detail))>
+            <cfset pageError = pageError & " — " & left(trim(cfcatch.detail), 200)>
+        </cfif>
     </cfcatch>
 </cftry>
+</cfif>
 <!DOCTYPE html>
 <html>
 <head>
@@ -174,7 +186,7 @@ body{background:#f5f7fb;font-family:'Segoe UI',Arial,sans-serif;padding:20px 16p
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
         <div class="auto-badge"><span class="pulse"></span> Live</div>
-        <a href="Tables.cfm" class="btn btn-default btn-sm">Tables</a>
+        <a href="WaiterDashboard.cfm" class="btn btn-default btn-sm">Dashboard</a>
     </div>
 </div>
 
@@ -182,7 +194,9 @@ body{background:#f5f7fb;font-family:'Segoe UI',Arial,sans-serif;padding:20px 16p
 <cfif len(flashErr)><div class="alert alert-danger">#HTMLEditFormat(flashErr)#</div></cfif>
 <cfif len(pageError)><div class="alert alert-warning">#HTMLEditFormat(pageError)#</div></cfif>
 
-<cfif qOrders.recordCount eq 0>
+<cfif len(pageError)>
+    <!--- error shown above --->
+<cfelseif qOrders.recordCount eq 0>
     <div class="empty">No active orders right now.</div>
 <cfelse>
     <cfloop query="qOrders">

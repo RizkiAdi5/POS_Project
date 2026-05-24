@@ -6,6 +6,9 @@
 <cfif NOT len(trim(SESSION.emenu_table_id))>
     <cflocation url="/latest/customer/qr_error.cfm" addtoken="false">
 </cfif>
+<cfif SESSION.emenu_cart_locked eq true>
+    <cflocation url="/latest/customer/order_status.cfm" addtoken="false">
+</cfif>
 
 <!--- Must be logged in or guest --->
 <cfif SESSION.emenu_loggedin neq "Yes" AND SESSION.emenu_is_guest neq "Yes">

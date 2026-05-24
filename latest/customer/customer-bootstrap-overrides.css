@@ -1,0 +1,86 @@
+/**
+ * Customer e-menu — Bootstrap 3 companion (brand orange + tweaks).
+ * Scope everything under .customer-emenu to avoid changing staff pages.
+ */
+.customer-emenu {
+    min-height: 100vh;
+}
+
+/**
+ * Do not put display:flex + centering on body when Railo debugging may be on:
+ * debug output is injected as a sibling after your content, so body{display:flex}
+ * (row direction) lays out the page and the debug table side-by-side.
+ * Wrap the visible page in .emenu-viewport-center instead.
+ */
+.customer-emenu .emenu-viewport-center {
+    box-sizing: border-box;
+    min-height: calc(100vh - 48px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+}
+
+/* Brand primary (Bootstrap 3 default .btn-primary is blue) */
+.customer-emenu .btn-primary,
+.customer-emenu .btn-primary:focus {
+    background-color: #F54900;
+    border-color: #D04000;
+    color: #fff;
+}
+.customer-emenu .btn-primary:hover,
+.customer-emenu .btn-primary:active,
+.customer-emenu .btn-primary.active {
+    background-color: #D04000;
+    border-color: #b93600;
+    color: #fff;
+}
+
+/* Login / signup tabs */
+.customer-emenu .nav-tabs {
+    border-bottom: 1px solid #ddd;
+    margin-bottom: 20px;
+}
+.customer-emenu .nav-tabs > li > a {
+    border-radius: 12px 12px 0 0;
+    font-weight: 600;
+}
+.customer-emenu .nav-tabs > li.active > a,
+.customer-emenu .nav-tabs > li.active > a:hover,
+.customer-emenu .nav-tabs > li.active > a:focus {
+    background-color: #F54900;
+    border-color: #F54900;
+    color: #fff;
+}
+
+/* Narrow centered column for mobile flows */
+.customer-emenu .emenu-page-inner {
+    max-width: 420px;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 15px;
+    padding-right: 15px;
+}
+
+/* Rounded panels (Figma-ish) */
+.customer-emenu .panel {
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    border: 1px solid #eee;
+}
+.customer-emenu .panel-body {
+    padding: 20px 18px;
+}
+
+/* Face login gradient button */
+.customer-emenu .btn-face-emenu {
+    background: linear-gradient(135deg, #3b82f6, #7c3aed);
+    border: none;
+    color: #fff;
+    font-weight: 600;
+}
+.customer-emenu .btn-face-emenu:hover,
+.customer-emenu .btn-face-emenu:focus {
+    color: #fff;
+    opacity: 0.92;
+}
