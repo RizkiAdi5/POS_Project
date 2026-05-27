@@ -50,4 +50,12 @@ module.exports = {
   cache: {
     ttlSeconds: parseInt(opt('CACHE_TTL_SECONDS', '120'), 10),
   },
+  restaurant: {
+    name: opt('RESTAURANT_NAME', ''),
+    hours: opt('RESTAURANT_HOURS', 'Monday–Sunday: 10:00 AM – 10:00 PM'),
+    address: opt('RESTAURANT_ADDRESS', ''),
+    phone: opt('RESTAURANT_PHONE', ''),
+    notes: opt('RESTAURANT_NOTES', ''),
+    timezone: opt('RESTAURANT_TIMEZONE', 'Asia/Kuala_Lumpur'),
+  },
 };
