@@ -28,6 +28,8 @@ Program : To SET Application informations to all pages
     <cfparam name="SESSION.emenu_table_number" default="">
     <cfparam name="SESSION.emenu_qr_token"    default="">
     <cfparam name="SESSION.emenu_order_id"    default="">
+    <cfparam name="SESSION.emenu_order_number" default="">
+    <cfparam name="SESSION.emenu_cart_locked" default="false">
     <cfparam name="SESSION.emenu_is_guest"    default="No">
     <!--- dts is still needed by any shared CFCs / queries --->
     <cfset dts = "pos_i">
