@@ -154,6 +154,8 @@
                         <div class="menulist">
                             <ul>
                                 <cfloop query="getMenu">
+                                    <!--- Table management lives in Waiter Dashboard; hide legacy Tables tile (menu_id 60004). --->
+                                    <cfif trim(getMenu.menu_id) eq "60004"><cfcontinue></cfif>
 									<cfif getMenu.userpin_id neq "">
                                         <cfif evaluate('getpin2.#userpin_id#') eq "T">
                                             <li>

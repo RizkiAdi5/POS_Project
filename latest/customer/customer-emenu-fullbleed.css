@@ -1,0 +1,38 @@
+/**
+ * E-menu full-bleed layout — load AFTER Bootstrap + overrides on menu / wide pages.
+ * Fixes narrow column + white gutter (html background) on iOS / Chrome device mode.
+ */
+html.emenu-customer {
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+    background-color: #f3f4f6;
+    -webkit-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%;
+}
+
+html.emenu-customer body.customer-emenu.emenu-fullbleed {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    box-sizing: border-box;
+    overflow-x: hidden;
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+    background-color: #f3f4f6 !important;
+}
+
+html.emenu-customer body.customer-emenu.emenu-fullbleed .emenu-shell {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    position: relative;
+}

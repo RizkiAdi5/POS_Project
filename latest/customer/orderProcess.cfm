@@ -5,10 +5,14 @@
     POST only — accessed via the hidden form in menu.cfm.
 --->
 <cfinclude template="../../application.cfm">
+<cfinclude template="inc_emenu_order.cfm">
 
 <!--- Guard: must have table context --->
 <cfif NOT len(trim(SESSION.emenu_table_id))>
     <cflocation url="/latest/customer/qr_error.cfm" addtoken="false">
+</cfif>
+<cfif SESSION.emenu_cart_locked eq true OR val(SESSION.emenu_order_id) lte 0>
+    <cflocation url="/latest/customer/menu.cfm?msg=order_already_submitted" addtoken="false">
 </cfif>
 <cfif CGI.REQUEST_METHOD neq "POST" OR NOT len(trim(FORM.cart_json))>
     <cflocation url="/latest/customer/menu.cfm" addtoken="false">
@@ -60,48 +64,49 @@
 <cfset taxAmt    = round(subtotal * 0.10 * 100) / 100>
 <cfset totalAmt  = subtotal + taxAmt>
 
-<!--- ── Generate order number: ORD-YYYYMMDD-HHMMSS ── --->
-<cfset orderNumber = "ORD-" & dateFormat(now(),'yyyymmdd') & "-" & timeFormat(now(),'HHmmss')>
+<!--- Use session order created when waiter generated QR --->
+<cfset newOrderId = val(SESSION.emenu_order_id)>
+<cfset orderNumber = len(trim(SESSION.emenu_order_number)) ? trim(SESSION.emenu_order_number) : "">
+
+<cfif newOrderId lte 0>
+    <cflocation url="/latest/customer/qr_error.cfm" addtoken="false">
+</cfif>
 
 <!--- ── Loyalty info ── --->
 <cfset isLoyalty  = (SESSION.emenu_loggedin eq "Yes" AND len(trim(SESSION.emenu_custno)))>
 <cfset custno     = isLoyalty ? trim(SESSION.emenu_custno) : "">
 
-<!--- ── INSERT app_orders ── --->
+<!--- ── UPDATE session app_orders (placeholder -> real cart) ── --->
 <cftry>
-    <cfquery name="qInsertOrder" datasource="#dts#" result="orderResult">
-        INSERT INTO app_orders
-            (order_number, custno, table_number, order_type,
-             status, total_amount, created_at)
-        VALUES (
-            <cfqueryparam cfsqltype="cf_sql_varchar"   value="#orderNumber#">,
-            <cfif len(custno)>
-                <cfqueryparam cfsqltype="cf_sql_varchar" value="#custno#">,
+    <cfquery datasource="#dts#">
+        UPDATE app_orders
+        SET custno = <cfif len(custno)>
+                <cfqueryparam cfsqltype="cf_sql_varchar" value="#custno#">
             <cfelse>
-                NULL,
-            </cfif>
-            <cfqueryparam cfsqltype="cf_sql_varchar"   value="#SESSION.emenu_table_number#">,
-            'dine',
-            'in progress',
-            <cfqueryparam cfsqltype="cf_sql_decimal"   value="#totalAmt#">,
-            <cfqueryparam cfsqltype="cf_sql_timestamp" value="#now()#">
-        )
+                NULL
+            </cfif>,
+            subtotal = <cfqueryparam cfsqltype="cf_sql_decimal" value="#subtotal#">,
+            tax_amount = <cfqueryparam cfsqltype="cf_sql_decimal" value="#taxAmt#">,
+            total_amount = <cfqueryparam cfsqltype="cf_sql_decimal" value="#totalAmt#">,
+            status = <cfqueryparam cfsqltype="cf_sql_varchar" value="in progress">,
+            order_type = <cfqueryparam cfsqltype="cf_sql_varchar" value="dine">
+        WHERE order_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#newOrderId#">
+          AND table_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#val(SESSION.emenu_table_id)#">
+          AND status NOT IN ('paid','cancelled','completed')
     </cfquery>
-    <cfset newOrderId = orderResult.GENERATED_KEY>
     <cfcatch type="any">
-        <!--- Fallback: get the order_id by order_number --->
-        <cfquery name="qGetOrd" datasource="#dts#">
-            SELECT order_id FROM app_orders
-            WHERE order_number = <cfqueryparam cfsqltype="cf_sql_varchar" value="#orderNumber#">
-            LIMIT 1
-        </cfquery>
-        <cfif qGetOrd.recordCount>
-            <cfset newOrderId = qGetOrd.order_id>
-        <cfelse>
-            <cflocation url="/latest/customer/menu.cfm" addtoken="false">
-        </cfif>
+        <cflocation url="/latest/customer/menu.cfm" addtoken="false">
     </cfcatch>
 </cftry>
+
+<cfif NOT len(orderNumber)>
+    <cfquery name="qOrdNum" datasource="#dts#">
+        SELECT order_number FROM app_orders
+        WHERE order_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#newOrderId#">
+        LIMIT 1
+    </cfquery>
+    <cfif qOrdNum.recordCount><cfset orderNumber = trim(qOrdNum.order_number)></cfif>
+</cfif>
 
 <!--- ── INSERT app_order_items (one per cart line) ── --->
 <cfloop array="#cartItems#" index="ci">
@@ -142,14 +147,14 @@
     </cftry>
 </cfloop>
 
-<!--- ── Link order to table + mark Occupied ── --->
+<!--- ── Link order to table; status Occupied only when line items exist (else Available) ── --->
 <cftry>
     <cfquery datasource="#dts#">
         UPDATE app_tables
-        SET    current_order_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#newOrderId#">,
-               status = 'Occupied'
-        WHERE  table_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#SESSION.emenu_table_id#">
+        SET current_order_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#newOrderId#">
+        WHERE table_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#SESSION.emenu_table_id#">
     </cfquery>
+    <cfset emenuSyncTableOccupiedForOrder(dts, val(SESSION.emenu_table_id), newOrderId)>
     <cfcatch type="any"></cfcatch>
 </cftry>
 
@@ -191,9 +196,10 @@
     </cfif>
 </cfif>
 
-<!--- ── Store in session for confirm page ── --->
+<!--- ── Store in session for confirm page (lock cart — one checkout per QR session) ── --->
 <cfset SESSION.emenu_order_id     = newOrderId>
 <cfset SESSION.emenu_order_number = orderNumber>
+<cfset SESSION.emenu_cart_locked  = true>
 <cfset SESSION.emenu_order_total  = totalAmt>
 <cfset SESSION.emenu_order_subtot = subtotal>
 <cfset SESSION.emenu_order_tax    = taxAmt>
