@@ -4,6 +4,7 @@
     Returns order + item status as JSON.
 --->
 <cfinclude template="../../application.cfm">
+<cfinclude template="inc_emenu_order.cfm">
 <cfcontent type="application/json; charset=utf-8">
 
 <cfif NOT len(trim(SESSION.emenu_order_id))>
@@ -36,10 +37,16 @@
         })>
     </cfloop>
 
+    <cfset pay = emenuGetLatestPayment(dts, val(SESSION.emenu_order_id))>
+    <cfset paid = emenuOrderIsPaid(dts, val(SESSION.emenu_order_id), qOrder.status)>
     <cfset result = {
         "order_status" : trim(qOrder.status),
         "order_number" : trim(qOrder.order_number),
-        "items"        : itemsArr
+        "items"        : itemsArr,
+        "is_paid"      : paid,
+        "can_order_more" : emenuCustomerCanAddItems(dts, val(SESSION.emenu_order_id), qOrder.status),
+        "payment_method" : pay.payment_method,
+        "payment_status" : pay.status
     }>
 
     <cfoutput>#serializeJSON(result)#</cfoutput>
