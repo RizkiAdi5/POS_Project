@@ -273,6 +273,40 @@
         transform:none;
     }
     .composer button svg { width:18px; height:18px; }
+
+    /* ============ EXCEL EXPORT BAR ============ */
+    .export-bar {
+        margin: 0 4px 14px 40px;
+        animation: rowIn .26s cubic-bezier(.2,.8,.2,1) both;
+    }
+    .export-bar a {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 16px;
+        background: linear-gradient(135deg, #FDECE3 0%, #FAD9CB 100%);
+        border: 1px solid #E8B4A0;
+        border-radius: 12px;
+        color: #7F1D1D;
+        font-size: 13px;
+        font-weight: 600;
+        text-decoration: none;
+        box-shadow: 0 2px 8px rgba(207,93,93,0.12);
+        transition: background .15s ease, border-color .15s ease, transform .12s ease;
+    }
+    .export-bar a:hover {
+        background: #FFFFFF;
+        border-color: #CF5D5D;
+        transform: translateY(-1px);
+    }
+    .export-bar a svg { width: 18px; height: 18px; flex-shrink: 0; color: #CF5D5D; }
+    .export-bar .exportHint {
+        display: block;
+        margin-top: 6px;
+        font-size: 11px;
+        color: #9A8E85;
+        padding-left: 4px;
+    }
     </style>
 </head>
 <body>
@@ -289,6 +323,7 @@
 
         <div class="suggest" id="suggest">
             <button type="button" data-q="Give me a quick overview of the business: monthly sales, top customers, this month e-menu daily sales, and top e-menu items this month.">Overview</button>
+            <button type="button" data-q="Give me an overview of this month's e-menu sales so far — revenue, orders, and how it compares to last month at the same point.">This month sales</button>
             <button type="button" data-q="How is e-menu performing today by orders, revenue, and basket size?">Sales today</button>
             <button type="button" data-q="How does this week compare to last week in revenue, order count, and average basket?">Week vs last</button>
             <button type="button" data-q="Which 10 menu items are bringing the most revenue this month and how concentrated is the mix?">Top items</button>
@@ -455,6 +490,27 @@
         [].slice.call(elMsgs.querySelectorAll('.followups:not(.hidden)')).forEach(collapseFollowups);
     }
 
+    function addExportDownload(exportInfo) {
+        if (!exportInfo || !exportInfo.available || !exportInfo.token) return;
+        var bar = document.createElement('div');
+        bar.className = 'export-bar';
+        var href = '/latest/ai/aiexport.cfm?token=' + encodeURIComponent(exportInfo.token);
+        var label = exportInfo.title || 'Download Excel report';
+        var fname = exportInfo.filename || 'report.xlsx';
+        bar.innerHTML =
+            '<a href="' + href + '" download="' + escapeHtml(fname) + '">' +
+                '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+                    '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>' +
+                    '<polyline points="7 10 12 15 17 10"></polyline>' +
+                    '<line x1="12" y1="15" x2="12" y2="3"></line>' +
+                '</svg>' +
+                '<span>Download Excel — ' + escapeHtml(label) + '</span>' +
+            '</a>' +
+            '<span class="exportHint">Includes summary sheets and detailed rows · link expires in ~20 min</span>';
+        elMsgs.appendChild(bar);
+        elMsgs.scrollTop = elMsgs.scrollHeight;
+    }
+
     function addFollowups(items) {
         if (!Array.isArray(items) || items.length === 0) return;
         var fresh = items.filter(function (it) {
@@ -538,6 +594,7 @@
                 + (data.cached ? '  ·  cached' : '')
                 + '  ·  ' + data.latency_ms + ' ms';
             addMsg(data.answer_markdown || '(no answer)', 'bot', meta);
+            if (data.export) addExportDownload(data.export);
             addFollowups(data.followups);
         } catch (e) {
             typing.remove();

@@ -1,13 +1,21 @@
 <cfprocessingdirective pageencoding="UTF-8">
 <cfinclude template="../../application.cfm">
+<cfinclude template="inc_emenu_order.cfm">
 <cfsetting showdebugoutput="false">
 
 <!--- Must have table context --->
 <cfif NOT len(trim(SESSION.emenu_table_id))>
     <cflocation url="/latest/customer/qr_error.cfm" addtoken="false">
 </cfif>
-<cfif SESSION.emenu_cart_locked eq true>
-    <cflocation url="/latest/customer/order_status.cfm" addtoken="false">
+<cfif val(SESSION.emenu_order_id) gt 0>
+    <cfquery name="qMenuOrd" datasource="#dts#">
+        SELECT status FROM app_orders
+        WHERE order_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#val(SESSION.emenu_order_id)#">
+        LIMIT 1
+    </cfquery>
+    <cfif qMenuOrd.recordCount AND NOT emenuCustomerCanAddItems(dts, val(SESSION.emenu_order_id), qMenuOrd.status)>
+        <cflocation url="/latest/customer/order_status.cfm?msg=already_paid" addtoken="false">
+    </cfif>
 </cfif>
 
 <!--- Must be logged in or guest --->
@@ -18,16 +26,52 @@
 <cfset isGuest     = (SESSION.emenu_is_guest eq "Yes")>
 <cfset custName    = len(trim(SESSION.emenu_name)) ? trim(SESSION.emenu_name) : "Guest">
 <cfset tableDisplay = len(trim(SESSION.emenu_table_name)) ? SESSION.emenu_table_name : "Table " & SESSION.emenu_table_number>
+<cfset emenuCurrSym = REQUEST.emenu_currency_symbol>
+<cfset emenuPriceFmt = REQUEST.emenu_currency_decimals eq 0 ? "9" : "9.00">
+<cfset menuHasBill = false>
+<cfset menuBillTotal = 0>
+<cfif val(SESSION.emenu_order_id) gt 0>
+    <cfquery name="qBillSnap" datasource="#dts#">
+        SELECT total_amount,
+               (SELECT COUNT(*) FROM app_order_items
+                WHERE order_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#val(SESSION.emenu_order_id)#">) AS item_count
+        FROM app_orders
+        WHERE order_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#val(SESSION.emenu_order_id)#">
+        LIMIT 1
+    </cfquery>
+    <cfif qBillSnap.recordCount AND val(qBillSnap.item_count) gt 0>
+        <cfset menuHasBill = true>
+        <cfset menuBillTotal = val(qBillSnap.total_amount)>
+    </cfif>
+</cfif>
 
 
 <!--- Load menu items --->
 <cfset menuError = "">
+<!--- Waiter uploads store files in image_bytes; admin list uses MenuImage.cfm — customer must use same path --->
+<cfset menuImgBlobCols = false>
+<cftry>
+    <cfquery name="qMenuImgCol" datasource="#dts#">
+        SELECT COUNT(*) AS col_count
+        FROM   information_schema.COLUMNS
+        WHERE  TABLE_SCHEMA = DATABASE()
+        AND    TABLE_NAME   = 'app_menu'
+        AND    COLUMN_NAME  = 'image_bytes'
+    </cfquery>
+    <cfif val(qMenuImgCol.col_count) gt 0><cfset menuImgBlobCols = true></cfif>
+    <cfcatch type="any"><cfset menuImgBlobCols = false></cfcatch>
+</cftry>
 <cfquery name="qMenu" datasource="#dts#">
     SELECT menu_id, item_code, display_name, category, sub_category,
            price, COALESCE(promo_price, 0) AS promo_price,
            is_available, is_vegetarian, is_halal, is_spicy, is_featured,
            COALESCE(description,'') AS description,
            COALESCE(image_url,'')   AS image_url,
+           <cfif menuImgBlobCols>
+           CASE WHEN image_bytes IS NOT NULL AND LENGTH(image_bytes) > 0 THEN 1 ELSE 0 END AS has_img_blob,
+           <cfelse>
+           0 AS has_img_blob,
+           </cfif>
            COALESCE(prep_time, 0)   AS prep_time,
            COALESCE(calories, 0)    AS calories,
            display_order
@@ -221,6 +265,11 @@
         .place-order-btn:disabled{background:#d1d5db;cursor:not-allowed;}
 
         .empty-cart{text-align:center;padding:40px 0;color:#9ca3af;font-size:15px;}
+
+        .bill-bar{background:#fff;border-radius:12px;padding:10px 14px;margin:0 16px 8px;
+                  display:flex;align-items:center;justify-content:space-between;
+                  box-shadow:0 1px 4px rgba(0,0,0,.06);font-size:13px;}
+        .bill-bar a{color:#F54900;font-weight:700;text-decoration:none;}
     </style>
 </head>
 <body>
@@ -253,6 +302,13 @@
     </div>
 </div>
 
+<cfif menuHasBill>
+<div class="bill-bar">
+    <span>Running bill: <strong>#emenuCurrSym# #numberFormat(menuBillTotal, emenuPriceFmt)#</strong></span>
+    <a href="/latest/customer/payment.cfm">Pay bill</a>
+</div>
+</cfif>
+
 <!--- ===== CATEGORY NAV ===== --->
 <div class="cat-nav" id="catNav">
     <button class="cat-btn active" onclick="filterCat('ALL',this)">All</button>
@@ -284,17 +340,23 @@
         <cfset promoPrice   = val(qMenu.promo_price)>
         <cfset showPromo    = (promoPrice gt 0 AND promoPrice lt basePrice)>
         <cfset displayPrice = (showPromo ? promoPrice : basePrice)>
+        <cfset itemImgSrc = "">
+        <cfif len(trim(qMenu.image_url))>
+            <cfset itemImgSrc = trim(qMenu.image_url)>
+        <cfelseif val(qMenu.has_img_blob) eq 1>
+            <cfset itemImgSrc = "/latest/Waiter/MenuImage.cfm?id=" & val(qMenu.menu_id)>
+        </cfif>
 
         <div class="item-card"
              data-id="#qMenu.menu_id#"
              data-name="#JSStringFormat(qMenu.display_name)#"
              data-price="#displayPrice#"
              data-cat="#JSStringFormat(trim(qMenu.category))#"
-             data-img="#JSStringFormat(trim(qMenu.image_url))#">
+             data-img="#JSStringFormat(itemImgSrc)#">
 
-            <cfif len(trim(qMenu.image_url))>
+            <cfif len(itemImgSrc)>
                 <img class="item-img"
-                     src="#HTMLEditFormat(trim(qMenu.image_url))#"
+                     src="#HTMLEditFormat(itemImgSrc)#"
                      alt="#HTMLEditFormat(qMenu.display_name)#"
                      onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
                 <div class="item-img-placeholder" style="display:none;">
@@ -336,9 +398,9 @@
                         </cfif>
                     </div>
                     <div class="item-price-row">
-                        <span class="item-price">RM #numberFormat(displayPrice,'9.00')#</span>
+                        <span class="item-price">#emenuCurrSym# #numberFormat(displayPrice, emenuPriceFmt)#</span>
                         <cfif showPromo>
-                            <span class="item-promo">RM #numberFormat(basePrice,'9.00')#</span>
+                            <span class="item-promo">#emenuCurrSym# #numberFormat(basePrice, emenuPriceFmt)#</span>
                         </cfif>
                     </div>
                 </div>
@@ -369,7 +431,7 @@
         </svg>
         <span id="fabCount" class="cart-badge">0 items</span>
     </div>
-    <span id="fabTotal">RM 0.00</span>
+    <span id="fabTotal">#emenuCurrSym# 0</span>
 </button>
 
 <!--- ===== CART DRAWER ===== --->
@@ -384,9 +446,9 @@
         <div class="empty-cart" id="emptyCart">Your cart is empty</div>
     </div>
     <div class="drawer-footer">
-        <div class="total-row"><span>Subtotal</span><span id="drawerSubtotal">RM 0.00</span></div>
-        <div class="total-row"><span>Tax (10%)</span><span id="drawerTax">RM 0.00</span></div>
-        <div class="total-row grand"><span>Total</span><span id="drawerTotal">RM 0.00</span></div>
+        <div class="total-row"><span>Subtotal</span><span id="drawerSubtotal">#emenuCurrSym# 0</span></div>
+        <div class="total-row"><span>Tax (10%)</span><span id="drawerTax">#emenuCurrSym# 0</span></div>
+        <div class="total-row grand"><span>Total</span><span id="drawerTotal">#emenuCurrSym# 0</span></div>
         <button class="place-order-btn" id="placeOrderBtn"
                 onclick="placeOrder()" disabled>Place Order</button>
     </div>
@@ -402,8 +464,16 @@
    CART STATE
 ================================================================ */
 var cart = {};   /* { menuId: { id, name, price, qty, note } } */
+var EMENU_CURR_SYM = '<cfoutput>#JSStringFormat(emenuCurrSym)#</cfoutput>';
+var EMENU_CURR_DEC = <cfoutput>#val(REQUEST.emenu_currency_decimals)#</cfoutput>;
 
-function fmt(n){ return 'RM ' + parseFloat(n).toFixed(2); }
+function fmt(n){
+    var v = parseFloat(n) || 0;
+    if (EMENU_CURR_DEC === 0) {
+        return EMENU_CURR_SYM + ' ' + Math.round(v).toLocaleString();
+    }
+    return EMENU_CURR_SYM + ' ' + v.toFixed(2);
+}
 
 /* ---- Add to cart ---- */
 function addToCart(id, name, price) {
@@ -523,7 +593,7 @@ function refreshDrawer() {
                     imgBlock +
                     '<div class="ci-body">' +
                         '<div class="ci-name">' + escHtml(item.name) + '</div>' +
-                        '<div class="ci-unit-price">RM ' + item.price.toFixed(2) + '</div>' +
+                        '<div class="ci-unit-price">' + fmt(item.price) + '</div>' +
                         '<div class="ci-controls">' +
                             '<div class="ci-qty-wrap">' +
                                 minusBtn +
@@ -533,7 +603,7 @@ function refreshDrawer() {
                             '<button class="ci-note-btn' + noteClass + '" onclick="toggleNote(\'' + item.id + '\')" title="Add note">' + NOTE_SVG + '</button>' +
                         '</div>' +
                     '</div>' +
-                    '<div class="ci-subtotal">RM ' + (item.price * item.qty).toFixed(2) + '</div>' +
+                    '<div class="ci-subtotal">' + fmt(item.price * item.qty) + '</div>' +
                 '</div>' +
                 noteDisplay +
                 '<div class="ci-note-row" id="nr-' + item.id + '">' +
@@ -577,10 +647,12 @@ function openCart() {
     refreshDrawer();
     document.getElementById('drawerOverlay').classList.add('open');
     document.getElementById('cartDrawer').classList.add('open');
+    try { document.body.classList.add('emenuCartOpen'); } catch(e) {}
 }
 function closeCart() {
     document.getElementById('drawerOverlay').classList.remove('open');
     document.getElementById('cartDrawer').classList.remove('open');
+    try { document.body.classList.remove('emenuCartOpen'); } catch(e) {}
 }
 
 /* ---- Place order ---- */
@@ -618,6 +690,8 @@ function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
                                      .replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function escAttr(s){ return String(s).replace(/"/g,'&quot;'); }
 </script>
+
+<cfinclude template="/latest/ai/customer-launcher.cfm">
 
 </body>
 </html>

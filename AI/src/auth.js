@@ -2,7 +2,8 @@
 
 const config = require('./config');
 
-const ALLOWED_ROLES = new Set(['super', 'admin']);
+const ADMIN_ROLES = new Set(['super', 'admin']);
+const CUSTOMER_ROLES = new Set(['customer']);
 
 function timingSafeEqual(a, b) {
   if (typeof a !== 'string' || typeof b !== 'string') return false;
@@ -24,8 +25,17 @@ function checkDts(dts) {
   return config.db.allowedDts.includes(dts);
 }
 
+function checkAdminRole(role) {
+  return ADMIN_ROLES.has(String(role || '').toLowerCase());
+}
+
+function checkCustomerRole(role) {
+  return CUSTOMER_ROLES.has(String(role || '').toLowerCase());
+}
+
+/** @deprecated use checkAdminRole */
 function checkRole(role) {
-  return ALLOWED_ROLES.has(String(role || '').toLowerCase());
+  return checkAdminRole(role);
 }
 
 function authMiddleware(req, res, next) {
@@ -35,4 +45,10 @@ function authMiddleware(req, res, next) {
   next();
 }
 
-module.exports = { authMiddleware, checkDts, checkRole };
+module.exports = {
+  authMiddleware,
+  checkDts,
+  checkRole,
+  checkAdminRole,
+  checkCustomerRole,
+};
