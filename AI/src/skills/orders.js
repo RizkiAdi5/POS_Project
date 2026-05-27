@@ -74,7 +74,7 @@ const peakHours = {
 
 const basketStats = {
   name: 'basket_stats',
-  description: 'Average and distribution of basket size (RM per order) over the last D days.',
+  description: 'Average and distribution of basket size (company base currency per order) over the last D days.',
   params: { days: 'integer 1..90, default 30' },
   cacheTtlSec: 300,
   followups: [
