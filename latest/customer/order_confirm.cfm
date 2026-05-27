@@ -4,6 +4,9 @@
     Matches Figma order-confirmation design.
 --->
 <cfinclude template="../../application.cfm">
+<cfinclude template="inc_emenu_order.cfm">
+<cfset emenuCurrSym = REQUEST.emenu_currency_symbol>
+<cfset emenuPriceFmt = REQUEST.emenu_currency_decimals eq 0 ? "9" : "9.00">
 
 <cfif NOT len(trim(SESSION.emenu_table_id))>
     <cflocation url="/latest/customer/qr_error.cfm" addtoken="false">
@@ -187,20 +190,20 @@
                             <div class="item-note">Note: #HTMLEditFormat(qItems.special_instructions)#</div>
                         </cfif>
                     </div>
-                    <div class="item-price">RM #numberFormat(val(qItems.subtotal),'9.00')#</div>
+                    <div class="item-price">#emenuCurrSym# #numberFormat(val(qItems.subtotal), emenuPriceFmt)#</div>
                 </div>
             </cfloop>
         </cfif>
 
         <div class="total-section">
             <div class="total-row">
-                <span>Subtotal</span><span>RM #numberFormat(orderSubtot,'9.00')#</span>
+                <span>Subtotal</span><span>#emenuCurrSym# #numberFormat(orderSubtot, emenuPriceFmt)#</span>
             </div>
             <div class="total-row">
-                <span>Tax (10%)</span><span>RM #numberFormat(orderTax,'9.00')#</span>
+                <span>Tax (10%)</span><span>#emenuCurrSym# #numberFormat(orderTax, emenuPriceFmt)#</span>
             </div>
             <div class="total-row grand">
-                <span>Total</span><span>RM #numberFormat(orderTotal,'9.00')#</span>
+                <span>Total</span><span>#emenuCurrSym# #numberFormat(orderTotal, emenuPriceFmt)#</span>
             </div>
         </div>
     </div>
@@ -222,7 +225,8 @@
 
     <!--- CTA buttons --->
     <a href="/latest/customer/menu.cfm" class="btn-menu">Order More</a>
-    <a href="/latest/customer/order_status.cfm" class="btn-status">Track My Order</a>
+    <a href="/latest/customer/payment.cfm" class="btn-status" style="margin-bottom:10px;">Pay Bill</a>
+    <a href="/latest/customer/order_status.cfm" class="btn-status" style="border-width:1px;">Track My Order</a>
 
 </div>
 </cfoutput>

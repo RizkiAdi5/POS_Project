@@ -7,6 +7,114 @@
     <cfreturn NOT listFindNoCase("paid,cancelled,completed", s)>
 </cffunction>
 
+<cffunction name="emenuGetLatestPayment" output="false" returntype="struct">
+    <cfargument name="dsn" type="string" required="true">
+    <cfargument name="orderId" type="numeric" required="true">
+    <cfset var out = { "payment_method" = "", "status" = "", "amount" = 0 }>
+    <cfset var qPay = "">
+    <cfif arguments.orderId lte 0><cfreturn out></cfif>
+    <cftry>
+        <cfquery name="qPay" datasource="#arguments.dsn#">
+            SELECT payment_method, status, amount
+            FROM   app_payments
+            WHERE  order_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#arguments.orderId#">
+            ORDER  BY payment_id DESC
+            LIMIT  1
+        </cfquery>
+        <cfif qPay.recordCount>
+            <cfset out.payment_method = lCase(trim(toString(qPay.payment_method)))>
+            <cfset out.status = lCase(trim(toString(qPay.status)))>
+            <cfset out.amount = val(qPay.amount)>
+        </cfif>
+        <cfcatch type="any"></cfcatch>
+    </cftry>
+    <cfreturn out>
+</cffunction>
+
+<cffunction name="emenuOrderIsPaid" output="false" returntype="boolean">
+    <cfargument name="dsn" type="string" required="true">
+    <cfargument name="orderId" type="numeric" required="true">
+    <cfargument name="orderStatus" type="string" required="true">
+    <cfset var pay = "">
+    <cfif lCase(trim(arguments.orderStatus)) eq "paid"><cfreturn true></cfif>
+    <cfset pay = emenuGetLatestPayment(arguments.dsn, arguments.orderId)>
+    <cfif pay.status eq "success" AND listFindNoCase("online,qris,ewallet,card", pay.payment_method)>
+        <cfreturn true>
+    </cfif>
+    <cfreturn false>
+</cffunction>
+
+<cffunction name="emenuCustomerCanAddItems" output="false" returntype="boolean">
+    <cfargument name="dsn" type="string" required="true">
+    <cfargument name="orderId" type="numeric" required="true">
+    <cfargument name="orderStatus" type="string" required="true">
+    <cfif arguments.orderId lte 0><cfreturn false></cfif>
+    <cfif NOT emenuOrderIsOpen(arguments.orderStatus)><cfreturn false></cfif>
+    <cfreturn NOT emenuOrderIsPaid(arguments.dsn, arguments.orderId, arguments.orderStatus)>
+</cffunction>
+
+<cffunction name="emenuRecalculateOrderTotals" output="false" returntype="struct">
+    <cfargument name="dsn" type="string" required="true">
+    <cfargument name="orderId" type="numeric" required="true">
+    <cfset var out = { "subtotal" = 0, "tax_amount" = 0, "total_amount" = 0 }>
+    <cfset var qSum = "">
+    <cfif arguments.orderId lte 0><cfreturn out></cfif>
+    <cftry>
+        <cfquery name="qSum" datasource="#arguments.dsn#">
+            SELECT COALESCE(SUM(subtotal), 0) AS line_subtotal
+            FROM   app_order_items
+            WHERE  order_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#arguments.orderId#">
+        </cfquery>
+        <cfset out.subtotal = val(qSum.line_subtotal)>
+        <cfset out.tax_amount = round(out.subtotal * 0.10 * 100) / 100>
+        <cfset out.total_amount = out.subtotal + out.tax_amount>
+        <cfquery datasource="#arguments.dsn#">
+            UPDATE app_orders
+            SET subtotal = <cfqueryparam cfsqltype="cf_sql_decimal" value="#out.subtotal#">,
+                tax_amount = <cfqueryparam cfsqltype="cf_sql_decimal" value="#out.tax_amount#">,
+                total_amount = <cfqueryparam cfsqltype="cf_sql_decimal" value="#out.total_amount#">
+            WHERE order_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#arguments.orderId#">
+        </cfquery>
+        <cfcatch type="any"></cfcatch>
+    </cftry>
+    <cfreturn out>
+</cffunction>
+
+<cffunction name="emenuAwardLoyaltyPoints" output="false" returntype="numeric">
+    <cfargument name="dsn" type="string" required="true">
+    <cfargument name="custno" type="string" required="true">
+    <cfargument name="orderNumber" type="string" required="true">
+    <cfargument name="amountForPoints" type="numeric" required="true">
+    <cfset var pointsEarned = int(val(arguments.amountForPoints) * 10)>
+    <cfif NOT len(trim(arguments.custno)) OR pointsEarned lte 0><cfreturn 0></cfif>
+    <cftry>
+        <cfquery datasource="#arguments.dsn#">
+            UPDATE arcust
+            SET    POINT_BF = COALESCE(POINT_BF, 0) + <cfqueryparam cfsqltype="cf_sql_integer" value="#pointsEarned#">
+            WHERE  CUSTNO   = <cfqueryparam cfsqltype="cf_sql_varchar" value="#trim(arguments.custno)#">
+        </cfquery>
+        <cfquery name="qPtsAfter" datasource="#arguments.dsn#">
+            SELECT COALESCE(POINT_BF, 0) AS pts
+            FROM   arcust
+            WHERE  CUSTNO = <cfqueryparam cfsqltype="cf_sql_varchar" value="#trim(arguments.custno)#">
+        </cfquery>
+        <cfquery datasource="#arguments.dsn#">
+            INSERT INTO points_transactions
+                (custno, order_number, type, points, balance_after, created_at)
+            VALUES (
+                <cfqueryparam cfsqltype="cf_sql_varchar" value="#trim(arguments.custno)#">,
+                <cfqueryparam cfsqltype="cf_sql_varchar" value="#arguments.orderNumber#">,
+                'Earned',
+                <cfqueryparam cfsqltype="cf_sql_integer" value="#pointsEarned#">,
+                <cfqueryparam cfsqltype="cf_sql_integer" value="#val(qPtsAfter.pts)#">,
+                <cfqueryparam cfsqltype="cf_sql_timestamp" value="#now()#">
+            )
+        </cfquery>
+        <cfcatch type="any"><cfset pointsEarned = 0></cfcatch>
+    </cftry>
+    <cfreturn pointsEarned>
+</cffunction>
+
 <cffunction name="emenuNewOrderNumber" output="false" returntype="string">
     <cfreturn "EMENU-" & dateFormat(now(), "yyyymmdd") & "-" & timeFormat(now(), "HHmmss") & "-" & right(replace(createUUID(), "-", "", "all"), 4)>
 </cffunction>
@@ -104,7 +212,7 @@
                 (order_number, custno, table_id, order_type, order_source, status, total_amount, created_at)
             VALUES (
                 <cfqueryparam cfsqltype="cf_sql_varchar" value="#orderNum#">,
-                NULL,
+                <cfqueryparam cfsqltype="cf_sql_varchar" value="">,
                 <cfqueryparam cfsqltype="cf_sql_integer" value="#arguments.tableId#">,
                 'dine_in',
                 'qr_code',
@@ -151,7 +259,7 @@
             SELECT COUNT(*) AS row_count
             FROM app_orders
             WHERE table_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#arguments.tableId#">
-              AND status NOT IN ('completed','cancelled')
+              AND status NOT IN ('completed','cancelled','paid')
         </cfquery>
         <cfreturn val(qOpen.row_count) gt 0>
         <cfcatch type="any"><cfreturn false></cfcatch>
@@ -184,7 +292,7 @@
             <cfset out.error = "Order not found for this table.">
             <cfreturn out>
         </cfif>
-        <cfif NOT emenuOrderIsOpen(qOrd.status)>
+        <cfif listFindNoCase("completed,cancelled", lCase(trim(qOrd.status)))>
             <cfset out.error = "This order is already completed or cancelled.">
             <cfreturn out>
         </cfif>

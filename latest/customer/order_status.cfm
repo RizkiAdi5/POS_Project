@@ -4,6 +4,7 @@
     Connects with waiter/kitchen updates on app_orders + app_order_items.
 --->
 <cfinclude template="../../application.cfm">
+<cfinclude template="inc_emenu_order.cfm">
 
 <cfif NOT len(trim(SESSION.emenu_table_id))>
     <cflocation url="/latest/customer/qr_error.cfm" addtoken="false">
@@ -31,6 +32,13 @@
 
 <cfset tableDisplay   = len(trim(SESSION.emenu_table_number)) ? "Table " & SESSION.emenu_table_number : "Your Table">
 <cfset orderStatus    = qOrder.recordCount gt 0 ? lCase(trim(qOrder.status)) : "in progress">
+<cfset orderId        = val(SESSION.emenu_order_id)>
+<cfset isPaid         = qOrder.recordCount gt 0 AND emenuOrderIsPaid(dts, orderId, qOrder.status)>
+<cfset canOrderMore   = qOrder.recordCount gt 0 AND emenuCustomerCanAddItems(dts, orderId, qOrder.status)>
+<cfset hasItems       = qItems.recordCount gt 0>
+<cfset latestPay      = emenuGetLatestPayment(dts, orderId)>
+<cfset payPendingCash = (latestPay.payment_method eq "cash" AND listFindNoCase("pending,processing", latestPay.status))>
+<cfset statusMsg      = structKeyExists(url, "msg") ? trim(url.msg) : "">
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -126,6 +134,11 @@
                      background:#fff;color:#F54900;text-align:center;
                      font-size:15px;font-weight:700;text-decoration:none;
                      border:2px solid #F54900;}
+        .btn-pay{display:block;width:100%;padding:16px;border-radius:14px;
+                 background:##16a34a;color:#fff;text-align:center;
+                 font-size:16px;font-weight:700;text-decoration:none;margin-bottom:10px;}
+        .info-box{background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;
+                 padding:12px 14px;font-size:13px;color:#9a3412;margin-bottom:14px;line-height:1.45;}
         .countdown{text-align:center;font-size:12px;color:#9ca3af;margin:12px 0;}
     </style>
 </head>
@@ -145,6 +158,14 @@
 </div>
 
 <div class="body">
+
+    <cfif statusMsg eq "already_paid">
+        <div class="info-box">This bill has already been paid. Ask staff to complete the table session if you are leaving.</div>
+    <cfelseif payPendingCash>
+        <div class="info-box">Cash payment pending — please pay at the cashier. Staff will confirm on the waiter dashboard.</div>
+    <cfelseif isPaid>
+        <div class="info-box">Payment received. Thank you! Staff will clear this table when your visit is finished.</div>
+    </cfif>
 
     <!--- Order number + table --->
     <div class="order-card">
@@ -232,7 +253,12 @@
 
     <div class="countdown" id="countdown">Refreshing in <span id="countNum">15</span>s</div>
 
-    <a href="/latest/customer/menu.cfm" class="btn-more">Order More</a>
+    <cfif canOrderMore>
+        <a href="/latest/customer/menu.cfm" class="btn-more">Order More</a>
+    </cfif>
+    <cfif hasItems AND NOT isPaid AND NOT payPendingCash>
+        <a href="/latest/customer/payment.cfm" class="btn-pay">Pay Bill</a>
+    </cfif>
     <cfif SESSION.emenu_loggedin eq "Yes">
     <a href="/latest/customer/profile.cfm" class="btn-profile">View Points &amp; Profile</a>
     </cfif>
@@ -325,5 +351,6 @@ setInterval(function(){
     }
 }, 1000);
 </script>
+
 </body>
 </html>
