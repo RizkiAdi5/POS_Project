@@ -4,7 +4,7 @@
 		<cfabort>
 	</cfif>
 	
-	<cfset form.userPwd = hash(form.userPwd)>
+	<cfset form.userPwd = hash(form.userPwd, "MD5")>
 	
 	<!--- Add on 120808 --->
 	<cfif findnocase("_i",form.companyid) eq 0>
@@ -36,7 +36,7 @@
         </cftry>
     
 	<cfif checkbrute.idtry gte 5>
-    <cflocation url="/login/login.cfm?login=Failed&reason=brute">
+    <cflocation url="/latest/login/login.cfm?login=Failed&reason=brute" addtoken="no">
     <cfabort/>
 	</cfif>
 	<cfquery name="validateUser" datasource='main'>
@@ -289,7 +289,7 @@
         VALUES ('#cgi.remote_Addr#',<cfqueryparam cfsqltype="cf_sql_char" value="#udb#">,now(),<cfqueryparam cfsqltype="cf_sql_char" value="#form.userid#"> )
         </cfquery>
 		
-		<cflocation url="../login/login.cfm?login=Failed">
+		<cflocation url="/latest/login/login.cfm?login=Failed" addtoken="no">
 		<cfabort>
 	</cfif>
 </cflogin>

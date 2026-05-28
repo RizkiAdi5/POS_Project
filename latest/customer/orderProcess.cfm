@@ -1,7 +1,7 @@
 <!---
     /latest/customer/orderProcess.cfm
     Receives cart_json from menu.cfm, appends items to the QR session order,
-    then redirects to order_confirm.cfm.
+    then redirects to payment.cfm.
     POST only — accessed via the hidden form in menu.cfm.
 --->
 <cfinclude template="../../application.cfm">
@@ -81,8 +81,8 @@
             <cfelse>
                 NULL
             </cfif>,
-            status = <cfqueryparam cfsqltype="cf_sql_varchar" value="in progress">,
-            order_type = <cfqueryparam cfsqltype="cf_sql_varchar" value="dine">
+            status = <cfqueryparam cfsqltype="cf_sql_varchar" value="pending_payment">,
+            order_type = <cfqueryparam cfsqltype="cf_sql_varchar" value="dine_in">
         WHERE order_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#newOrderId#">
           AND table_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#val(SESSION.emenu_table_id)#">
           AND status NOT IN ('paid','cancelled','completed')
@@ -177,4 +177,4 @@
 <cfset SESSION.emenu_order_tax     = taxAmt>
 <cfset SESSION.emenu_points_earned = pointsEarned>
 
-<cflocation url="/latest/customer/order_confirm.cfm" addtoken="false">
+<cflocation url="/PaymentGateway/payment.cfm" addtoken="false">

@@ -28,6 +28,11 @@
         ORDER  BY item_id ASC
     </cfquery>
 
+    <cfif qOrder.recordCount eq 0>
+        <cfoutput>{"error":"order_not_found"}</cfoutput>
+        <cfabort>
+    </cfif>
+
     <cfset itemsArr = []>
     <cfloop query="qItems">
         <cfset arrayAppend(itemsArr, {

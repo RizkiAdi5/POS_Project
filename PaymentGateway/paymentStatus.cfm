@@ -1,9 +1,9 @@
 <!---
-    /latest/customer/paymentStatus.cfm — JSON poll for checkout page.
+    /PaymentGateway/paymentStatus.cfm — JSON poll for checkout page.
 --->
-<cfinclude template="../../application.cfm">
-<cfinclude template="inc_emenu_order.cfm">
-<cfinclude template="inc_xendit_pay.cfm">
+<cfinclude template="/application.cfm">
+<cfinclude template="/latest/customer/inc_emenu_order.cfm">
+<cfinclude template="/latest/customer/inc_xendit_pay.cfm">
 <cfsetting showdebugoutput="false">
 <cfcontent type="application/json; charset=utf-8" reset="true">
 
@@ -34,16 +34,18 @@
         <cfset out.failed = true>
     <cfelseif len(trim(qPay.gateway_transaction_id)) AND REQUEST.xendit.isActive>
         <cfset pgProf = emenuPgProfile(dts)>
-        <cfif pgProf.xendit_ready>
-            <cfset chk = pgGetPaymentRequest(pgProf.xendit_account_id, trim(qPay.gateway_transaction_id))>
-            <cfif chk.isPaid>
-                <cfset emenuFinalizeOnlinePayment(dts, orderId, paymentId)>
-                <cfset out.paid = true>
-                <cfset out.status = "success">
-            <cfelseif uCase(chk.status) eq "FAILED">
-                <cfset out.failed = true>
-                <cfset out.status = "failed">
-            </cfif>
+        <cfset forUserId = "">
+        <cfif len(trim(pgProf.xendit_account_id))>
+            <cfset forUserId = trim(pgProf.xendit_account_id)>
+        </cfif>
+        <cfset chk = pgGetPaymentRequest(forUserId, trim(qPay.gateway_transaction_id))>
+        <cfif chk.isPaid>
+            <cfset emenuFinalizeOnlinePayment(dts, orderId, paymentId)>
+            <cfset out.paid = true>
+            <cfset out.status = "success">
+        <cfelseif uCase(chk.status) eq "FAILED">
+            <cfset out.failed = true>
+            <cfset out.status = "failed">
         </cfif>
     </cfif>
 </cfif>

@@ -89,5 +89,5 @@
 <cfif SESSION.emenu_loggedin eq "Yes" AND len(trim(SESSION.emenu_custno))>
     <cflocation url="/latest/customer/menu.cfm" addtoken="false">
 <cfelse>
-    <cflocation url="/latest/customer/welcome.cfm" addtoken="false">
+    <cflocation url="/latest/customer/account_choice.cfm" addtoken="false">
 </cfif>

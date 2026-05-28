@@ -53,6 +53,23 @@
     <cfreturn NOT emenuOrderIsPaid(arguments.dsn, arguments.orderId, arguments.orderStatus)>
 </cffunction>
 
+<cffunction name="emenuPaymentTag" output="false" returntype="string">
+    <cfargument name="paymentMethod" type="string" required="false" default="">
+    <cfargument name="paymentStatus" type="string" required="false" default="">
+    <cfset var pm = lCase(trim(arguments.paymentMethod))>
+    <cfset var ps = lCase(trim(arguments.paymentStatus))>
+    <cfif listFindNoCase("online,qris,ewallet,va,card", pm) AND ps eq "success">
+        <cfreturn "paid-online">
+    </cfif>
+    <cfif pm eq "cash" AND ps eq "success">
+        <cfreturn "paid-cash">
+    </cfif>
+    <cfif pm eq "cash" AND listFindNoCase("pending,processing", ps)>
+        <cfreturn "pending-cash">
+    </cfif>
+    <cfreturn "unpaid">
+</cffunction>
+
 <cffunction name="emenuRecalculateOrderTotals" output="false" returntype="struct">
     <cfargument name="dsn" type="string" required="true">
     <cfargument name="orderId" type="numeric" required="true">

@@ -1,6 +1,6 @@
 <!---
     /latest/customer/profile.cfm
-    Loyalty profile page — matches Figma profile-menu design.
+    Loyalty profile page.
     Only accessible to logged-in loyalty customers (not guests).
 --->
 <cfinclude template="../../application.cfm">

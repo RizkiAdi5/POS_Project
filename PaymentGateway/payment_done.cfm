@@ -1,9 +1,11 @@
 <!---
-    /latest/customer/payment_done.cfm
-    Confirmation after online or cashier payment request.
+    /PaymentGateway/payment_done.cfm
 --->
-<cfinclude template="../../application.cfm">
+<cfinclude template="/application.cfm">
 <cfsetting showdebugoutput="false">
+<cfif NOT len(trim(SESSION.emenu_table_id))>
+    <cflocation url="/latest/customer/qr_error.cfm" addtoken="false">
+</cfif>
 
 <cfparam name="url.method" default="online">
 <cfset method = lCase(trim(url.method))>

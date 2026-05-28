@@ -42,8 +42,29 @@
 <cfparam name="FORM.payout_account_number" default="">
 <cfparam name="FORM.payout_account_holder" default="">
 
-<cfif NOT Len(Trim(FORM.business_name)) OR NOT Len(Trim(FORM.business_email)) OR NOT Len(Trim(FORM.payout_channel_code))>
-	<cflocation url="paymentProfile.cfm?err=Required fields missing" addtoken="false">
+<cfset FORM.business_name = Trim(FORM.business_name)>
+<cfset FORM.business_email = LCase(Trim(FORM.business_email))>
+<cfset FORM.country_code = UCase(Trim(FORM.country_code))>
+<cfset FORM.account_type = UCase(Trim(FORM.account_type))>
+<cfset FORM.payout_channel_code = Trim(FORM.payout_channel_code)>
+<cfset FORM.payout_channel_name = Trim(FORM.payout_channel_name)>
+<cfset FORM.payout_account_number = ReReplace(Trim(FORM.payout_account_number), "[^0-9]", "", "all")>
+<cfset FORM.payout_account_holder = Trim(FORM.payout_account_holder)>
+
+<cfif NOT Len(FORM.business_name) OR NOT Len(FORM.business_email) OR NOT Len(FORM.payout_channel_code)>
+	<cflocation url="paymentProfile.cfm?err=Required fields missing (business, email, bank)" addtoken="false">
+</cfif>
+<cfif NOT IsValid("email", FORM.business_email)>
+	<cflocation url="paymentProfile.cfm?err=Invalid business email format" addtoken="false">
+</cfif>
+<cfif NOT Len(FORM.payout_account_number)>
+	<cflocation url="paymentProfile.cfm?err=Account number must be numeric" addtoken="false">
+</cfif>
+<cfif NOT ListFindNoCase("ID,PH,MY,TH,VN", FORM.country_code)>
+	<cflocation url="paymentProfile.cfm?err=Invalid country code" addtoken="false">
+</cfif>
+<cfif NOT ListFindNoCase("MANAGED,OWNED", FORM.account_type)>
+	<cflocation url="paymentProfile.cfm?err=Invalid account type" addtoken="false">
 </cfif>
 
 <cfquery name="qExist" datasource="#dts#">
@@ -59,25 +80,34 @@
 <cfset xStatus = "">
 <cfset xType = "">
 <cfset apiError = "">
+<cfset xpReady = false>
+<cfset xpCheckHttp = 0>
 
 <cfif REQUEST.xendit.isActive>
 	<cftry>
-		<cfif NOT Len(xAccountId)>
-			<cfset cr = pgXenditCreateAccount(FORM.business_email, FORM.account_type, FORM.business_name, "", FORM.country_code)>
-			<cfif cr.ok AND IsStruct(cr.data) AND StructKeyExists(cr.data, "id")>
-				<cfset xAccountId = cr.data.id>
-				<cfif StructKeyExists(cr.data, "status")><cfset xStatus = cr.data.status></cfif>
-				<cfif StructKeyExists(cr.data, "type")><cfset xType = cr.data.type></cfif>
+		<cfset xpCheck = pgXenditHttp("GET", "/v2/accounts", "", "", "limit=1")>
+		<cfset xpCheckHttp = xpCheck.httpStatus>
+		<cfset xpReady = (xpCheck.httpStatus EQ 200)>
+		<cfif xpReady>
+			<cfif NOT Len(xAccountId)>
+				<cfset cr = pgXenditCreateAccount(FORM.business_email, FORM.account_type, FORM.business_name, "", FORM.country_code)>
+				<cfif cr.ok AND IsStruct(cr.data) AND StructKeyExists(cr.data, "id")>
+					<cfset xAccountId = cr.data.id>
+					<cfif StructKeyExists(cr.data, "status")><cfset xStatus = cr.data.status></cfif>
+					<cfif StructKeyExists(cr.data, "type")><cfset xType = cr.data.type></cfif>
+				<cfelse>
+					<cfset apiError = "HTTP #cr.httpStatus#: #pgXenditErr(cr)#">
+				</cfif>
 			<cfelse>
-				<cfset apiError = "HTTP #cr.httpStatus#: #pgXenditErr(cr)#">
+				<cfset pgXenditUpdateAccount(xAccountId, FORM.business_name, "")>
+				<cfset sync = pgXenditSyncAccount(xAccountId)>
+				<cfif sync.ok>
+					<cfif Len(sync.status)><cfset xStatus = sync.status></cfif>
+					<cfif Len(sync.type)><cfset xType = sync.type></cfif>
+				</cfif>
 			</cfif>
 		<cfelse>
-			<cfset pgXenditUpdateAccount(xAccountId, FORM.business_name, "")>
-			<cfset sync = pgXenditSyncAccount(xAccountId)>
-			<cfif sync.ok>
-				<cfif Len(sync.status)><cfset xStatus = sync.status></cfif>
-				<cfif Len(sync.type)><cfset xType = sync.type></cfif>
-			</cfif>
+			<cfset apiError = "xenPlatform not enabled on this key (HTTP #xpCheckHttp#). Using direct platform mode without sub-account.">
 		</cfif>
 		<cfcatch type="any"><cfset apiError = cfcatch.message></cfcatch>
 	</cftry>
@@ -89,18 +119,18 @@
 <cfif qExist.recordCount>
 	<cfquery datasource="#dts#">
 		UPDATE pg_payment_profile SET
-			business_email = <cfqueryparam cfsqltype="cf_sql_varchar" value="#Trim(FORM.business_email)#">,
-			business_name = <cfqueryparam cfsqltype="cf_sql_varchar" value="#Trim(FORM.business_name)#">,
-			country_code = <cfqueryparam cfsqltype="cf_sql_char" value="#UCase(Trim(FORM.country_code))#">,
-			account_type = <cfqueryparam cfsqltype="cf_sql_varchar" value="#UCase(Trim(FORM.account_type))#">,
+			business_email = <cfqueryparam cfsqltype="cf_sql_varchar" value="#FORM.business_email#">,
+			business_name = <cfqueryparam cfsqltype="cf_sql_varchar" value="#FORM.business_name#">,
+			country_code = <cfqueryparam cfsqltype="cf_sql_char" value="#FORM.country_code#">,
+			account_type = <cfqueryparam cfsqltype="cf_sql_varchar" value="#FORM.account_type#">,
 			<cfif Len(xAccountId)>xendit_account_id = <cfqueryparam cfsqltype="cf_sql_varchar" value="#xAccountId#">,</cfif>
 			<cfif Len(xStatus)>xendit_status = <cfqueryparam cfsqltype="cf_sql_varchar" value="#xStatus#">,</cfif>
 			<cfif Len(xType)>xendit_type = <cfqueryparam cfsqltype="cf_sql_varchar" value="#xType#">,</cfif>
 			xendit_synced_at = <cfqueryparam cfsqltype="cf_sql_timestamp" value="#Now()#" null="#NOT Len(xAccountId)#">,
-			payout_channel_code = <cfqueryparam cfsqltype="cf_sql_varchar" value="#Trim(FORM.payout_channel_code)#">,
+			payout_channel_code = <cfqueryparam cfsqltype="cf_sql_varchar" value="#FORM.payout_channel_code#">,
 			payout_channel_name = <cfqueryparam cfsqltype="cf_sql_varchar" value="#chName#">,
-			payout_account_number = <cfqueryparam cfsqltype="cf_sql_varchar" value="#Trim(FORM.payout_account_number)#">,
-			payout_account_holder = <cfqueryparam cfsqltype="cf_sql_varchar" value="#Trim(FORM.payout_account_holder)#">,
+			payout_account_number = <cfqueryparam cfsqltype="cf_sql_varchar" value="#FORM.payout_account_number#">,
+			payout_account_holder = <cfqueryparam cfsqltype="cf_sql_varchar" value="#FORM.payout_account_holder#">,
 			enable_qris = <cfqueryparam cfsqltype="cf_sql_char" value="#pgFormYn('enable_qris')#">,
 			enable_ewallet = <cfqueryparam cfsqltype="cf_sql_char" value="#pgFormYn('enable_ewallet')#">,
 			enable_va = <cfqueryparam cfsqltype="cf_sql_char" value="#pgFormYn('enable_va')#">,
@@ -119,17 +149,17 @@
 			created_by, updated_by
 		) VALUES (
 			<cfqueryparam cfsqltype="cf_sql_varchar" value="#Trim(FORM.business_email)#">,
-			<cfqueryparam cfsqltype="cf_sql_varchar" value="#Trim(FORM.business_name)#">,
-			<cfqueryparam cfsqltype="cf_sql_char" value="#UCase(Trim(FORM.country_code))#">,
-			<cfqueryparam cfsqltype="cf_sql_varchar" value="#UCase(Trim(FORM.account_type))#">,
+			<cfqueryparam cfsqltype="cf_sql_varchar" value="#FORM.business_name#">,
+			<cfqueryparam cfsqltype="cf_sql_char" value="#FORM.country_code#">,
+			<cfqueryparam cfsqltype="cf_sql_varchar" value="#FORM.account_type#">,
 			<cfqueryparam cfsqltype="cf_sql_varchar" value="#xAccountId#" null="#NOT Len(xAccountId)#">,
 			<cfqueryparam cfsqltype="cf_sql_varchar" value="#xStatus#" null="#NOT Len(xStatus)#">,
 			<cfqueryparam cfsqltype="cf_sql_varchar" value="#xType#" null="#NOT Len(xType)#">,
 			<cfqueryparam cfsqltype="cf_sql_timestamp" value="#Now()#" null="#NOT Len(xAccountId)#">,
-			<cfqueryparam cfsqltype="cf_sql_varchar" value="#Trim(FORM.payout_channel_code)#">,
+			<cfqueryparam cfsqltype="cf_sql_varchar" value="#FORM.payout_channel_code#">,
 			<cfqueryparam cfsqltype="cf_sql_varchar" value="#chName#">,
-			<cfqueryparam cfsqltype="cf_sql_varchar" value="#Trim(FORM.payout_account_number)#">,
-			<cfqueryparam cfsqltype="cf_sql_varchar" value="#Trim(FORM.payout_account_holder)#">,
+			<cfqueryparam cfsqltype="cf_sql_varchar" value="#FORM.payout_account_number#">,
+			<cfqueryparam cfsqltype="cf_sql_varchar" value="#FORM.payout_account_holder#">,
 			<cfqueryparam cfsqltype="cf_sql_char" value="#pgFormYn('enable_qris')#">,
 			<cfqueryparam cfsqltype="cf_sql_char" value="#pgFormYn('enable_ewallet')#">,
 			<cfqueryparam cfsqltype="cf_sql_char" value="#pgFormYn('enable_va')#">,

@@ -83,7 +83,15 @@ or CGI.SERVER_NAME eq "cloudims.celcom.com.my">
         
 		<div class="main_body_area fix">
 			<div class="main_body structure fix">
-				<cfif IsDefined("url.status")>
+				<cfif IsDefined("url.login") and url.login eq "Failed">
+					<cfif IsDefined("url.reason") and url.reason eq "brute">
+						<cfset message = "You have been blocked for too many attempts. Please try again after 15 minutes.">
+					<cfelse>
+						<cfset message = "Incorrect User ID, Password, or Company ID. Please try again.">
+					</cfif>
+					<h2 style="color:red;">Login Error</h2>
+					<p style="color:red; text-align:center"><cfoutput>#message#</cfoutput></p>
+				<cfelseif IsDefined("url.status")>
                		<cfif url.status EQ 'failed'>
                 		<cfset message = "Incorrect User ID or Password. Please try again.">
                     <cfelse>

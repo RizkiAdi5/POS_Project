@@ -13,11 +13,27 @@
 </cfif>
 
 <cfset REQUEST.xendit.enabledFlag = pgAppOrEnv("pg_xendit_enabled", "PG_XENDIT_ENABLED")>
+<cfif NOT Len(REQUEST.xendit.enabledFlag)>
+	<cfset REQUEST.xendit.enabledFlag = pgAppOrEnv("xendit_enabled", "XENDIT_ENABLED")>
+</cfif>
 <cfset REQUEST.xendit.secretKey = pgAppOrEnv("pg_xendit_secret_key", "PG_XENDIT_SECRET_KEY")>
+<cfif NOT Len(REQUEST.xendit.secretKey)>
+	<cfset REQUEST.xendit.secretKey = pgAppOrEnv("xendit_secret_key", "XENDIT_SECRET_KEY")>
+</cfif>
 <cfset REQUEST.xendit.publicKey = pgAppOrEnv("pg_xendit_public_key", "PG_XENDIT_PUBLIC_KEY")>
+<cfif NOT Len(REQUEST.xendit.publicKey)>
+	<cfset REQUEST.xendit.publicKey = pgAppOrEnv("xendit_public_key", "XENDIT_PUBLIC_KEY")>
+</cfif>
 <cfset REQUEST.xendit.webhookToken = pgAppOrEnv("pg_xendit_webhook_token", "PG_XENDIT_WEBHOOK_TOKEN")>
-<cfif StructKeyExists(APPLICATION, "pg_xendit_api_base_url") AND Len(Trim(APPLICATION.pg_xendit_api_base_url))>
-	<cfset REQUEST.xendit.apiBaseUrl = Trim(APPLICATION.pg_xendit_api_base_url)>
+<cfif NOT Len(REQUEST.xendit.webhookToken)>
+	<cfset REQUEST.xendit.webhookToken = pgAppOrEnv("xendit_webhook_token", "XENDIT_WEBHOOK_TOKEN")>
+</cfif>
+<cfset xenditBaseUrl = pgAppOrEnv("pg_xendit_api_base_url", "PG_XENDIT_BASE_URL")>
+<cfif NOT Len(xenditBaseUrl)>
+	<cfset xenditBaseUrl = pgAppOrEnv("xendit_base_url", "XENDIT_BASE_URL")>
+</cfif>
+<cfif Len(xenditBaseUrl)>
+	<cfset REQUEST.xendit.apiBaseUrl = Trim(xenditBaseUrl)>
 </cfif>
 
 <cfset REQUEST.xendit.isConfigured = Len(REQUEST.xendit.secretKey) GT 0>

@@ -8,6 +8,12 @@
 				General Information Setup
 			</a>
 		</li>
+
+		<li>
+			<a href="/settings/payment-gateway.cfm" target="mainFrame">
+				Payment Gateway (Xendit)
+			</a>
+		</li>
         
         <li>
 			<a href="/changetable.cfm" target="mainFrame">

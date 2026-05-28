@@ -214,7 +214,7 @@
         .drawer-body{overflow-y:auto;flex:1;padding:16px 20px;}
         .drawer-footer{padding:16px 20px;border-top:1px solid #f3f4f6;}
 
-        /* Cart item cards (Figma style) */
+        /* Cart item cards */
         .ci-card{border:1px solid #f0f0f0;border-radius:16px;padding:14px;margin-bottom:10px;}
         .ci-card:last-child{margin-bottom:0;}
         .ci-row{display:flex;gap:12px;}
@@ -304,18 +304,18 @@
 
 <cfif menuHasBill>
 <div class="bill-bar">
-    <span>Running bill: <strong>#emenuCurrSym# #numberFormat(menuBillTotal, emenuPriceFmt)#</strong></span>
-    <a href="/latest/customer/payment.cfm">Pay bill</a>
+    <cfoutput><span>Bill No: <strong>#HTMLEditFormat(SESSION.emenu_order_number)#</strong></span></cfoutput>
+    <a href="/PaymentGateway/payment.cfm">Pay bill</a>
 </div>
 </cfif>
 
 <!--- ===== CATEGORY NAV ===== --->
 <div class="cat-nav" id="catNav">
-    <button class="cat-btn active" onclick="filterCat('ALL',this)">All</button>
+    <button type="button" class="cat-btn active" onclick="filterCat('ALL',this); return false;">All</button>
     <cfoutput query="qCats">
         <cfif len(trim(qCats.category))>
-            <button class="cat-btn"
-                    onclick="filterCat('#JSStringFormat(qCats.category)#',this)">
+            <button type="button" class="cat-btn"
+                    onclick="filterCat('#JSStringFormat(qCats.category)#',this); return false;">
                 #HTMLEditFormat(qCats.category)#
             </button>
         </cfif>
@@ -360,7 +360,7 @@
                      alt="#HTMLEditFormat(qMenu.display_name)#"
                      onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
                 <div class="item-img-placeholder" style="display:none;">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                          stroke="currentColor" stroke-width="1.5" width="36" height="36" style="color:##F54900">
                         <path stroke-linecap="round" stroke-linejoin="round"
                               d="M12 8.25v-1.5m0 1.5c-1.355 0-2.697.056-4.024.166C6.845 8.51 6 9.473 6 10.608v2.513m6-4.871c1.355 0 2.697.056 4.024.166C17.155 8.51 18 9.473 18 10.608v2.513M15 12H9m6 0a3 3 0 11-6 0 3 3 0 016 0z"/>
@@ -406,12 +406,12 @@
                 </div>
                 <div class="add-row">
                     <div class="qty-ctrl" id="ctrl-#qMenu.menu_id#">
-                        <button class="qty-btn" onclick="changeQty('#qMenu.menu_id#',-1)">&minus;</button>
+                        <button type="button" class="qty-btn" onclick="changeQty('#qMenu.menu_id#',-1); return false;">&minus;</button>
                         <span class="qty-num" id="qty-#qMenu.menu_id#">1</span>
-                        <button class="qty-btn" onclick="changeQty('#qMenu.menu_id#',1)">+</button>
+                        <button type="button" class="qty-btn" onclick="changeQty('#qMenu.menu_id#',1); return false;">+</button>
                     </div>
-                    <button class="add-btn" id="addbtn-#qMenu.menu_id#"
-                            onclick="addToCart('#qMenu.menu_id#','#JSStringFormat(qMenu.display_name)#',#displayPrice#)">
+                    <button type="button" class="add-btn" id="addbtn-#qMenu.menu_id#"
+                            onclick="addToCart('#qMenu.menu_id#','#JSStringFormat(qMenu.display_name)#',#displayPrice#); return false;">
                         + Add
                     </button>
                 </div>
@@ -422,7 +422,7 @@
 </div>
 
 <!--- ===== FLOATING CART BUTTON ===== --->
-<button class="cart-fab" id="cartFab" onclick="openCart()">
+<button type="button" class="cart-fab" id="cartFab" onclick="openCart(); return false;">
     <div class="cart-fab-left">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
              stroke="currentColor" stroke-width="2" width="22" height="22">
@@ -435,12 +435,12 @@
 </button>
 
 <!--- ===== CART DRAWER ===== --->
-<div class="drawer-overlay" id="drawerOverlay" onclick="closeCart()"></div>
+<div class="drawer-overlay" id="drawerOverlay" onclick="closeCart(); return false;"></div>
 <div class="drawer" id="cartDrawer">
     <div class="drawer-handle"></div>
     <div class="drawer-header">
         <span class="drawer-title">Your Order</span>
-        <button class="drawer-close" onclick="closeCart()">&times;</button>
+        <button type="button" class="drawer-close" onclick="closeCart(); return false;">&times;</button>
     </div>
     <div class="drawer-body" id="drawerBody">
         <div class="empty-cart" id="emptyCart">Your cart is empty</div>
@@ -449,8 +449,8 @@
         <div class="total-row"><span>Subtotal</span><span id="drawerSubtotal">#emenuCurrSym# 0</span></div>
         <div class="total-row"><span>Tax (10%)</span><span id="drawerTax">#emenuCurrSym# 0</span></div>
         <div class="total-row grand"><span>Total</span><span id="drawerTotal">#emenuCurrSym# 0</span></div>
-        <button class="place-order-btn" id="placeOrderBtn"
-                onclick="placeOrder()" disabled>Place Order</button>
+        <button type="button" class="place-order-btn" id="placeOrderBtn"
+                onclick="placeOrder(); return false;" disabled>Place Order</button>
     </div>
 </div>
 

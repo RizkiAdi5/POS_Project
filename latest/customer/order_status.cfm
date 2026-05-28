@@ -38,6 +38,24 @@
 <cfset hasItems       = qItems.recordCount gt 0>
 <cfset latestPay      = emenuGetLatestPayment(dts, orderId)>
 <cfset payPendingCash = (latestPay.payment_method eq "cash" AND listFindNoCase("pending,processing", latestPay.status))>
+<cfquery name="qLatestPayId" datasource="#dts#">
+    SELECT payment_id
+    FROM app_payments
+    WHERE order_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#orderId#">
+    ORDER BY payment_id DESC
+    LIMIT 1
+</cfquery>
+<cfset latestPaymentId = qLatestPayId.recordCount ? Val(qLatestPayId.payment_id) : 0>
+<cfset payTimelineStatus = "UNPAID">
+<cfif isPaid>
+    <cfset payTimelineStatus = "PAID">
+<cfelseif payPendingCash>
+    <cfset payTimelineStatus = "PENDING">
+<cfelseif listFindNoCase("processing,pending", latestPay.status)>
+    <cfset payTimelineStatus = "PENDING">
+<cfelseif listFindNoCase("failed,expired", latestPay.status)>
+    <cfset payTimelineStatus = UCase(latestPay.status)>
+</cfif>
 <cfset statusMsg      = structKeyExists(url, "msg") ? trim(url.msg) : "">
 <!DOCTYPE html>
 <html lang="en">
@@ -140,6 +158,13 @@
         .info-box{background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;
                  padding:12px 14px;font-size:13px;color:#9a3412;margin-bottom:14px;line-height:1.45;}
         .countdown{text-align:center;font-size:12px;color:#9ca3af;margin:12px 0;}
+        .payline-card{background:#fff;border-radius:20px;padding:18px;margin-bottom:16px;
+                      box-shadow:0 1px 4px rgba(0,0,0,.06);border:1px solid #f0f0f0;}
+        .payline-title{font-size:15px;font-weight:700;color:#111;margin-bottom:12px;}
+        .payline-steps{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700}
+        .payline-step{padding:6px 10px;border-radius:999px;background:#f3f4f6;color:#6b7280}
+        .payline-step.active{background:#fff3ee;color:#F54900}
+        .payline-step.done{background:#dcfce7;color:#15803d}
     </style>
 </head>
 <body>
@@ -188,6 +213,15 @@
         </svg>
         <h3>Your Order is Ready!</h3>
         <p>Our staff will bring it to #HTMLEditFormat(tableDisplay)# shortly.</p>
+    </div>
+
+    <div class="payline-card">
+        <div class="payline-title">Status Pembayaran</div>
+        <div class="payline-steps">
+            <span class="payline-step" id="payStep0">Menunggu Pembayaran</span>
+            <span class="payline-step" id="payStep1">Pembayaran Diterima</span>
+            <span class="payline-step" id="payStep2">Diproses</span>
+        </div>
     </div>
 
     <!--- Progress stepper --->
@@ -257,7 +291,7 @@
         <a href="/latest/customer/menu.cfm" class="btn-more">Order More</a>
     </cfif>
     <cfif hasItems AND NOT isPaid AND NOT payPendingCash>
-        <a href="/latest/customer/payment.cfm" class="btn-pay">Pay Bill</a>
+        <a href="/PaymentGateway/payment.cfm" class="btn-pay">Pay Bill</a>
     </cfif>
     <cfif SESSION.emenu_loggedin eq "Yes">
     <a href="/latest/customer/profile.cfm" class="btn-profile">View Points &amp; Profile</a>
@@ -321,6 +355,8 @@ function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
 /* ── Initial render ── */
 <cfoutput>
 var initialStatus = '#lCase(trim(qOrder.status))#';
+var initialPaymentTimeline = '#JSStringFormat(payTimelineStatus)#';
+var latestPaymentId = #latestPaymentId#;
 var initialItems  = [
     <cfset sep = "">
     <cfloop query="qItems">
@@ -330,16 +366,42 @@ var initialItems  = [
 ];
 </cfoutput>
 renderStepper(getStepFromStatus(initialStatus, initialItems));
+renderPaymentTimeline(initialPaymentTimeline);
 
 /* ── Polling every 15 seconds ── */
 var countEl  = document.getElementById('countNum');
-var countdown = 15;
+var countdown = 5;
+var paymentPollingStopped = false;
+
+function renderPaymentTimeline(st) {
+    var x = String(st || '').toUpperCase();
+    var s0 = document.getElementById('payStep0');
+    var s1 = document.getElementById('payStep1');
+    var s2 = document.getElementById('payStep2');
+    [s0, s1, s2].forEach(function(el){ el.className = 'payline-step'; });
+    s0.className = 'payline-step active';
+    if (x === 'PAID') {
+        s0.className = 'payline-step done';
+        s1.className = 'payline-step done';
+        s2.className = 'payline-step active';
+        paymentPollingStopped = true;
+        return;
+    }
+    if (x === 'PENDING' || x === 'PROCESSING') {
+        s1.className = 'payline-step active';
+        return;
+    }
+    if (x === 'FAILED' || x === 'EXPIRED') {
+        s0.textContent = 'Pembayaran ' + x.toLowerCase();
+        paymentPollingStopped = true;
+    }
+}
 
 setInterval(function(){
     countdown--;
     countEl.textContent = countdown;
     if (countdown <= 0) {
-        countdown = 15;
+        countdown = 5;
         fetch('/latest/customer/order_status_json.cfm', { credentials: 'include' })
             .then(function(r){ return r.json(); })
             .then(function(data){
@@ -348,6 +410,17 @@ setInterval(function(){
                 renderItems(data.items);
             })
             .catch(function(){});
+
+        if (latestPaymentId > 0 && !paymentPollingStopped) {
+            fetch('/PaymentGateway/api/payment-status.cfm?payment_id=' + latestPaymentId, { credentials: 'same-origin' })
+                .then(function(r){ return r.json(); })
+                .then(function(res){
+                    if (!res || res.success !== true || !res.data) { return; }
+                    var st = String(res.data.status || '').toUpperCase();
+                    renderPaymentTimeline(st);
+                })
+                .catch(function(){});
+        }
     }
 }, 1000);
 </script>

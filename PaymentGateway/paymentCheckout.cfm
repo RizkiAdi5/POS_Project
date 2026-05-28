@@ -1,9 +1,10 @@
 <!---
-    /latest/customer/paymentCheckout.cfm — Show QR / VA / wait for payment.
+    /PaymentGateway/paymentCheckout.cfm — Show QR / VA / wait for payment.
 --->
-<cfinclude template="../../application.cfm">
-<cfinclude template="inc_emenu_order.cfm">
-<cfinclude template="inc_xendit_pay.cfm">
+<cfinclude template="/application.cfm">
+<cfinclude template="/latest/customer/inc_emenu_order.cfm">
+<cfinclude template="/latest/customer/inc_emenu_currency.cfm">
+<cfinclude template="/latest/customer/inc_xendit_pay.cfm">
 <cfsetting showdebugoutput="false">
 
 <cfparam name="url.payment_id" default="0">
@@ -12,7 +13,7 @@
     <cfset paymentId = val(SESSION.emenu_payment_id)>
 </cfif>
 <cfif paymentId lte 0>
-    <cflocation url="/latest/customer/payment.cfm" addtoken="false">
+    <cflocation url="/PaymentGateway/payment.cfm" addtoken="false">
 </cfif>
 
 <cfset orderId = val(SESSION.emenu_order_id)>
@@ -25,13 +26,12 @@
     LIMIT 1
 </cfquery>
 <cfif qPay.recordCount eq 0>
-    <cflocation url="/latest/customer/payment.cfm" addtoken="false">
+    <cflocation url="/PaymentGateway/payment.cfm" addtoken="false">
 </cfif>
 <cfif emenuOrderIsPaid(dts, orderId, qPay.order_status) OR lCase(qPay.status) eq "success">
-    <cflocation url="/latest/customer/payment_done.cfm?method=#urlEncodedFormat(qPay.payment_method)#" addtoken="false">
+    <cflocation url="/PaymentGateway/payment_done.cfm?method=#urlEncodedFormat(qPay.payment_method)#" addtoken="false">
 </cfif>
 
-<cfset pgProf = emenuPgProfile(dts)>
 <cfset payData = structNew()>
 <cfset actions = {qrString="", vaNumber="", redirectUrl=""}>
 <cftry>
@@ -43,6 +43,8 @@
 </cftry>
 
 <cfset methodLabel = uCase(qPay.payment_method)>
+<cfparam name="REQUEST.emenu_currency_symbol" default="RM">
+<cfparam name="REQUEST.emenu_currency_decimals" default="2">
 <cfset emenuCurrSym = REQUEST.emenu_currency_symbol>
 <cfset emenuPriceFmt = REQUEST.emenu_currency_decimals eq 0 ? "9" : "9.00">
 <!DOCTYPE html>
@@ -66,6 +68,10 @@
         .spinner{display:inline-block;width:18px;height:18px;border:3px solid #fde8d8;border-top-color:#F54900;border-radius:50%;animation:spin .8s linear infinite;vertical-align:middle;margin-right:6px;}
         @keyframes spin{to{transform:rotate(360deg);}}
         .btn{display:inline-block;margin-top:16px;padding:12px 20px;border-radius:12px;background:#F54900;color:#fff;text-decoration:none;font-weight:700;font-size:14px;}
+        .btn-secondary{background:#6b7280}
+        .btn-outline{background:#fff;color:#111;border:1px solid #d1d5db}
+        .btn-wrap{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+        .copy-note{font-size:12px;color:#6b7280;margin-top:8px}
     </style>
 </head>
 <body>
@@ -77,41 +83,80 @@
 
     <cfif len(actions.qrString)>
         <div class="qr">
-            <img src="https://api.qrserver.com/v1/create-qr-code/?size=260x260&amp;data=#urlEncodedFormat(actions.qrString)#" alt="QRIS">
+            <img id="qrisImage" src="https://api.qrserver.com/v1/create-qr-code/?size=260x260&amp;data=#urlEncodedFormat(actions.qrString)#" alt="QRIS">
         </div>
         <p class="hint">Scan this QR code with your banking or e-wallet app, then wait for confirmation.</p>
+        <div class="btn-wrap">
+            <a class="btn btn-outline" id="btnDownloadQr" href="https://api.qrserver.com/v1/create-qr-code/?size=800x800&amp;data=#urlEncodedFormat(actions.qrString)#" download="qris-payment-#paymentId#.png">Download QR</a>
+        </div>
     <cfelseif len(actions.vaNumber)>
         <div class="va-box">
-            <div style="font-size:12px;color:#6b7280;margin-bottom:6px;">Virtual Account Number</div>
-            <div class="va-num">#HTMLEditFormat(actions.vaNumber)#</div>
+            <div style="font-size:12px;color:##6b7280;margin-bottom:6px;">Virtual Account Number</div>
+            <div class="va-num" id="vaNumberText">#HTMLEditFormat(actions.vaNumber)#</div>
         </div>
+        <div class="btn-wrap">
+            <button class="btn btn-outline" id="btnCopyVa" type="button">Copy Nomor VA</button>
+        </div>
+        <div class="copy-note" id="copyNote"></div>
         <p class="hint">Transfer the exact amount to this virtual account. Payment is confirmed automatically.</p>
+    <cfelseif len(actions.redirectUrl)>
+        <p class="hint">Lanjutkan pembayaran di halaman provider e-wallet.</p>
+        <div class="btn-wrap">
+            <a href="#HTMLEditFormat(actions.redirectUrl)#" target="_blank" rel="noopener" class="btn">Bayar Sekarang</a>
+        </div>
     <cfelse>
         <p class="hint">Complete payment in the window that opened. If nothing opened, go back and try again.</p>
     </cfif>
 
     <div class="status" id="payStatus"><span class="spinner"></span> Waiting for payment&hellip;</div>
-    <a href="/latest/customer/order_status.cfm" class="btn" style="background:#6b7280;">Back to order</a>
+    <div class="btn-wrap">
+        <a href="/latest/customer/order_status.cfm" class="btn btn-secondary">Back to order</a>
+    </div>
 </div>
 </cfoutput>
 <script>
 (function () {
     var paymentId = <cfoutput>#paymentId#</cfoutput>;
+    var payStatusEl = document.getElementById('payStatus');
+
+    var copyBtn = document.getElementById('btnCopyVa');
+    if (copyBtn) {
+        copyBtn.addEventListener('click', function () {
+            var v = document.getElementById('vaNumberText');
+            if (!v) { return; }
+            var txt = (v.textContent || '').trim();
+            if (!txt) { return; }
+            var ta = document.createElement('textarea');
+            ta.value = txt;
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            var note = document.getElementById('copyNote');
+            if (note) { note.textContent = 'Nomor VA disalin.'; }
+        });
+    }
+
     var poll = function () {
-        fetch('/latest/customer/paymentStatus.cfm?payment_id=' + paymentId, { credentials: 'same-origin' })
+        fetch('/PaymentGateway/api/payment-status.cfm?payment_id=' + paymentId, { credentials: 'same-origin' })
             .then(function (r) { return r.json(); })
             .then(function (d) {
-                if (d.paid) {
-                    location.href = '/latest/customer/payment_done.cfm?method=' + encodeURIComponent(d.method || 'online');
+                if (!d || d.success !== true || !d.data) {
+                    setTimeout(poll, 5000);
                     return;
                 }
-                if (d.failed) {
-                    document.getElementById('payStatus').textContent = 'Payment failed. Please try again.';
+                var st = String(d.data.status || '').toUpperCase();
+                if (st === 'PAID') {
+                    location.href = '/PaymentGateway/payment_done.cfm?method=' + encodeURIComponent((d.data.method || 'online').toLowerCase());
                     return;
                 }
-                setTimeout(poll, 4000);
+                if (st === 'FAILED' || st === 'EXPIRED') {
+                    payStatusEl.textContent = 'Payment ' + st.toLowerCase() + '. Please try again.';
+                    return;
+                }
+                setTimeout(poll, 5000);
             })
-            .catch(function () { setTimeout(poll, 6000); });
+            .catch(function () { setTimeout(poll, 5000); });
     };
     poll();
 })();

@@ -10,7 +10,7 @@
 		</li>
         
 		<li>
-			<a href="/PaymentGateway/paymentProfile.cfm" target="mainFrame">
+			<a href="/settings/payment-gateway.cfm" target="mainFrame">
 				Payment Gateway (Xendit)
 			</a>
 		</li>

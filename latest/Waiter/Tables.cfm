@@ -313,7 +313,7 @@
             SELECT o.order_id, o.order_number, o.table_id, t.table_number, o.status, o.total_amount, o.created_at
             FROM app_orders o
             LEFT JOIN app_tables t ON o.table_id = t.table_id
-            WHERE o.status NOT IN ('completed','cancelled','paid')
+            WHERE o.status NOT IN ('completed','cancelled')
             ORDER BY o.table_id ASC, o.created_at DESC
         </cfquery>
 
@@ -402,15 +402,7 @@
             </cfif>
 
             <cfif hasOrder>
-                <cfif listFindNoCase("online,qris,ewallet,va,card", payMethod) AND (payStatus eq "success")>
-                    <cfset payTag = "paid-online">
-                <cfelseif (payMethod eq "cash") AND (payStatus eq "success")>
-                    <cfset payTag = "paid-cash">
-                <cfelseif (payMethod eq "cash") AND listFindNoCase("pending,processing", payStatus)>
-                    <cfset payTag = "pending-cash">
-                <cfelse>
-                    <cfset payTag = "unpaid">
-                </cfif>
+                <cfset payTag = emenuPaymentTag(payMethod, payStatus)>
             </cfif>
 
             <cfset itemCount = 0>

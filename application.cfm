@@ -4,8 +4,19 @@ Program Name : application.cfm
 Program : To SET Application informations to all pages
 ************************************************************************
 --->
-<cfapplication name="webordersystem" sessionmanagement="yes" clientmanagement="no" sessiontimeout="#createTimespan(0,12,0,0)#">
-
+<cfif NOT structKeyExists(REQUEST, "_pos_app_bootstrapped")>
+<cfset REQUEST._pos_app_bootstrapped = true>
+<!---
+	Deployment (edit per installation — all settings here, no separate config file):
+	- appScopeName: cfapplication name; use a unique value if several apps share one engine.
+	- defaultDts: tenant Lucee/Railo datasource. Staff login overwrites `dts` from users;
+	  customer e-menu needs this set before go-live. Leave "" for staff-only installs.
+--->
+<cfset appScopeName = "webordersystem">
+<cfset defaultDts = "">
+<!--- Xendit: prefer PaymentGateway/pgConfig.cfm (copy from pgConfig.example.cfm). Restart app pool after key change. --->
+<cfapplication name="#appScopeName#" sessionmanagement="yes" clientmanagement="no" sessiontimeout="#createTimespan(0,12,0,0)#">
+<cfset dts = trim(defaultDts)>
 <!--- ================================================================
   CUSTOMER E-MENU ROUTE GUARD
   If the request path is under /latest/customer/ we skip the staff
@@ -15,9 +26,78 @@ Program : To SET Application informations to all pages
 <cfset REQUEST.isCustomerRoute = (
     findNoCase("/latest/customer/", CGI.SCRIPT_NAME) gt 0
     OR findNoCase("/latest/customer/", CGI.PATH_INFO) gt 0
+    OR findNoCase("/PaymentGateway/payment", CGI.SCRIPT_NAME) gt 0
+    OR findNoCase("/PaymentGateway/payment", CGI.PATH_INFO) gt 0
 )>
 
 <cfif REQUEST.isCustomerRoute>
+    <cfset resolvedDts = "">
+    <cfset dtsCandidate = "">
+    <cfset qDtsCheck = "">
+    <cfset qTenantList = "">
+    <cfset qTokenHit = "">
+    <cfset qrToken = "">
+
+    <!--- Session tenant (preferred) --->
+    <cfif structKeyExists(SESSION, "emenu_dts") AND len(trim(toString(SESSION.emenu_dts)))>
+        <cfset resolvedDts = trim(toString(SESSION.emenu_dts))>
+    </cfif>
+
+    <!--- Explicit db from URL/form link --->
+    <cfif NOT len(resolvedDts) AND structKeyExists(URL, "db")>
+        <cfset dtsCandidate = trim(toString(URL.db))>
+        <cfif reFind("^[A-Za-z0-9_]+$", dtsCandidate)><cfset resolvedDts = dtsCandidate></cfif>
+    </cfif>
+    <cfif NOT len(resolvedDts) AND structKeyExists(FORM, "db")>
+        <cfset dtsCandidate = trim(toString(FORM.db))>
+        <cfif reFind("^[A-Za-z0-9_]+$", dtsCandidate)><cfset resolvedDts = dtsCandidate></cfif>
+    </cfif>
+
+    <!--- Useful fallback when customer flow starts from staff session --->
+    <cfif NOT len(resolvedDts) AND structKeyExists(SESSION, "usercty") AND len(trim(toString(SESSION.usercty)))>
+        <cfset dtsCandidate = trim(toString(SESSION.usercty))>
+        <cfif reFind("^[A-Za-z0-9_]+$", dtsCandidate)><cfset resolvedDts = dtsCandidate></cfif>
+    </cfif>
+
+    <!--- Resolve by QR token across known tenant datasources --->
+    <cfif NOT len(resolvedDts) AND structKeyExists(URL, "t") AND len(trim(toString(URL.t)))>
+        <cfset qrToken = trim(toString(URL.t))>
+        <cftry>
+            <cfquery name="qTenantList" datasource="main">
+                SELECT DISTINCT userdept
+                FROM users
+                WHERE userdept IS NOT NULL
+                  AND TRIM(userdept) <> ''
+                ORDER BY userdept
+            </cfquery>
+            <cfloop query="qTenantList">
+                <cfset dtsCandidate = trim(toString(qTenantList.userdept))>
+                <cfif reFind("^[A-Za-z0-9_]+$", dtsCandidate)>
+                    <cftry>
+                        <cfquery name="qTokenHit" datasource="#dtsCandidate#">
+                            SELECT COUNT(*) AS row_count
+                            FROM app_tables
+                            WHERE qr_token = <cfqueryparam cfsqltype="cf_sql_varchar" value="#qrToken#">
+                            LIMIT 1
+                        </cfquery>
+                        <cfif val(qTokenHit.row_count) gt 0>
+                            <cfset resolvedDts = dtsCandidate>
+                            <cfbreak>
+                        </cfif>
+                        <cfcatch type="any"></cfcatch>
+                    </cftry>
+                </cfif>
+            </cfloop>
+            <cfcatch type="any"></cfcatch>
+        </cftry>
+    </cfif>
+
+    <!--- Final deployment fallback --->
+    <cfif NOT len(resolvedDts)>
+        <cfset dtsCandidate = trim(defaultDts)>
+        <cfif reFind("^[A-Za-z0-9_]+$", dtsCandidate)><cfset resolvedDts = dtsCandidate></cfif>
+    </cfif>
+    <cfset dts = resolvedDts>
 
     <!--- Customer session defaults --->
     <cfparam name="SESSION.emenu_custno"      default="">
@@ -31,8 +111,22 @@ Program : To SET Application informations to all pages
     <cfparam name="SESSION.emenu_order_number" default="">
     <cfparam name="SESSION.emenu_cart_locked" default="false">
     <cfparam name="SESSION.emenu_is_guest"    default="No">
-    <!--- dts is still needed by any shared CFCs / queries --->
-    <cfset dts = "pos_i">
+    <cfparam name="SESSION.emenu_dts"         default="">
+    <cfif len(dts)><cfset SESSION.emenu_dts = dts></cfif>
+    <cfif NOT len(dts)>
+        <h2>Customer datasource not resolved. Please regenerate QR from waiter dashboard.</h2>
+        <cfabort>
+    </cfif>
+    <cftry>
+        <cfinclude template="/latest/customer/inc_emenu_currency.cfm">
+        <cfcatch type="any"></cfcatch>
+    </cftry>
+    <cfparam name="REQUEST.emenu_currency_code" default="MYR">
+    <cfparam name="REQUEST.emenu_currency_symbol" default="RM">
+    <cfparam name="REQUEST.emenu_currency_decimals" default="2">
+    <cfset SESSION.emenu_currency_code = REQUEST.emenu_currency_code>
+    <cfset SESSION.emenu_currency_symbol = REQUEST.emenu_currency_symbol>
+    <cfset SESSION.emenu_currency_decimals = REQUEST.emenu_currency_decimals>
 
 <cfelse>
 
@@ -72,11 +166,11 @@ Program : To SET Application informations to all pages
 <cfset Hserver = "smtp.mynetiquette.com">
 <cfset HVariable1 = "">
 <cfset HDir = getHQstatus.userDirectory>
-<cfset HRootPath = "C:\railo\tomcat\webapps\ROOT">
+<cfset HRootPath = "C:\inetpub\wwwroot\POS\POS_Project">
 <cfset Hlinkams = getHQstatus.linktoams>
 <!--- ADD ON 300908, THE USER LOCATION --->
 <cfset Huserloc = getHQstatus.location>
-<cfset hlang = ""<!--- getHQstatus.lang--->>
+<cfset hlang = ""><!--- optional: getHQstatus.lang --->
 <!--- ADD ON 110211, THE USER GROUP --->
 <cfset Hitemgroup = getHQstatus.itemgroup>
 
@@ -168,4 +262,5 @@ SELECT prf from gsetup
 --->
 
 </cfif><!--- end staff-only block --->
+</cfif><!--- end request bootstrap guard --->
 </cfsilent>
