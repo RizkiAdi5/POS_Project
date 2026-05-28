@@ -9,6 +9,11 @@
 			</a>
 		</li>
         
+		<li>
+			<a href="/PaymentGateway/paymentProfile.cfm" target="mainFrame">
+				Payment Gateway (Xendit)
+			</a>
+		</li>
         <li>
 			<a href="/changetable.cfm" target="mainFrame">
 				Update Table

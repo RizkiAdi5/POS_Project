@@ -37,8 +37,16 @@
     <cfelse>
         <div class="icon">&#9989;</div>
         <h1>Payment successful</h1>
-        <p>Thank you! Your online payment for <strong>#HTMLEditFormat(tableDisplay)#</strong> is complete.
-        Staff can clear the table and start a new QR session for the next guests.</p>
+        <p>Thank you! Your
+        <cfswitch expression="#method#">
+            <cfcase value="qris">QRIS</cfcase>
+            <cfcase value="ewallet">e-wallet</cfcase>
+            <cfcase value="va">virtual account</cfcase>
+            <cfcase value="card">card</cfcase>
+            <cfdefaultcase>online</cfdefaultcase>
+        </cfswitch>
+        payment for <strong>#HTMLEditFormat(tableDisplay)#</strong> is complete.
+        Staff can clear the table when your visit is finished.</p>
     </cfif>
     <a href="/latest/customer/order_status.cfm" class="btn">View order status</a>
 </div>

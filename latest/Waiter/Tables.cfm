@@ -402,7 +402,7 @@
             </cfif>
 
             <cfif hasOrder>
-                <cfif (payMethod eq "online") AND (payStatus eq "success")>
+                <cfif listFindNoCase("online,qris,ewallet,va,card", payMethod) AND (payStatus eq "success")>
                     <cfset payTag = "paid-online">
                 <cfelseif (payMethod eq "cash") AND (payStatus eq "success")>
                     <cfset payTag = "paid-cash">
