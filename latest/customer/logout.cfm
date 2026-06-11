@@ -9,8 +9,8 @@
 <cfset SESSION.emenu_email        = "">
 <cfset SESSION.emenu_points       = 0>
 <cfset SESSION.emenu_tier         = "">
-<cfset SESSION.emenu_is_guest     = "No">
+<cfset SESSION.emenu_is_guest     = "Yes">
 <cfset SESSION.emenu_order_id     = "">
-<!--- Keep table context so QR doesn't need to be scanned again --->
+<!--- Keep table context — customer returns to menu as guest --->
 
-<cflocation url="/latest/customer/account_choice.cfm" addtoken="false">
+<cflocation url="/latest/customer/menu.cfm" addtoken="false">

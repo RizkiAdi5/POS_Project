@@ -5,7 +5,7 @@
 <cfinclude template="../../application.cfm">
 
 <cfif SESSION.emenu_loggedin neq "Yes" OR NOT len(trim(SESSION.emenu_custno))>
-    <cflocation url="/latest/customer/account_choice.cfm" addtoken="false">
+    <cflocation url="/latest/customer/menu.cfm" addtoken="false">
 </cfif>
 
 <cftry>

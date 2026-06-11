@@ -5,8 +5,9 @@
 --->
 <cfinclude template="../../application.cfm">
 <cfinclude template="inc_emenu_order.cfm">
+<cfinclude template="inc_emenu_currency.cfm">
 <cfset emenuCurrSym = REQUEST.emenu_currency_symbol>
-<cfset emenuPriceFmt = REQUEST.emenu_currency_decimals eq 0 ? "9" : "9.00">
+<cfset emenuPriceFmt = REQUEST.emenu_currency_decimals eq 0 ? "9,990" : "9,990.00">
 
 <cfif NOT len(trim(SESSION.emenu_table_id))>
     <cflocation url="/latest/customer/qr_error.cfm" addtoken="false">
