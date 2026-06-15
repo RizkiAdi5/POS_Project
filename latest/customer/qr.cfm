@@ -86,8 +86,11 @@
 
 <cfset emenuBindCustomerSession(qTable, bindOrderId, bindOrderNum, token)>
 
-<cfif SESSION.emenu_loggedin eq "Yes" AND len(trim(SESSION.emenu_custno))>
-    <cflocation url="/latest/customer/menu.cfm" addtoken="false">
-<cfelse>
-    <cflocation url="/latest/customer/welcome.cfm" addtoken="false">
+<!--- Default to guest — customer can opt in to loyalty login from the menu page --->
+<cfif NOT (SESSION.emenu_loggedin eq "Yes" AND len(trim(SESSION.emenu_custno)))>
+    <cfset SESSION.emenu_is_guest = "Yes">
+    <cfset SESSION.emenu_loggedin = "No">
+    <cfset SESSION.emenu_custno   = "">
+    <cfset SESSION.emenu_name     = "">
 </cfif>
+<cflocation url="/latest/customer/menu.cfm" addtoken="false">

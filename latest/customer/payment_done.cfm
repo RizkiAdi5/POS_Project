@@ -6,9 +6,27 @@
 <cfsetting showdebugoutput="false">
 
 <cfparam name="url.method" default="online">
-<cfset method = lCase(trim(url.method))>
+<cfset method       = lCase(trim(url.method))>
 <cfset tableDisplay = len(trim(SESSION.emenu_table_number)) ? "Table " & SESSION.emenu_table_number : "Your Table">
-<cfset orderNum = len(trim(SESSION.emenu_order_number)) ? SESSION.emenu_order_number : "">
+<cfset orderNum     = len(trim(SESSION.emenu_order_number)) ? SESSION.emenu_order_number : "">
+
+<!--- For Xendit: check DB to see if webhook already confirmed payment --->
+<cfset xenditConfirmed = false>
+<cfif method eq "xendit" AND val(SESSION.emenu_order_id) gt 0>
+    <cfquery name="qXenditCheck" datasource="#dts#">
+        SELECT o.status
+        FROM   app_orders o
+        JOIN   app_payments p ON p.order_id = o.order_id
+        WHERE  o.order_id    = <cfqueryparam cfsqltype="cf_sql_integer" value="#val(SESSION.emenu_order_id)#">
+          AND  p.gateway_name = <cfqueryparam cfsqltype="cf_sql_varchar" value="xendit">
+        ORDER  BY p.payment_id DESC
+        LIMIT  1
+    </cfquery>
+    <cfif qXenditCheck.recordCount AND qXenditCheck.status eq "paid">
+        <cfset xenditConfirmed = true>
+        <cfset SESSION.emenu_cart_locked = true>
+    </cfif>
+</cfif>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -34,11 +52,20 @@
         <p>Please visit the cashier for <strong>#HTMLEditFormat(tableDisplay)#</strong>
         <cfif len(orderNum)> (order #HTMLEditFormat(orderNum)#)</cfif>.
         Staff will confirm your payment on the waiter dashboard.</p>
+    <cfelseif method eq "xendit" AND xenditConfirmed>
+        <div class="icon">&#9989;</div>
+        <h1>Payment confirmed!</h1>
+        <p>Your Xendit payment for <strong>#HTMLEditFormat(tableDisplay)#</strong> has been received.
+        Thank you!</p>
+    <cfelseif method eq "xendit">
+        <div class="icon">&#9203;</div>
+        <h1>Payment processing&hellip;</h1>
+        <p>Your payment is being confirmed by Xendit. This usually takes a few seconds.
+        Check your order status below &mdash; it will update once confirmed.</p>
     <cfelse>
         <div class="icon">&#9989;</div>
         <h1>Payment successful</h1>
-        <p>Thank you! Your online payment for <strong>#HTMLEditFormat(tableDisplay)#</strong> is complete.
-        Staff can clear the table and start a new QR session for the next guests.</p>
+        <p>Thank you! Your payment for <strong>#HTMLEditFormat(tableDisplay)#</strong> is complete.</p>
     </cfif>
     <a href="/latest/customer/order_status.cfm" class="btn">View order status</a>
 </div>

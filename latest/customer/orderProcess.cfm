@@ -11,19 +11,9 @@
 <cfif NOT len(trim(SESSION.emenu_table_id))>
     <cflocation url="/latest/customer/qr_error.cfm" addtoken="false">
 </cfif>
-<cfif val(SESSION.emenu_order_id) lte 0>
-    <cflocation url="/latest/customer/qr_error.cfm" addtoken="false">
+<cfif SESSION.emenu_cart_locked eq true OR val(SESSION.emenu_order_id) lte 0>
+    <cflocation url="/latest/customer/menu.cfm?msg=order_already_submitted" addtoken="false">
 </cfif>
-
-<cfquery name="qOrdGuard" datasource="#dts#">
-    SELECT status FROM app_orders
-    WHERE order_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#val(SESSION.emenu_order_id)#">
-    LIMIT 1
-</cfquery>
-<cfif qOrdGuard.recordCount eq 0 OR NOT emenuCustomerCanAddItems(dts, val(SESSION.emenu_order_id), qOrdGuard.status)>
-    <cflocation url="/latest/customer/order_status.cfm?msg=order_closed" addtoken="false">
-</cfif>
-
 <cfif CGI.REQUEST_METHOD neq "POST" OR NOT len(trim(FORM.cart_json))>
     <cflocation url="/latest/customer/menu.cfm" addtoken="false">
 </cfif>
@@ -64,23 +54,36 @@
     <cfcatch type="any"></cfcatch>
 </cftry>
 
+<!--- ── Calculate totals using DB prices (never trust client price) ── --->
+<cfset subtotal = 0>
+<cfloop array="#cartItems#" index="ci">
+    <cfset mid = toString(val(ci.id))>
+    <cfset dbPrice = structKeyExists(dbPrices, mid) ? dbPrices[mid].price : val(ci.price)>
+    <cfset subtotal = subtotal + (dbPrice * val(ci.qty))>
+</cfloop>
+<cfset taxAmt    = round(subtotal * 0.10 * 100) / 100>
+<cfset totalAmt  = subtotal + taxAmt>
+
 <!--- Use session order created when waiter generated QR --->
 <cfset newOrderId = val(SESSION.emenu_order_id)>
 <cfset orderNumber = len(trim(SESSION.emenu_order_number)) ? trim(SESSION.emenu_order_number) : "">
+
+<cfif newOrderId lte 0>
+    <cflocation url="/latest/customer/qr_error.cfm" addtoken="false">
+</cfif>
 
 <!--- Loyalty info --->
 <cfset isLoyalty = (SESSION.emenu_loggedin eq "Yes" AND len(trim(SESSION.emenu_custno)))>
 <cfset custno    = isLoyalty ? trim(SESSION.emenu_custno) : "">
 
-<!--- Update session order (customer + status; totals recalculated after items) --->
+<!--- ── UPDATE session app_orders (placeholder -> real cart) ── --->
 <cftry>
     <cfquery datasource="#dts#">
         UPDATE app_orders
-        SET custno = <cfif len(custno)>
-                <cfqueryparam cfsqltype="cf_sql_varchar" value="#custno#">
-            <cfelse>
-                NULL
-            </cfif>,
+        SET custno = <cfqueryparam cfsqltype="cf_sql_varchar" value="#len(trim(custno)) ? trim(custno) : '-'#">,
+            subtotal = <cfqueryparam cfsqltype="cf_sql_decimal" value="#subtotal#">,
+            tax_amount = <cfqueryparam cfsqltype="cf_sql_decimal" value="#taxAmt#">,
+            total_amount = <cfqueryparam cfsqltype="cf_sql_decimal" value="#totalAmt#">,
             status = <cfqueryparam cfsqltype="cf_sql_varchar" value="in progress">,
             order_type = <cfqueryparam cfsqltype="cf_sql_varchar" value="dine">
         WHERE order_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#newOrderId#">
@@ -101,7 +104,7 @@
     <cfif qOrdNum.recordCount><cfset orderNumber = trim(qOrdNum.order_number)></cfif>
 </cfif>
 
-<!--- Insert app_order_items (one per cart line) --->
+<!--- ── INSERT app_order_items (one per cart line) ── --->
 <cfloop array="#cartItems#" index="ci">
     <cfset ciMenuId  = val(ci.id)>
     <cfset ciMidKey  = toString(ciMenuId)>
@@ -139,12 +142,12 @@
     </cftry>
 </cfloop>
 
-<!--- Link order to table; mark Occupied when line items exist --->
+<!--- ── Link order to table; status Occupied only when line items exist (else Available) ── --->
 <cftry>
     <cfquery datasource="#dts#">
         UPDATE app_tables
         SET current_order_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#newOrderId#">
-        WHERE table_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#val(SESSION.emenu_table_id)#">
+        WHERE table_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#SESSION.emenu_table_id#">
     </cfquery>
     <cfset emenuSyncTableOccupiedForOrder(dts, val(SESSION.emenu_table_id), newOrderId)>
     <cfcatch type="any"></cfcatch>
@@ -168,13 +171,13 @@
     </cfif>
 </cfif>
 
-<!--- Store in session for confirm page --->
-<cfset SESSION.emenu_order_id      = newOrderId>
-<cfset SESSION.emenu_order_number  = orderNumber>
-<cfset SESSION.emenu_cart_locked   = false>
-<cfset SESSION.emenu_order_total   = totalAmt>
-<cfset SESSION.emenu_order_subtot  = subtotal>
-<cfset SESSION.emenu_order_tax     = taxAmt>
-<cfset SESSION.emenu_points_earned = pointsEarned>
+<!--- ── Store in session for confirm page (lock cart — one checkout per QR session) ── --->
+<cfset SESSION.emenu_order_id     = newOrderId>
+<cfset SESSION.emenu_order_number = orderNumber>
+<cfset SESSION.emenu_cart_locked  = true>
+<cfset SESSION.emenu_order_total  = totalAmt>
+<cfset SESSION.emenu_order_subtot = subtotal>
+<cfset SESSION.emenu_order_tax    = taxAmt>
+<cfset SESSION.emenu_points_earned= pointsEarned>
 
 <cflocation url="/latest/customer/order_confirm.cfm" addtoken="false">

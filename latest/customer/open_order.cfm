@@ -18,7 +18,7 @@
 <cfset isGuest   = SESSION.emenu_is_guest eq "Yes">
 <cfset isLoyalty = SESSION.emenu_loggedin eq "Yes" AND len(trim(SESSION.emenu_custno))>
 <cfif NOT isGuest AND NOT isLoyalty>
-    <cflocation url="/latest/customer/account_choice.cfm" addtoken="false">
+    <cflocation url="/latest/customer/menu.cfm" addtoken="false">
 </cfif>
 
 <cfset tableId = val(SESSION.emenu_table_id)>

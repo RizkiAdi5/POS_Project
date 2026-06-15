@@ -184,7 +184,8 @@
     <cfargument name="token" type="string" required="true">
     <cfset var host = trim(CGI.HTTP_HOST)>
     <cfif NOT len(host)><cfset host = "localhost"></cfif>
-    <cfreturn "http://" & host & "/latest/customer/qr.cfm?t=" & URLEncodedFormat(trim(arguments.token))>
+    <cfset var scheme = (CGI.HTTPS eq "on" OR CGI.SERVER_PORT eq "443") ? "https" : "http">
+    <cfreturn scheme & "://" & host & "/latest/customer/qr.cfm?t=" & URLEncodedFormat(trim(arguments.token))>
 </cffunction>
 
 <cffunction name="emenuCloseOpenOrdersForTable" output="false" returntype="void">
@@ -212,7 +213,7 @@
                 (order_number, custno, table_id, order_type, order_source, status, total_amount, created_at)
             VALUES (
                 <cfqueryparam cfsqltype="cf_sql_varchar" value="#orderNum#">,
-                <cfqueryparam cfsqltype="cf_sql_varchar" value="">,
+                <cfqueryparam cfsqltype="cf_sql_varchar" value="-">,
                 <cfqueryparam cfsqltype="cf_sql_integer" value="#arguments.tableId#">,
                 'dine_in',
                 'qr_code',
@@ -292,7 +293,7 @@
             <cfset out.error = "Order not found for this table.">
             <cfreturn out>
         </cfif>
-        <cfif listFindNoCase("completed,cancelled", lCase(trim(qOrd.status)))>
+        <cfif NOT emenuOrderIsOpen(qOrd.status)>
             <cfset out.error = "This order is already completed or cancelled.">
             <cfreturn out>
         </cfif>
@@ -344,6 +345,20 @@
         <cfset out.error = "Invalid table.">
         <cfreturn out>
     </cfif>
+    <cftry>
+        <cfquery name="qAutoClose" datasource="#arguments.dsn#">
+            UPDATE app_orders
+            SET status = <cfqueryparam cfsqltype="cf_sql_varchar" value="completed">,
+                completed_at = <cfqueryparam cfsqltype="cf_sql_timestamp" value="#now()#">
+            WHERE table_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#arguments.tableId#">
+              AND status NOT IN ('paid','cancelled','completed')
+              AND NOT EXISTS (
+                  SELECT 1 FROM app_order_items
+                  WHERE app_order_items.order_id = app_orders.order_id
+              )
+        </cfquery>
+        <cfcatch type="any"></cfcatch>
+    </cftry>
     <cfif emenuTableHasOpenOrder(arguments.dsn, arguments.tableId)>
         <cfset out.error = "Complete the current session first (use Complete Session). Payment in the system is optional for cash.">
         <cfreturn out>

@@ -5,8 +5,9 @@
     Loyalty: custno matches + same table_id as current QR session.
 --->
 <cfinclude template="../../application.cfm">
+<cfinclude template="inc_emenu_currency.cfm">
 <cfset emenuCurrSym = REQUEST.emenu_currency_symbol>
-<cfset emenuPriceFmt = REQUEST.emenu_currency_decimals eq 0 ? "9" : "9,990.00">
+<cfset emenuPriceFmt = REQUEST.emenu_currency_decimals eq 0 ? "9,990" : "9,990.00">
 
 <cfif NOT len(trim(SESSION.emenu_table_id))>
     <cflocation url="/latest/customer/qr_error.cfm" addtoken="false">
@@ -15,7 +16,7 @@
 <cfset isGuest   = SESSION.emenu_is_guest eq "Yes">
 <cfset isLoyalty = SESSION.emenu_loggedin eq "Yes" AND len(trim(SESSION.emenu_custno))>
 <cfif NOT isGuest AND NOT isLoyalty>
-    <cflocation url="/latest/customer/account_choice.cfm" addtoken="false">
+    <cflocation url="/latest/customer/menu.cfm" addtoken="false">
 </cfif>
 
 <cfset tableDisplay = len(trim(SESSION.emenu_table_name)) ? SESSION.emenu_table_name : "Table " & SESSION.emenu_table_number>
