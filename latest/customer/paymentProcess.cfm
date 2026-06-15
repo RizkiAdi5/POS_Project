@@ -1,6 +1,6 @@
 <!---
     /latest/customer/paymentProcess.cfm
-    Online payment (sandbox) or pay-at-cashier request.
+    Xendit online payment or pay-at-cashier request.
 --->
 <cfinclude template="../../application.cfm">
 <cfinclude template="inc_emenu_order.cfm">
@@ -12,7 +12,7 @@
     <cflocation url="/latest/customer/payment.cfm" addtoken="false">
 </cfif>
 
-<cfset orderId = val(SESSION.emenu_order_id)>
+<cfset orderId   = val(SESSION.emenu_order_id)>
 <cfset payAction = lCase(trim(FORM.pay_action))>
 
 <cfquery name="qOrd" datasource="#dts#">
@@ -22,11 +22,9 @@
       AND  table_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#val(SESSION.emenu_table_id)#">
     LIMIT  1
 </cfquery>
-
 <cfif qOrd.recordCount eq 0>
     <cflocation url="/latest/customer/payment.cfm?err=order_not_found" addtoken="false">
 </cfif>
-
 <cfif emenuOrderIsPaid(dts, orderId, qOrd.status)>
     <cflocation url="/latest/customer/order_status.cfm?msg=already_paid" addtoken="false">
 </cfif>
@@ -39,37 +37,56 @@
     <cflocation url="/latest/customer/menu.cfm?msg=no_items" addtoken="false">
 </cfif>
 
-<cfset totals = emenuRecalculateOrderTotals(dts, orderId)>
-<cfset payAmount = val(totals.total_amount)>
+<cfset totals      = emenuRecalculateOrderTotals(dts, orderId)>
+<cfset payAmount   = val(totals.total_amount)>
 <cfif payAmount lte 0><cfset payAmount = val(qOrd.total_amount)></cfif>
 <cfset orderNumber = trim(qOrd.order_number)>
 
+<!--- AI_SHARED_SECRET must match WEB-INF/ai/.env --->
+<cfset AI_SHARED_SECRET = "cleRkQqi7ogrKX5mAn6xr8LXmz9MobDlzcnKAYYHYCIqDnBy2c5bfuWRyrXDTcVw">
+
 <cftry>
     <cfif payAction eq "online">
+        <cfset baseUrl = "https://" & CGI.SERVER_NAME>
+
+        <cfset xPayload = structNew()>
+        <cfset xPayload.external_id          = dts & "__" & orderNumber>
+        <cfset xPayload.amount               = javaCast("int", round(payAmount))>
+        <cfset xPayload.description          = "Order " & orderNumber>
+        <cfset xPayload.currency             = "IDR">
+        <cfset xPayload.success_redirect_url = baseUrl & "/latest/customer/payment_done.cfm?method=xendit">
+        <cfset xPayload.failure_redirect_url = baseUrl & "/latest/customer/payment.cfm?err=xendit_failed">
+
+        <!--- Route through Node.js sidecar so TLS 1.2 is handled by Node, not CF10's JVM --->
+        <cfhttp url="http://127.0.0.1:8088/xendit/invoice" method="POST"
+                result="xenditResp" timeout="30">
+            <cfhttpparam type="header" name="Content-Type"  value="application/json">
+            <cfhttpparam type="header" name="x-ai-secret"  value="#AI_SHARED_SECRET#">
+            <cfhttpparam type="body"   value="#serializeJSON(xPayload)#">
+        </cfhttp>
+
+        <cfset xenditData = deserializeJSON(xenditResp.fileContent)>
+        <cfif NOT structKeyExists(xenditData, "invoice_url")>
+            <cflog file="xendit_error" type="error"
+                   text="Xendit bad response (#xenditResp.statusCode#): #xenditResp.fileContent#">
+            <cfthrow message="Xendit did not return invoice_url">
+        </cfif>
+
         <cfquery datasource="#dts#">
             INSERT INTO app_payments
-                (order_id, payment_method, amount, status, paid_at, gateway_name)
+                (order_id, payment_method, amount, status, gateway_name,
+                 gateway_invoice_id, gateway_invoice_url)
             VALUES (
                 <cfqueryparam cfsqltype="cf_sql_integer" value="#orderId#">,
                 <cfqueryparam cfsqltype="cf_sql_varchar" value="online">,
                 <cfqueryparam cfsqltype="cf_sql_decimal" value="#payAmount#">,
-                <cfqueryparam cfsqltype="cf_sql_varchar" value="success">,
-                <cfqueryparam cfsqltype="cf_sql_timestamp" value="#now()#">,
-                <cfqueryparam cfsqltype="cf_sql_varchar" value="sandbox">
+                <cfqueryparam cfsqltype="cf_sql_varchar" value="pending">,
+                <cfqueryparam cfsqltype="cf_sql_varchar" value="xendit">,
+                <cfqueryparam cfsqltype="cf_sql_varchar" value="#xenditData.id#">,
+                <cfqueryparam cfsqltype="cf_sql_clob"    value="#xenditData.invoice_url#">
             )
         </cfquery>
-        <cfquery datasource="#dts#">
-            UPDATE app_orders
-            SET status = <cfqueryparam cfsqltype="cf_sql_varchar" value="paid">,
-                completed_at = <cfqueryparam cfsqltype="cf_sql_timestamp" value="#now()#">
-            WHERE order_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#orderId#">
-        </cfquery>
-        <cfset SESSION.emenu_cart_locked = true>
-        <cfset isLoyalty = (SESSION.emenu_loggedin eq "Yes" AND len(trim(SESSION.emenu_custno)))>
-        <cfif isLoyalty>
-            <cfset SESSION.emenu_points_earned = emenuAwardLoyaltyPoints(dts, trim(SESSION.emenu_custno), orderNumber, payAmount)>
-        </cfif>
-        <cflocation url="/latest/customer/payment_done.cfm?method=online" addtoken="false">
+        <cflocation url="#xenditData.invoice_url#" addtoken="false">
 
     <cfelseif payAction eq "cashier">
         <cfquery datasource="#dts#">
@@ -88,6 +105,8 @@
         <cflocation url="/latest/customer/payment.cfm?err=invalid_action" addtoken="false">
     </cfif>
     <cfcatch type="any">
+        <cflog file="xendit_error" type="error"
+               text="paymentProcess error: #cfcatch.message# | #cfcatch.detail#">
         <cflocation url="/latest/customer/payment.cfm?err=payment_failed" addtoken="false">
     </cfcatch>
 </cftry>
