@@ -8,8 +8,19 @@
 <cfif NOT len(trim(SESSION.emenu_table_id))>
     <cflocation url="/latest/customer/qr_error.cfm" addtoken="false">
 </cfif>
-<cfif SESSION.emenu_cart_locked eq true>
-    <cflocation url="/latest/customer/order_status.cfm" addtoken="false">
+<cfif val(SESSION.emenu_order_id) gt 0>
+    <cfquery name="qMenuOrdCheck" datasource="#dts#">
+        SELECT status FROM app_orders
+        WHERE order_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#val(SESSION.emenu_order_id)#">
+        LIMIT 1
+    </cfquery>
+    <cfif qMenuOrdCheck.recordCount>
+        <cfif NOT emenuCustomerCanAddItems(dts, val(SESSION.emenu_order_id), qMenuOrdCheck.status)>
+            <cflocation url="/latest/customer/order_status.cfm" addtoken="false">
+        <cfelse>
+            <cfset SESSION.emenu_cart_locked = false>
+        </cfif>
+    </cfif>
 </cfif>
 
 <!--- Must be logged in or guest --->
@@ -294,10 +305,12 @@
 </div>
 
 <cfif menuHasBill>
+<cfoutput>
 <div class="bill-bar">
     <span>Running bill: <strong>#emenuCurrSym# #numberFormat(menuBillTotal, emenuPriceFmt)#</strong></span>
     <a href="/latest/customer/payment.cfm">Pay bill</a>
 </div>
+</cfoutput>
 </cfif>
 
 <!--- ===== CATEGORY NAV ===== --->
