@@ -4,8 +4,9 @@
 --->
 <cfinclude template="../../application.cfm">
 <cfinclude template="inc_emenu_order.cfm">
+<cfinclude template="inc_emenu_currency.cfm">
 <cfset emenuCurrSym = REQUEST.emenu_currency_symbol>
-<cfset emenuPriceFmt = REQUEST.emenu_currency_decimals eq 0 ? "9" : "9.00">
+<cfset emenuPriceFmt = REQUEST.emenu_currency_decimals eq 0 ? "9,990" : "9,990.00">
 <cfsetting showdebugoutput="false">
 
 <cfif NOT len(trim(SESSION.emenu_table_id)) OR val(SESSION.emenu_order_id) lte 0>
@@ -97,13 +98,13 @@
 
     <form action="/latest/customer/paymentProcess.cfm" method="post">
         <input type="hidden" name="pay_action" value="online">
-        <button type="submit" class="pay-btn pay-online">Pay Online</button>
+        <button type="submit" class="pay-btn pay-online">Pay with Xendit</button>
     </form>
     <form action="/latest/customer/paymentProcess.cfm" method="post">
         <input type="hidden" name="pay_action" value="cashier">
         <button type="submit" class="pay-btn pay-cashier">Pay at Cashier</button>
     </form>
-    <p class="hint">Online payment is simulated in this build (sandbox). Cashier payment notifies staff on the waiter dashboard.</p>
+    <p class="hint">Xendit accepts cards, bank transfer, e-wallets &amp; more. Cashier payment notifies staff on the waiter dashboard.</p>
 </div>
 </cfoutput>
 </body>

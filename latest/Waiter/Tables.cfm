@@ -209,11 +209,7 @@
     <cfif form.form_action eq "regenerate_session" AND isNumeric(form.table_id) AND hasQrToken>
         <cfset regTblId = val(form.table_id)>
         <cfset reg = emenuRegenerateTableQrSession(dts, regTblId)>
-        <cfif reg.ok>
-            <cfset flashMsg = "New QR session for this table. Order " & reg.order_number & " is ready for customers.">
-            <cfset SESSION.waiter_last_qr_url = reg.qr_url>
-            <cfset SESSION.waiter_last_qr_token = reg.qr_token>
-        <cfelse>
+        <cfif NOT reg.ok>
             <cfset flashErr = reg.error>
         </cfif>
     </cfif>
@@ -435,7 +431,8 @@
             <cfif selectedTab eq "reserved" AND displaySt eq "reserved"><cfset includeThis = true></cfif>
             <cfif selectedTab eq "pending-cash" AND payTag eq "pending-cash"><cfset includeThis = true></cfif>
 
-            <cfset canRegenQr = hasQrToken AND NOT orderIsOpen>
+            <!--- Allow regenerate if no open order, OR if open order has 0 items (placeholder only) --->
+            <cfset canRegenQr = hasQrToken AND (NOT orderIsOpen OR itemCount eq 0)>
 
             <cfif includeThis>
                 <cfset arrayAppend(rows, {
@@ -543,18 +540,6 @@ body { font-family: "Segoe UI", Arial, sans-serif; background:#f3f5f8; color:#1d
     <cfif len(flashMsg)><div class="alert alert-success">#esc(flashMsg)#</div></cfif>
     <cfif len(flashErr)><div class="alert alert-danger">#esc(flashErr)#</div></cfif>
     <cfif len(pageError)><div class="alert alert-warning">#esc(pageError)#</div></cfif>
-    <cfif structKeyExists(SESSION, "waiter_last_qr_url") AND len(trim(SESSION.waiter_last_qr_url))>
-        <div class="alert alert-info qr-flash">
-            <div>
-                <strong>New QR ready — scan or print for the table:</strong>
-                <div class="qr-canvas" id="waiter-latest-qr" data-qr-url="#esc(SESSION.waiter_last_qr_url)#"></div>
-                <input type="text" class="form-control input-sm qr-url-input" readonly="readonly" value="#esc(SESSION.waiter_last_qr_url)#" onclick="this.select();" />
-            </div>
-        </div>
-        <cfset SESSION.waiter_last_qr_url = "">
-        <cfset SESSION.waiter_last_qr_token = "">
-    </cfif>
-
     <div class="panel-soft">
         <div class="summary-grid">
             <div class="sum-card">

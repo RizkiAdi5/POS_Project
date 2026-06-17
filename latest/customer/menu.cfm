@@ -1,6 +1,7 @@
 <cfprocessingdirective pageencoding="UTF-8">
 <cfinclude template="../../application.cfm">
 <cfinclude template="inc_emenu_order.cfm">
+<cfinclude template="inc_emenu_currency.cfm">
 <cfsetting showdebugoutput="false">
 
 <!--- Must have table context --->
@@ -8,26 +9,30 @@
     <cflocation url="/latest/customer/qr_error.cfm" addtoken="false">
 </cfif>
 <cfif val(SESSION.emenu_order_id) gt 0>
-    <cfquery name="qMenuOrd" datasource="#dts#">
+    <cfquery name="qMenuOrdCheck" datasource="#dts#">
         SELECT status FROM app_orders
         WHERE order_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#val(SESSION.emenu_order_id)#">
         LIMIT 1
     </cfquery>
-    <cfif qMenuOrd.recordCount AND NOT emenuCustomerCanAddItems(dts, val(SESSION.emenu_order_id), qMenuOrd.status)>
-        <cflocation url="/latest/customer/order_status.cfm?msg=already_paid" addtoken="false">
+    <cfif qMenuOrdCheck.recordCount>
+        <cfif NOT emenuCustomerCanAddItems(dts, val(SESSION.emenu_order_id), qMenuOrdCheck.status)>
+            <cflocation url="/latest/customer/order_status.cfm" addtoken="false">
+        <cfelse>
+            <cfset SESSION.emenu_cart_locked = false>
+        </cfif>
     </cfif>
 </cfif>
 
 <!--- Must be logged in or guest --->
 <cfif SESSION.emenu_loggedin neq "Yes" AND SESSION.emenu_is_guest neq "Yes">
-    <cflocation url="/latest/customer/account_choice.cfm" addtoken="false">
+    <cflocation url="/latest/customer/qr_error.cfm" addtoken="false">
 </cfif>
 
 <cfset isGuest     = (SESSION.emenu_is_guest eq "Yes")>
 <cfset custName    = len(trim(SESSION.emenu_name)) ? trim(SESSION.emenu_name) : "Guest">
 <cfset tableDisplay = len(trim(SESSION.emenu_table_name)) ? SESSION.emenu_table_name : "Table " & SESSION.emenu_table_number>
 <cfset emenuCurrSym = REQUEST.emenu_currency_symbol>
-<cfset emenuPriceFmt = REQUEST.emenu_currency_decimals eq 0 ? "9" : "9.00">
+<cfset emenuPriceFmt = REQUEST.emenu_currency_decimals eq 0 ? "9,990" : "9,990.00">
 <cfset menuHasBill = false>
 <cfset menuBillTotal = 0>
 <cfif val(SESSION.emenu_order_id) gt 0>
@@ -284,13 +289,10 @@
                 <a href="/latest/customer/profile.cfm" class="user-name" style="text-decoration:none;color:inherit;">
                     <cfoutput>#HTMLEditFormat(custName)#</cfoutput>
                 </a>
+                <a href="/latest/customer/logout.cfm" class="logout-btn">Logout</a>
             <cfelse>
-                <span class="user-name">
-                    <cfoutput>#HTMLEditFormat(custName)#</cfoutput>
-                    &nbsp;<span style="font-size:11px;opacity:.7;">(Guest)</span>
-                </span>
+                <a href="/latest/customer/login.cfm" class="logout-btn">Login</a>
             </cfif>
-            <a href="/latest/customer/logout.cfm" class="logout-btn">Logout</a>
         </div>
     </div>
     <div class="search-wrap">
@@ -303,10 +305,12 @@
 </div>
 
 <cfif menuHasBill>
+<cfoutput>
 <div class="bill-bar">
     <span>Running bill: <strong>#emenuCurrSym# #numberFormat(menuBillTotal, emenuPriceFmt)#</strong></span>
     <a href="/latest/customer/payment.cfm">Pay bill</a>
 </div>
+</cfoutput>
 </cfif>
 
 <!--- ===== CATEGORY NAV ===== --->

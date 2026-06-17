@@ -77,6 +77,17 @@ async function runQuery(dts, sql, params = []) {
   }
 }
 
+async function runWrite(dts, sql, params = []) {
+  const pool = getPool(dts);
+  const conn = await pool.getConnection();
+  try {
+    const [result] = await conn.query({ sql, timeout: config.db.queryTimeoutMs }, params);
+    return result;
+  } finally {
+    conn.release();
+  }
+}
+
 async function ping(dts) {
   const rows = await runQuery(dts, 'SELECT 1 AS ok');
   return Array.isArray(rows) && rows[0] && rows[0].ok === 1;
@@ -89,4 +100,4 @@ async function shutdown() {
   pools.clear();
 }
 
-module.exports = { runQuery, ping, shutdown };
+module.exports = { runQuery, runWrite, ping, shutdown };

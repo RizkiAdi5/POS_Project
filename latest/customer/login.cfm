@@ -239,7 +239,7 @@
 <body>
 
 <div class="header">
-    <a href="/latest/customer/account_choice.cfm" class="back-btn">
+    <a href="/latest/customer/menu.cfm" class="back-btn">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
              stroke="currentColor" stroke-width="2" width="20" height="20">
             <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
@@ -462,7 +462,7 @@ function ensureFaceApi(callback) {
             faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
         ]).then(function() {
             faceApiReady = true;
-            callback();
+            setTimeout(callback, 0);
         }).catch(function(err) {
             setFaceStatus('Failed to load models: ' + err.message, '#ef4444');
         });
@@ -488,6 +488,10 @@ function startFaceLogin() {
 }
 
 function startCamera(onReady) {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setFaceStatus('Camera unavailable — site must be opened over HTTPS', '#ef4444');
+        return;
+    }
     navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } })
         .then(function(stream) {
             faceStream = stream;
