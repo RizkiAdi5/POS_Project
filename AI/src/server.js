@@ -399,20 +399,38 @@ app.post('/xendit/invoice', authMiddleware, async (req, res) => {
   // CF10 serializes struct keys as UPPERCASE — normalise to lowercase
   const body = {};
   for (const [k, v] of Object.entries(req.body || {})) body[k.toLowerCase()] = v;
-  const { external_id, amount, description, currency, success_redirect_url, failure_redirect_url } = body;
+  const { external_id, amount, description, currency, success_redirect_url, failure_redirect_url, payment_methods, metadata } = body;
   if (!external_id || !amount) {
     return res.status(400).json({ error: 'missing_required_fields' });
   }
   try {
-    const xenditRes = await fetch('https://api.xendit.co/v2/invoices', {
+    const invoicePayload = { external_id, amount, description, currency, success_redirect_url, failure_redirect_url };
+    if (metadata && typeof metadata === 'object') {
+      invoicePayload.metadata = metadata;
+    }
+    if (Array.isArray(payment_methods) && payment_methods.length > 0) {
+      invoicePayload.payment_methods = payment_methods;
+    }
+    const xenditHeaders = {
+      'Content-Type': 'application/json',
+      'Authorization': 'Basic ' + Buffer.from(`${xenditKey}:`).toString('base64'),
+    };
+    let xenditRes = await fetch('https://api.xendit.co/v2/invoices', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Basic ' + Buffer.from(`${xenditKey}:`).toString('base64'),
-      },
-      body: JSON.stringify({ external_id, amount, description, currency, success_redirect_url, failure_redirect_url }),
+      headers: xenditHeaders,
+      body: JSON.stringify(invoicePayload),
     });
-    const data = await xenditRes.json();
+    let data = await xenditRes.json();
+    // If specific payment methods are not available on this Xendit account, retry without restriction
+    if (!xenditRes.ok && data.error_code === 'UNAVAILABLE_PAYMENT_METHOD_ERROR' && invoicePayload.payment_methods) {
+      delete invoicePayload.payment_methods;
+      xenditRes = await fetch('https://api.xendit.co/v2/invoices', {
+        method: 'POST',
+        headers: xenditHeaders,
+        body: JSON.stringify(invoicePayload),
+      });
+      data = await xenditRes.json();
+    }
     res.status(xenditRes.status).json(data);
   } catch (err) {
     res.status(502).json({ error: 'xendit_unreachable', detail: err.message });

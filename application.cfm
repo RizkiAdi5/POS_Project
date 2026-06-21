@@ -20,19 +20,25 @@ Program : To SET Application informations to all pages
 <cfif REQUEST.isCustomerRoute>
 
     <!--- Customer session defaults --->
-    <cfparam name="SESSION.emenu_custno"      default="">
-    <cfparam name="SESSION.emenu_name"        default="">
-    <cfparam name="SESSION.emenu_email"       default="">
-    <cfparam name="SESSION.emenu_loggedin"    default="No">
-    <cfparam name="SESSION.emenu_table_id"    default="">
+    <cfparam name="SESSION.emenu_custno"       default="">
+    <cfparam name="SESSION.emenu_name"         default="">
+    <cfparam name="SESSION.emenu_email"        default="">
+    <cfparam name="SESSION.emenu_loggedin"     default="No">
+    <cfparam name="SESSION.emenu_table_id"     default="">
     <cfparam name="SESSION.emenu_table_number" default="">
-    <cfparam name="SESSION.emenu_qr_token"    default="">
-    <cfparam name="SESSION.emenu_order_id"    default="">
+    <cfparam name="SESSION.emenu_qr_token"     default="">
+    <cfparam name="SESSION.emenu_order_id"     default="">
     <cfparam name="SESSION.emenu_order_number" default="">
-    <cfparam name="SESSION.emenu_cart_locked" default="false">
-    <cfparam name="SESSION.emenu_is_guest"    default="No">
-    <!--- dts is still needed by any shared CFCs / queries --->
-    <cfset dts = "pos_i">
+    <cfparam name="SESSION.emenu_cart_locked"  default="false">
+    <cfparam name="SESSION.emenu_is_guest"     default="No">
+    <cfparam name="SESSION.emenu_dts"          default="">
+
+    <!--- dts: set once on first hit (qr.cfm?dts=xxx), stored in SESSION for all subsequent pages.
+          Only alphanumeric + underscore accepted. Invalid CF datasource = CF errors naturally. --->
+    <cfif isDefined("url.dts") AND reFind("^[a-zA-Z0-9_]+$", trim(url.dts))>
+        <cfset SESSION.emenu_dts = trim(url.dts)>
+    </cfif>
+    <cfset dts = trim(SESSION.emenu_dts)>
 
 <cfelse>
 
