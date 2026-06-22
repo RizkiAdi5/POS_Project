@@ -72,7 +72,10 @@
     </cftry>
 </cffunction>
 
-<cfset dts = resolveDatasourceName()>
+<!--- dts is set by application.cfm from the logged-in user's userdept — no override needed --->
+<cfif NOT (isDefined("dts") AND len(trim(dts)))>
+    <cfabort showerror="dts not set — application.cfm must run before Tables.cfm">
+</cfif>
 <cfset hasQrToken = false>
 <cfif len(trim(dts))>
     <cfset hasQrToken = hasTableColumn(dts, "app_tables", "qr_token")>

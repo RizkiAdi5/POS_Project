@@ -37,6 +37,23 @@
 </cfcatch>
 </cftry>
 
+<!--- Payment method config for this client --->
+<cfset enabledMethods = "">
+<cftry>
+    <cfquery name="qMethods" datasource="#dts#">
+        SELECT method_code FROM main.payment_method_config
+        WHERE  dts        = <cfqueryparam cfsqltype="cf_sql_varchar" value="#dts#">
+          AND  is_enabled = 1
+    </cfquery>
+    <cfloop query="qMethods">
+        <cfset enabledMethods = listAppend(enabledMethods, trim(qMethods.method_code))>
+    </cfloop>
+    <cfset methodsConfigured = (qMethods.recordCount gt 0)>
+<cfcatch type="database">
+    <cfset methodsConfigured = false>
+</cfcatch>
+</cftry>
+
 <!--- Pre-fill edit modal from URL params --->
 <cfset editId          = val(isDefined("url.edit_id")         ? url.edit_id         : 0)>
 <cfset editBankCode    = trim(isDefined("url.edit_bank")      ? url.edit_bank       : "")>
@@ -274,7 +291,83 @@
     </div>
     </cfif>
 
-</div><!--- end panel-group --->
+    <!--- ── Panel 3: Payment Methods ── --->
+        <div class="panel panel-default">
+            <div class="panel-heading" data-toggle="collapse" href="##methodsPanel" style="cursor:pointer">
+                <h4 class="panel-title accordion-toggle">
+                    Accepted Payment Methods
+                    <small class="text-muted" style="font-size:11px;font-weight:normal">
+                        — controls what customers see on the Xendit payment page
+                    </small>
+                </h4>
+            </div>
+            <div id="methodsPanel" class="panel-collapse collapse in">
+                <div class="panel-body">
+                    <p class="text-muted" style="font-size:12px;margin-bottom:15px">
+                        Check all payment methods you want to offer your customers.
+                        <strong>If none are saved, all methods enabled on your Xendit account are shown.</strong>
+                    </p>
+                    <form method="post" action="paymentProfileProcess.cfm">
+                        <input type="hidden" name="action" value="save_payment_methods">
+
+                        <cfset allMethods = [
+                            {group="QRIS",             code="QRIS",          label="QRIS (QR Code)"},
+                            {group="Virtual Account",  code="BCA",           label="BCA Virtual Account"},
+                            {group="Virtual Account",  code="BNI",           label="BNI Virtual Account"},
+                            {group="Virtual Account",  code="BRI",           label="BRI Virtual Account"},
+                            {group="Virtual Account",  code="MANDIRI",       label="Mandiri Virtual Account"},
+                            {group="Virtual Account",  code="PERMATA",       label="Permata Virtual Account"},
+                            {group="Virtual Account",  code="BSI",           label="BSI Virtual Account"},
+                            {group="Virtual Account",  code="CIMB",          label="CIMB Virtual Account"},
+                            {group="Virtual Account",  code="BJB",           label="BJB Virtual Account"},
+                            {group="Virtual Account",  code="BNC",           label="BNC Virtual Account"},
+                            {group="E-Wallet",         code="OVO",           label="OVO"},
+                            {group="E-Wallet",         code="DANA",          label="DANA"},
+                            {group="E-Wallet",         code="SHOPEEPAY",     label="ShopeePay"},
+                            {group="E-Wallet",         code="LINKAJA",       label="LinkAja"},
+                            {group="E-Wallet",         code="ASTRAPAY",      label="AstraPay"},
+                            {group="E-Wallet",         code="GOPAY",         label="GoPay"},
+                            {group="E-Wallet",         code="JENIUSPAY",     label="Jenius Pay"},
+                            {group="Credit Card",      code="CREDIT_CARD",   label="Credit / Debit Card"},
+                            {group="Retail Outlet",    code="ALFAMART",      label="Alfamart"},
+                            {group="Retail Outlet",    code="INDOMARET",     label="Indomaret"}
+                        ]>
+
+                        <cfset currentGroup = "">
+                        <div class="row">
+                        <cfloop array="#allMethods#" index="m">
+                            <cfif m.group neq currentGroup>
+                                <cfif len(currentGroup)></div><div style="height:8px"></div></cfif>
+                                <div class="col-xs-12">
+                                    <strong style="font-size:12px;color:##555;text-transform:uppercase;letter-spacing:.5px">
+                                        #HTMLEditFormat(m.group)#
+                                    </strong>
+                                    <hr style="margin:4px 0 8px">
+                                </div>
+                                <cfset currentGroup = m.group>
+                            </cfif>
+                            <div class="col-sm-4 col-xs-6" style="margin-bottom:6px">
+                                <label style="font-weight:normal;font-size:13px">
+                                    <input type="checkbox" name="methods" value="#m.code#"
+                                           <cfif NOT methodsConfigured OR listFindNoCase(enabledMethods, m.code)>checked</cfif>>
+                                    &nbsp;#HTMLEditFormat(m.label)#
+                                </label>
+                            </div>
+                        </cfloop>
+                        </div>
+
+                        <div style="margin-top:16px">
+                            <button type="submit" class="btn btn-primary btn-sm">Save Payment Methods</button>
+                            <span class="text-muted" style="font-size:11px;margin-left:10px">
+                                Changes apply immediately to new customer invoices.
+                            </span>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+    </div><!--- end panel-group --->
 
 <!--- ── Add Account Modal ── --->
 <div class="modal fade" id="addModal" tabindex="-1" role="dialog">

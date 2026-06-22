@@ -212,6 +212,27 @@
         </cfquery>
         <cflocation url="paymentProfile.cfm?saved=1" addtoken="false">
 
+    <!--- ── save_payment_methods ── --->
+    <cfelseif action eq "save_payment_methods">
+        <!--- Collect checked methods from form (multi-value field) --->
+        <cfset allowedCodes = "QRIS,BCA,BNI,BRI,MANDIRI,PERMATA,BSI,CIMB,BJB,BNC,OVO,DANA,SHOPEEPAY,LINKAJA,ASTRAPAY,GOPAY,JENIUSPAY,CREDIT_CARD,ALFAMART,INDOMARET">
+        <cfset submittedMethods = (isDefined("FORM.methods") ? FORM.methods : "")>
+
+        <!--- Upsert every known method — enabled if submitted, disabled if not --->
+        <cfloop list="#allowedCodes#" index="code">
+            <cfset isEnabled = (listFindNoCase(submittedMethods, code) gt 0) ? 1 : 0>
+            <cfquery datasource="#dts#">
+                INSERT INTO main.payment_method_config (dts, method_code, is_enabled)
+                VALUES (
+                    <cfqueryparam cfsqltype="cf_sql_varchar" value="#dts#">,
+                    <cfqueryparam cfsqltype="cf_sql_varchar" value="#code#">,
+                    <cfqueryparam cfsqltype="cf_sql_tinyint" value="#isEnabled#">
+                )
+                ON DUPLICATE KEY UPDATE is_enabled = VALUES(is_enabled)
+            </cfquery>
+        </cfloop>
+        <cflocation url="paymentProfile.cfm?saved=1" addtoken="false">
+
     <cfelse>
         <cflocation url="paymentProfile.cfm" addtoken="false">
     </cfif>

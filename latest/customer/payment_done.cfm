@@ -47,23 +47,23 @@
 <cfoutput>
 <div class="card">
     <cfif method eq "cashier">
-        <div class="icon">&#128179;</div>
+        <div class="icon">&##128179;</div>
         <h1>Pay at the counter</h1>
         <p>Please visit the cashier for <strong>#HTMLEditFormat(tableDisplay)#</strong>
         <cfif len(orderNum)> (order #HTMLEditFormat(orderNum)#)</cfif>.
         Staff will confirm your payment on the waiter dashboard.</p>
     <cfelseif method eq "xendit" AND xenditConfirmed>
-        <div class="icon">&#9989;</div>
+        <div class="icon">&##9989;</div>
         <h1>Payment confirmed!</h1>
         <p>Your Xendit payment for <strong>#HTMLEditFormat(tableDisplay)#</strong> has been received.
         Thank you!</p>
     <cfelseif method eq "xendit">
-        <div class="icon">&#9203;</div>
+        <div class="icon">&##9203;</div>
         <h1>Payment processing&hellip;</h1>
         <p>Your payment is being confirmed by Xendit. This usually takes a few seconds.
         Check your order status below &mdash; it will update once confirmed.</p>
     <cfelse>
-        <div class="icon">&#9989;</div>
+        <div class="icon">&##9989;</div>
         <h1>Payment successful</h1>
         <p>Thank you! Your payment for <strong>#HTMLEditFormat(tableDisplay)#</strong> is complete.</p>
     </cfif>

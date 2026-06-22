@@ -50,12 +50,31 @@
         <cfset baseUrl = "https://" & CGI.SERVER_NAME>
 
         <cfset xPayload = structNew()>
-        <cfset xPayload.external_id          = dts & "__" & orderNumber>
+        <cfset xPayload.external_id          = orderNumber>
+        <cfset xPayload.metadata             = {"dts" = dts}>
         <cfset xPayload.amount               = javaCast("int", round(payAmount))>
         <cfset xPayload.description          = "Order " & orderNumber>
         <cfset xPayload.currency             = "IDR">
         <cfset xPayload.success_redirect_url = baseUrl & "/latest/customer/payment_done.cfm?method=xendit">
         <cfset xPayload.failure_redirect_url = baseUrl & "/latest/customer/payment.cfm?err=xendit_failed">
+
+        <!--- Read client's enabled payment methods (empty = show all) --->
+        <cftry>
+            <cfquery name="qEnabledMethods" datasource="#dts#">
+                SELECT method_code FROM main.payment_method_config
+                WHERE  dts        = <cfqueryparam cfsqltype="cf_sql_varchar" value="#dts#">
+                  AND  is_enabled = 1
+            </cfquery>
+            <cfif qEnabledMethods.recordCount gt 0>
+                <cfset methodArray = []>
+                <cfloop query="qEnabledMethods">
+                    <cfset arrayAppend(methodArray, trim(qEnabledMethods.method_code))>
+                </cfloop>
+                <cfset xPayload.payment_methods = methodArray>
+            </cfif>
+        <cfcatch type="any"><!--- table not yet created — no restriction applied --->
+        </cfcatch>
+        </cftry>
 
         <!--- Route through Node.js sidecar so TLS 1.2 is handled by Node, not CF10's JVM --->
         <cfhttp url="http://127.0.0.1:8088/xendit/invoice" method="POST"
