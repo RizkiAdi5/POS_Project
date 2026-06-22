@@ -321,14 +321,14 @@
         <div id="messages" class="messages" role="log" aria-live="polite" aria-label="Chat messages">
         </div>
 
-        <div class="suggest" id="suggest">
-            <button type="button" data-q="Give me a quick overview of the business: monthly sales, top customers, this month e-menu daily sales, and top e-menu items this month.">Overview</button>
-            <button type="button" data-q="Give me an overview of this month's e-menu sales so far — revenue, orders, and how it compares to last month at the same point.">This month sales</button>
+        <div class="suggest" id="suggest" data-context="">
+            <button type="button" data-q="Give me my daily business briefing — yesterday, today, and week vs last week.">Daily briefing</button>
+            <button type="button" data-q="Give me a full weekly executive brief with forecast and action items.">Executive brief</button>
+            <button type="button" data-q="Are there any unusual patterns or alerts I should know about right now?">Anomaly alerts</button>
             <button type="button" data-q="How is e-menu performing today by orders, revenue, and basket size?">Sales today</button>
             <button type="button" data-q="How does this week compare to last week in revenue, order count, and average basket?">Week vs last</button>
+            <button type="button" data-q="What e-menu revenue and order count should we expect next week?">Next week forecast</button>
             <button type="button" data-q="Which 10 menu items are bringing the most revenue this month and how concentrated is the mix?">Top items</button>
-            <button type="button" data-q="How many orders were cancelled in the last 7 days, what is the lost revenue, and which items appear most often in cancelled orders?">Cancellations</button>
-            <button type="button" data-q="Which hours of the day drive the most orders in the last 14 days and how big is the gap between peak and off-peak?">Peak hours</button>
             <button type="button" data-q="What is the current status of all tables — how many available, occupied, and reserved, and total seat capacity?">Tables</button>
         </div>
 
@@ -349,6 +349,52 @@
     var elInput   = document.getElementById('q');
     var elSend    = document.getElementById('send');
     var elSuggest = document.getElementById('suggest');
+
+    function getUrlParam(name) {
+        var m = new RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
+        return m ? decodeURIComponent(m[1].replace(/\+/g, ' ')) : '';
+    }
+
+    var pageContext = getUrlParam('context');
+
+    var CONTEXT_STARTS = {
+        overview: [
+            { title: 'Daily briefing', q: 'Give me my daily business briefing — yesterday, today, and week vs last week.' },
+            { title: 'Executive brief', q: 'Give me a full weekly executive brief with forecast and action items.' },
+            { title: 'Anomaly alerts', q: 'Are there any unusual patterns or alerts I should know about right now?' },
+            { title: 'Explain sales trend', q: 'Explain the Last 5 Month Sales chart — what trend do you see and what should I watch?' },
+            { title: 'Next week forecast', q: 'What e-menu revenue and order count should we expect next week?' },
+            { title: 'Peak hours next week', q: 'What peak ordering hours should we expect next week and when should we add staff?' }
+        ],
+        menu: [
+            { title: 'Top items', q: 'Which 10 menu items are bringing the most revenue this month and how concentrated is the mix?' },
+            { title: 'Slow movers', q: 'Which menu items are bringing the least revenue this month and might be candidates to remove or promote?' },
+            { title: 'Menu demand forecast', q: 'Which menu items are likely to be top sellers next week?' },
+            { title: 'Cancellation risk', q: 'Which items have the highest cancellation risk next week?' }
+        ],
+        tables: [
+            { title: 'Tables now', q: 'What is the current status of all tables — how many available, occupied, and reserved, and total seat capacity?' },
+            { title: 'Peak hours', q: 'Which hours of the day drive the most orders in the last 14 days?' },
+            { title: 'Peak hours next week', q: 'What peak ordering hours should we expect next week and when should we add staff?' },
+            { title: 'Sales today', q: 'How is e-menu performing today by orders, revenue, and basket size?' }
+        ]
+    };
+
+    function applyContextStarts() {
+        var items = CONTEXT_STARTS[pageContext];
+        if (!items || !elSuggest) return;
+        elSuggest.setAttribute('data-context', pageContext);
+        elSuggest.innerHTML = '';
+        items.forEach(function (it) {
+            var b = document.createElement('button');
+            b.type = 'button';
+            b.setAttribute('data-q', it.q);
+            b.textContent = it.title;
+            elSuggest.appendChild(b);
+        });
+        elSuggest.removeAttribute('data-enhanced');
+        initQuickStarts();
+    }
 
     function escapeHtml(s) {
         return String(s).replace(/[&<>"']/g, function (c) {
@@ -464,6 +510,9 @@
     var askedQuestions = new Set();
     function normQ(q) { return String(q || '').trim().toLowerCase().replace(/\s+/g, ' '); }
 
+    /* Remember the last successful analyst skill so export follow-ups can reuse it. */
+    var lastChatContext = { skill: null, params: {} };
+
     /* Drop any quick-start cards that match an already-asked question. */
     function filterQuickStarts() {
         if (!elSuggest) return;
@@ -567,7 +616,8 @@
         });
     }
 
-    async function ask(question) {
+    async function ask(question, opts) {
+        opts = opts || {};
         askedQuestions.add(normQ(question));
         filterQuickStarts();
         collapseAllFollowups();
@@ -576,11 +626,22 @@
         elInput.value = '';
         setSending(true);
         var typing = addTyping();
+        var body = { question: question };
+        if (lastChatContext.skill) {
+            body.context = {
+                last_skill: lastChatContext.skill,
+                last_params: lastChatContext.params || {}
+            };
+        }
+        if (opts.force_skill) {
+            body.force_skill = opts.force_skill;
+            body.force_params = opts.force_params || {};
+        }
         try {
             var resp = await fetch('/latest/ai/aiproxy.cfm', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ question: question })
+                body: JSON.stringify(body)
             });
             var data = null;
             try { data = await resp.json(); } catch (e) { data = null; }
@@ -594,6 +655,10 @@
                 + (data.cached ? '  ·  cached' : '')
                 + '  ·  ' + data.latency_ms + ' ms';
             addMsg(data.answer_markdown || '(no answer)', 'bot', meta);
+            if (data.skill_used && data.skill_used !== 'none') {
+                lastChatContext.skill = data.skill_used;
+                lastChatContext.params = data.params || {};
+            }
             if (data.export) addExportDownload(data.export);
             addFollowups(data.followups);
         } catch (e) {
@@ -631,6 +696,25 @@
         if (!b) return;
         ask(b.getAttribute('data-q'));
     });
+
+    applyContextStarts();
+    initQuickStarts();
+
+    window.addEventListener('message', function (e) {
+        var d = e.data;
+        if (!d || d.type !== 'ai-ask' || !d.question) return;
+        ask(d.question, {
+            force_skill: d.force_skill || '',
+            force_params: d.force_params || {}
+        });
+    });
+
+    var bootQ = getUrlParam('q');
+    if (bootQ && getUrlParam('autask') === '1') {
+        setTimeout(function () { ask(bootQ); }, 400);
+    } else if (bootQ) {
+        elInput.value = bootQ;
+    }
 })();
 </script>
 </body>

@@ -5,6 +5,8 @@ const sales = require('./sales');
 const menu = require('./menu');
 const orders = require('./orders');
 const tables = require('./tables');
+const predictions = require('./predictions');
+const proactive = require('./proactive');
 
 const ALL = [
   overview,
@@ -12,6 +14,8 @@ const ALL = [
   ...menu,
   ...orders,
   ...tables,
+  ...predictions,
+  ...proactive,
 ];
 
 const byName = new Map();

@@ -397,6 +397,132 @@ function buildFromFacts(skill, facts, meta) {
       ]);
       break;
     }
+    case 'predict_top_items': {
+      addTableSheet(wb, 'Projected Top Items', [
+        { header: 'Item', key: 'dish_label', width: 28 },
+        { header: 'Projected revenue', key: 'projected_next_week_revenue', width: 18 },
+        { header: 'Recent revenue', key: 'recent_revenue', width: 14 },
+        { header: 'Momentum %', key: 'momentum_pct', width: 12 },
+        { header: 'Recent share %', key: 'recent_share_pct', width: 14 },
+      ], (facts.projected_top_items || []).map((r) => ({
+        dish_label: r.dish_label,
+        projected_next_week_revenue: num(r.projected_next_week_revenue),
+        recent_revenue: num(r.recent_revenue),
+        momentum_pct: r.momentum_pct != null ? r.momentum_pct : '',
+        recent_share_pct: r.recent_share_pct != null ? r.recent_share_pct : '',
+      })));
+      break;
+    }
+    case 'predict_next_week_sales': {
+      const nw = facts.next_week || {};
+      addTableSheet(wb, 'Next Week Forecast', [
+        { header: 'Metric', key: 'metric', width: 22 },
+        { header: 'Value', key: 'value', width: 18 },
+      ], [
+        { metric: 'Start date', value: nw.start_date || '' },
+        { metric: 'End date', value: nw.end_date || '' },
+        { metric: 'Predicted orders', value: num(nw.predicted_orders) },
+        { metric: 'Predicted revenue', value: num(nw.predicted_amount) },
+        { metric: 'Confidence', value: facts.confidence || '' },
+      ]);
+      if (facts.daily_forecast && facts.daily_forecast.length) {
+        addTableSheet(wb, 'Daily Forecast', [
+          { header: 'Date', key: 'date', width: 14 },
+          { header: 'Day', key: 'day_name', width: 12 },
+          { header: 'Predicted orders', key: 'predicted_orders', width: 16 },
+          { header: 'Predicted revenue', key: 'predicted_amount', width: 16 },
+        ], facts.daily_forecast.map((r) => ({
+          date: r.date,
+          day_name: r.day_name,
+          predicted_orders: num(r.predicted_orders),
+          predicted_amount: num(r.predicted_amount),
+        })));
+      }
+      break;
+    }
+    case 'predict_busy_days': {
+      addTableSheet(wb, 'Busy Days Forecast', [
+        { header: 'Date', key: 'date', width: 14 },
+        { header: 'Day', key: 'day_name', width: 12 },
+        { header: 'Predicted orders', key: 'predicted_orders', width: 16 },
+        { header: 'Predicted revenue', key: 'predicted_amount', width: 16 },
+        { header: 'Share of week %', key: 'share_of_week_pct', width: 14 },
+      ], (facts.ranked_days || []).map((r) => ({
+        date: r.date,
+        day_name: r.day_name,
+        predicted_orders: num(r.predicted_orders),
+        predicted_amount: num(r.predicted_amount),
+        share_of_week_pct: r.share_of_week_pct != null ? r.share_of_week_pct : '',
+      })));
+      break;
+    }
+    case 'predict_peak_hours': {
+      if (facts.overall_top_peak_slots && facts.overall_top_peak_slots.length) {
+        addTableSheet(wb, 'Top Peak Slots', [
+          { header: 'Day', key: 'day_name', width: 12 },
+          { header: 'Date', key: 'date', width: 14 },
+          { header: 'Hour', key: 'hour_label', width: 10 },
+          { header: 'Predicted orders', key: 'predicted_orders', width: 16 },
+          { header: 'Predicted revenue', key: 'predicted_amount', width: 16 },
+        ], facts.overall_top_peak_slots.map((r) => ({
+          day_name: r.day_name,
+          date: r.date,
+          hour_label: r.hour_label,
+          predicted_orders: num(r.predicted_orders),
+          predicted_amount: num(r.predicted_amount),
+        })));
+      }
+      if (facts.daily_peak_forecast && facts.daily_peak_forecast.length) {
+        const hourRows = [];
+        for (const day of facts.daily_peak_forecast) {
+          for (const h of (day.peak_hours || [])) {
+            hourRows.push({
+              date: day.date,
+              day_name: day.day_name,
+              hour_label: h.hour_label,
+              predicted_orders: num(h.predicted_orders),
+              predicted_amount: num(h.predicted_amount),
+              share_of_day_pct: h.share_of_day_pct != null ? h.share_of_day_pct : '',
+            });
+          }
+        }
+        if (hourRows.length) {
+          addTableSheet(wb, 'Daily Peak Hours', [
+            { header: 'Date', key: 'date', width: 14 },
+            { header: 'Day', key: 'day_name', width: 12 },
+            { header: 'Hour', key: 'hour_label', width: 10 },
+            { header: 'Predicted orders', key: 'predicted_orders', width: 16 },
+            { header: 'Predicted revenue', key: 'predicted_amount', width: 16 },
+            { header: 'Share of day %', key: 'share_of_day_pct', width: 14 },
+          ], hourRows);
+        }
+      }
+      break;
+    }
+    case 'predict_cancellation_risk': {
+      addTableSheet(wb, 'Cancellation Forecast', [
+        { header: 'Metric', key: 'metric', width: 28 },
+        { header: 'Value', key: 'value', width: 16 },
+      ], [
+        { metric: 'Recent cancel rate %', value: facts.recent_cancellation_rate_pct },
+        { metric: 'Prior cancel rate %', value: facts.prior_cancellation_rate_pct },
+        { metric: 'Projected next-week cancellations', value: facts.projected_next_week_cancellations },
+        { metric: 'Projected cancel rate %', value: facts.projected_next_week_cancel_rate_pct },
+        { metric: 'Projected orders', value: facts.projected_next_week_orders },
+      ]);
+      if (facts.high_risk_items && facts.high_risk_items.length) {
+        addTableSheet(wb, 'High Risk Items', [
+          { header: 'Item', key: 'dish_label', width: 28 },
+          { header: 'Cancelled lines', key: 'cancelled_lines', width: 16 },
+          { header: 'Amount in cancelled', key: 'amount_in_cancelled', width: 18 },
+        ], facts.high_risk_items.map((r) => ({
+          dish_label: r.dish_label,
+          cancelled_lines: num(r.cancelled_lines),
+          amount_in_cancelled: num(r.amount_in_cancelled),
+        })));
+      }
+      break;
+    }
     default: {
       /* Generic: first array in facts as detail */
       const arrays = Object.keys(facts).filter((k) => Array.isArray(facts[k]) && facts[k].length && k !== '_export_extra');
@@ -436,6 +562,14 @@ function exportTitle(skill) {
     peak_hours: 'Peak Hours',
     cancellations_recent: 'Cancellations Report',
     basket_stats: 'Basket Statistics',
+    predict_top_items: 'Projected Top Items (Next Week)',
+    predict_next_week_sales: 'Next Week Sales Forecast',
+    predict_busy_days: 'Busy Days Forecast (Next Week)',
+    predict_peak_hours: 'Peak Hours Forecast (Next Week)',
+    predict_cancellation_risk: 'Cancellation Risk Forecast',
+    weekly_executive_brief: 'Weekly Executive Brief',
+    daily_briefing: 'Daily Business Briefing',
+    detect_anomalies: 'Anomaly Alerts',
   };
   return titles[skill] || `Report: ${skill}`;
 }
@@ -446,6 +580,9 @@ const EXPORTABLE_SKILLS = new Set([
   'top_items_month', 'top_items_last_days', 'slow_movers_month',
   'peak_hours', 'cancellations_recent', 'basket_stats', 'tables_status_now',
   'orders_by_status',
+  'predict_peak_hours', 'predict_next_week_sales', 'predict_busy_days',
+  'predict_top_items', 'predict_cancellation_risk',
+  'daily_briefing', 'weekly_executive_brief', 'detect_anomalies',
 ]);
 
 function isExportable(skill) {
