@@ -72,6 +72,18 @@
     "role"     = husergrpid
 }>
 
+<cfif isStruct(payload)>
+    <cfif structKeyExists(payload, "force_skill") AND len(trim(toString(payload.force_skill)))>
+        <cfset forwardBody["force_skill"] = toString(payload.force_skill)>
+    </cfif>
+    <cfif structKeyExists(payload, "force_params") AND isStruct(payload.force_params)>
+        <cfset forwardBody["force_params"] = payload.force_params>
+    </cfif>
+    <cfif structKeyExists(payload, "context") AND isStruct(payload.context)>
+        <cfset forwardBody["context"] = payload.context>
+    </cfif>
+</cfif>
+
 <cfset httpStatus = 502>
 <cfset responseText = "{""error"":""upstream_unreachable""}">
 

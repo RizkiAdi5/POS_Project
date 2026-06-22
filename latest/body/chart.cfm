@@ -1,3 +1,4 @@
+<cfparam name="url.type" default="">
 <cfif url.type EQ 'type1'>
 	<cfquery name="getLast5Months" datasource="#dts#">
 		SELECT custno,name, SUM(grand) AS sumgrand
@@ -38,9 +39,10 @@
 			ORDER BY DATE(o.created_at) ASC
 		</cfquery>
 		<cfset emenuChartOk = true>
+		<cfset emenuChartEmpty = (getEMenuMonthDaily.recordCount EQ 0)>
 		<cfcatch type="any">
 			<cfset emenuChartOk = false>
-			<cfset emenuChartErr = "E-Menu sales chart is unavailable for this database.">
+			<cfset emenuChartErr = "E-Menu sales chart is unavailable: #cfcatch.message#">
 		</cfcatch>
 	</cftry>
 </cfif>
@@ -60,9 +62,10 @@
 			LIMIT 5
 		</cfquery>
 		<cfset emenuTopOk = true>
+		<cfset emenuTopEmpty = (getEmenuTopItemsMonth.recordCount EQ 0)>
 		<cfcatch type="any">
 			<cfset emenuTopOk = false>
-			<cfset emenuTopErr = "E-Menu menu chart is unavailable for this database.">
+			<cfset emenuTopErr = "E-Menu menu chart is unavailable: #cfcatch.message#">
 		</cfcatch>
 	</cftry>
 </cfif>
@@ -129,12 +132,16 @@
 
 <cfif url.type EQ 'type3'>
 	<cfif isDefined("emenuChartOk") AND emenuChartOk>
+		<cfif isDefined("emenuChartEmpty") AND emenuChartEmpty>
+			<p style="font-family:Verdana,Geneva,sans-serif;font-size:12px;color:#666666;padding:24px 16px;line-height:1.5;">No e-menu orders recorded this month yet.</p>
+		<cfelse>
 		<cfchart
+			format="png"
 			backgroundColor="FFF1EB"
 			chartheight="240"
 			chartwidth="450"
 			xAxisTitle="Day of month"
-			yAxisTitle="Order total (RM)"
+			yAxisTitle="Order total"
 			showborder="no"
 			show3d="no"
 			>
@@ -148,6 +155,7 @@
 				>
 			</cfchartseries>
 		</cfchart>
+		</cfif>
 	<cfelse>
 		<p style="font-family:Verdana,Geneva,sans-serif;font-size:12px;color:#666666;padding:24px 16px;line-height:1.5;"><cfoutput>#emenuChartErr#</cfoutput></p>
 	</cfif>
@@ -155,12 +163,16 @@
 
 <cfif url.type EQ 'type4'>
 	<cfif isDefined("emenuTopOk") AND emenuTopOk>
+		<cfif isDefined("emenuTopEmpty") AND emenuTopEmpty>
+			<p style="font-family:Verdana,Geneva,sans-serif;font-size:12px;color:#666666;padding:24px 16px;line-height:1.5;">No e-menu item sales recorded this month yet.</p>
+		<cfelse>
 		<cfchart
+			format="png"
 			backgroundColor="FFF1EB"
 			chartheight="240"
 			chartwidth="450"
 			xAxisTitle="Menu item"
-			yAxisTitle="Line revenue (RM)"
+			yAxisTitle="Line revenue"
 			showborder="no"
 			show3d="no"
 			>
@@ -174,6 +186,7 @@
 				>
 			</cfchartseries>
 		</cfchart>
+		</cfif>
 	<cfelse>
 		<p style="font-family:Verdana,Geneva,sans-serif;font-size:12px;color:#666666;padding:24px 16px;line-height:1.5;"><cfoutput>#emenuTopErr#</cfoutput></p>
 	</cfif>

@@ -39,7 +39,7 @@
 				<iframe marginwidth="5%" frameborder="0" align="middle" name="list" height="250px" width="500px" src="/latest/body/chart.cfm?type=type2" noresize scrolling="no"></iframe>				
 			</div>
 		</div>
-		<!--- <div class="chartDiv">
+		<div class="chartDiv">
 			<div class="chartTitleDiv">E-Menu Sales This Month (by day)</div>
 			<div class="chartContentDiv">
 				<iframe marginwidth="5%" frameborder="0" align="middle" name="emenuMonthSales" height="250px" width="500px" src="/latest/body/chart.cfm?type=type3" noresize scrolling="no"></iframe>
@@ -50,7 +50,7 @@
 			<div class="chartContentDiv">
 				<iframe marginwidth="5%" frameborder="0" align="middle" name="emenuTopItems" height="250px" width="500px" src="/latest/body/chart.cfm?type=type4" noresize scrolling="no"></iframe>
 			</div>
-		</div> --->
+		</div>
 	</div>
 	<div class="infoBoardDiv">
 		<div class="infoBoardTitleDiv">Information Board</div>

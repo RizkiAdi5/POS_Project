@@ -54,8 +54,10 @@
 <cfset xenditInvoiceId = trim(payload.id)>
 <cfset xenditStatus    = uCase(trim(payload.status))>
 
-<!--- Extract dts from external_id (format: "dts__orderNumber") --->
-<cfif structKeyExists(payload, "external_id") AND find("__", payload.external_id)>
+<!--- Extract dts: new invoices carry it in metadata.dts; old invoices used "dts__orderNumber" format --->
+<cfif structKeyExists(payload, "metadata") AND isStruct(payload.metadata) AND structKeyExists(payload.metadata, "dts") AND len(trim(payload.metadata.dts))>
+    <cfset dts = trim(payload.metadata.dts)>
+<cfelseif structKeyExists(payload, "external_id") AND find("__", payload.external_id)>
     <cfset dts = listFirst(trim(payload.external_id), "__")>
 </cfif>
 

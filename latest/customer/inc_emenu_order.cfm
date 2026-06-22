@@ -185,7 +185,8 @@
     <cfset var host = trim(CGI.HTTP_HOST)>
     <cfif NOT len(host)><cfset host = "localhost"></cfif>
     <cfset var scheme = (CGI.HTTPS eq "on" OR CGI.SERVER_PORT eq "443") ? "https" : "http">
-    <cfreturn scheme & "://" & host & "/latest/customer/qr.cfm?t=" & URLEncodedFormat(trim(arguments.token))>
+    <cfset var dtsSuffix = (isDefined("dts") AND len(trim(dts))) ? "&dts=" & URLEncodedFormat(trim(dts)) : "">
+    <cfreturn scheme & "://" & host & "/latest/customer/qr.cfm?t=" & URLEncodedFormat(trim(arguments.token)) & dtsSuffix>
 </cffunction>
 
 <cffunction name="emenuCloseOpenOrdersForTable" output="false" returntype="void">
