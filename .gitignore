@@ -1,2 +1,4 @@
 WEB-INF/
 WEB-INF/railo/cfclasses/
+mcp/*/node_modules/
+AI/node_modules/
