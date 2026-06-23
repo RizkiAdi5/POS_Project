@@ -294,8 +294,12 @@
             <cfset out.error = "Order not found for this table.">
             <cfreturn out>
         </cfif>
-        <cfif NOT emenuOrderIsOpen(qOrd.status)>
-            <cfset out.error = "This order is already completed or cancelled.">
+        <cfif lCase(trim(qOrd.status)) eq "cancelled">
+            <cfset out.error = "This order has been cancelled.">
+            <cfreturn out>
+        </cfif>
+        <cfif lCase(trim(qOrd.status)) eq "completed">
+            <cfset out.error = "This order is already completed.">
             <cfreturn out>
         </cfif>
         <cfif arguments.recordCash>
@@ -322,12 +326,17 @@
                 </cfif>
             WHERE order_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#arguments.orderId#">
         </cfquery>
+        <!--- Also complete any other lingering paid/open orders for the same table --->
         <cfquery datasource="#arguments.dsn#">
-            UPDATE app_tables
-            SET status = <cfqueryparam cfsqltype="cf_sql_varchar" value="Available">,
-                current_order_id = NULL
-            WHERE table_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#arguments.tableId#">
+            UPDATE app_orders
+            SET status = <cfqueryparam cfsqltype="cf_sql_varchar" value="completed">,
+                completed_at = <cfqueryparam cfsqltype="cf_sql_timestamp" value="#now()#">
+            WHERE table_id  = <cfqueryparam cfsqltype="cf_sql_integer" value="#arguments.tableId#">
+              AND order_id  <> <cfqueryparam cfsqltype="cf_sql_integer" value="#arguments.orderId#">
+              AND status NOT IN ('completed','cancelled')
         </cfquery>
+        <!--- Auto-create a new placeholder order so the table's QR stays active --->
+        <cfset emenuCreatePlaceholderOrder(arguments.dsn, arguments.tableId)>
         <cfset out.ok = true>
         <cfcatch type="any">
             <cfset out.error = left(trim(cfcatch.message & " " & toString(cfcatch.detail)), 300)>
