@@ -295,6 +295,7 @@
     "all" = 0,
     "available" = 0,
     "occupied" = 0,
+    "paid" = 0,
     "reserved" = 0,
     "pending-cash" = 0
 }>
@@ -312,7 +313,7 @@
             SELECT o.order_id, o.order_number, o.table_id, t.table_number, o.status, o.total_amount, o.created_at
             FROM app_orders o
             LEFT JOIN app_tables t ON o.table_id = t.table_id
-            WHERE o.status NOT IN ('completed','cancelled','paid')
+            WHERE o.status NOT IN ('completed','cancelled')
             ORDER BY o.table_id ASC, o.created_at DESC
         </cfquery>
 
@@ -420,22 +421,32 @@
             <cfset displaySt = st>
             <cfif st neq "reserved">
                 <cfset displaySt = emenuAutoTableStatus(orderIsOpen, itemCount)>
-                <cfset emenuSyncTableStatusAuto(dts, val(queryTables.table_id), displaySt)>
+                <!--- Paid orders: table still occupied until waiter completes session --->
+                <cfif displaySt eq "available" AND hasOrder AND orderStatus eq "paid">
+                    <cfset displaySt = "paid">
+                </cfif>
+                <!--- "paid" is a virtual display state — don't write it to DB --->
+                <cfif displaySt neq "paid">
+                    <cfset emenuSyncTableStatusAuto(dts, val(queryTables.table_id), displaySt)>
+                </cfif>
             </cfif>
 
             <cfset summaryCounts["all"] = summaryCounts["all"] + 1>
-            <cfset summaryCounts[displaySt] = summaryCounts[displaySt] + 1>
+            <cfif structKeyExists(summaryCounts, displaySt)>
+                <cfset summaryCounts[displaySt] = summaryCounts[displaySt] + 1>
+            </cfif>
             <cfif payTag eq "pending-cash"><cfset summaryCounts["pending-cash"] = summaryCounts["pending-cash"] + 1></cfif>
 
             <cfset includeThis = false>
             <cfif selectedTab eq "all"><cfset includeThis = true></cfif>
             <cfif selectedTab eq "available" AND displaySt eq "available"><cfset includeThis = true></cfif>
             <cfif selectedTab eq "occupied" AND displaySt eq "occupied"><cfset includeThis = true></cfif>
+            <cfif selectedTab eq "paid" AND displaySt eq "paid"><cfset includeThis = true></cfif>
             <cfif selectedTab eq "reserved" AND displaySt eq "reserved"><cfset includeThis = true></cfif>
             <cfif selectedTab eq "pending-cash" AND payTag eq "pending-cash"><cfset includeThis = true></cfif>
 
-            <!--- Allow regenerate if no open order, OR if open order has 0 items (placeholder only) --->
-            <cfset canRegenQr = hasQrToken AND (NOT orderIsOpen OR itemCount eq 0)>
+            <!--- Only allow regenerate when table has no order or only an empty placeholder order --->
+            <cfset canRegenQr = hasQrToken AND (NOT hasOrder OR itemCount eq 0)>
 
             <cfif includeThis>
                 <cfset arrayAppend(rows, {
@@ -568,6 +579,7 @@ body { font-family: "Segoe UI", Arial, sans-serif; background:#f3f5f8; color:#1d
         <div class="tabs-row">
             <a class="btn <cfif selectedTab eq 'all'>btn-primary<cfelse>btn-default</cfif> btn-sm" href="#pageSelf#?tab=all">All <span class="badge">#summaryCounts["all"]#</span></a>
             <a class="btn <cfif selectedTab eq 'occupied'>btn-primary<cfelse>btn-default</cfif> btn-sm" href="#pageSelf#?tab=occupied">Occupied <span class="badge">#summaryCounts["occupied"]#</span></a>
+            <a class="btn <cfif selectedTab eq 'paid'>btn-success<cfelse>btn-default</cfif> btn-sm" href="#pageSelf#?tab=paid">Paid <span class="badge">#summaryCounts["paid"]#</span></a>
             <a class="btn <cfif selectedTab eq 'available'>btn-primary<cfelse>btn-default</cfif> btn-sm" href="#pageSelf#?tab=available">Available <span class="badge">#summaryCounts["available"]#</span></a>
             <a class="btn <cfif selectedTab eq 'reserved'>btn-primary<cfelse>btn-default</cfif> btn-sm" href="#pageSelf#?tab=reserved">Reserved <span class="badge">#summaryCounts["reserved"]#</span></a>
             <a class="btn <cfif selectedTab eq 'pending-cash'>btn-primary<cfelse>btn-default</cfif> btn-sm" href="#pageSelf#?tab=pending-cash">Cash Pending <span class="badge">#summaryCounts["pending-cash"]#</span></a>
@@ -632,8 +644,8 @@ body { font-family: "Segoe UI", Arial, sans-serif; background:#f3f5f8; color:#1d
                                     <input type="text" class="form-control input-sm qr-url-input" readonly="readonly" value="#esc(r.qr_url)#" onclick="this.select();" title="Click to copy link" />
                                 </div>
                             </cfif>
-                            <cfif r.has_order AND r.order_is_open>
-                                <button type="button" class="btn btn-primary btn-sm btn-block"
+                            <cfif r.has_order AND (r.order_is_open OR r.order_status eq "paid")>
+                                <button type="button" class="btn <cfif r.order_status eq 'paid'>btn-success<cfelse>btn-primary</cfif> btn-sm btn-block"
                                     data-toggle="modal" data-target="##completeSessionModal"
                                     data-table-id="#r.table_id#"
                                     data-table-number="#esc(r.table_number)#"
@@ -641,7 +653,11 @@ body { font-family: "Segoe UI", Arial, sans-serif; background:#f3f5f8; color:#1d
                                     data-order-number="#esc(r.order_number)#"
                                     data-order-total="#val(r.total_amount)#"
                                 >Complete Session</button>
-                                <p style="font-size:11px;color:##92400e;margin:6px 0 0;">Finish this visit before regenerating QR. Cash payment is optional.</p>
+                                <cfif r.order_status eq "paid">
+                                    <p style="font-size:11px;color:##166534;margin:6px 0 0;">Payment received. Complete session to free the table.</p>
+                                <cfelse>
+                                    <p style="font-size:11px;color:##92400e;margin:6px 0 0;">Finish this visit before regenerating QR. Cash payment is optional.</p>
+                                </cfif>
                             </cfif>
                             <cfif r.can_regenerate_qr>
                                 <form method="post" action="#pageSelf#" style="margin:0;" onsubmit="return confirm('Create a new QR and order session for this table?');">

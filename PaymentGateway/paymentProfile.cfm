@@ -65,7 +65,24 @@
 
 <cfset successMsg = (isDefined("url.saved") AND url.saved eq "1") ? "Settings saved successfully." : "">
 <cfset errorMsg   = (isDefined("url.err")   AND len(trim(url.err)))  ? trim(url.err)              : "">
-<cfset xenditBanks = "BCA,BNI,BRI,MANDIRI,PERMATA,CIMB,DANAMON,BTN,OCBC,HSBC,MEGA,BUKOPIN,BSI,JAGO">
+<!--- Resolve country code — use Xendit 2-letter code stored in userCty --->
+<cfset countryCode = (isDefined("HUserCty") AND len(trim(HUserCty))) ? uCase(trim(HUserCty)) : "ID">
+<cfif NOT listFindNoCase("ID,MY,PH,TH,VN", countryCode)><cfset countryCode = "ID"></cfif>
+<cfset countryNames = {"ID"="Indonesia","MY"="Malaysia","PH"="Philippines","TH"="Thailand","VN"="Vietnam"}>
+<cfset countryName  = structKeyExists(countryNames, countryCode) ? countryNames[countryCode] : countryCode>
+
+<!--- Disbursement bank list is country-specific --->
+<cfif countryCode eq "ID">
+    <cfset xenditBanks = "BCA,BNI,BRI,MANDIRI,PERMATA,CIMB,DANAMON,BTN,OCBC,HSBC,MEGA,BUKOPIN,BSI,JAGO">
+<cfelseif countryCode eq "MY">
+    <cfset xenditBanks = "MAYBANK,CIMB,PUBLIC_BANK,HONG_LEONG,RHB,AFFIN,ALLIANCE,AMBANK,BANK_ISLAM,BANK_MUAMALAT,BANK_RAKYAT,BSN,HSBC,OCBC,UOB">
+<cfelseif countryCode eq "PH">
+    <cfset xenditBanks = "BPI,BDO,METROBANK,SECURITY_BANK,RCBC,CHINA_BANK,EW,UNIONBANK,PNB">
+<cfelseif countryCode eq "TH">
+    <cfset xenditBanks = "KBANK,BBL,SCB,KTB,KRUNGSRI,TMB,CIMB_TH,BAAC,TISCO,UOB_TH">
+<cfelseif countryCode eq "VN">
+    <cfset xenditBanks = "BIDV,VIETCOMBANK,VPB,AGRIBANK,TCB,ACB,SACOMBANK,HDBANK,OCB">
+</cfif>
 
 <!doctype html>
 <html>
@@ -297,7 +314,7 @@
                 <h4 class="panel-title accordion-toggle">
                     Accepted Payment Methods
                     <small class="text-muted" style="font-size:11px;font-weight:normal">
-                        — controls what customers see on the Xendit payment page
+                        — <cfoutput>#HTMLEditFormat(countryName)#</cfoutput> methods &middot; controls what customers see on the Xendit payment page
                     </small>
                 </h4>
             </div>
@@ -310,28 +327,98 @@
                     <form method="post" action="paymentProfileProcess.cfm">
                         <input type="hidden" name="action" value="save_payment_methods">
 
+                        <cfif countryCode eq "ID">
                         <cfset allMethods = [
-                            {group="QRIS",             code="QRIS",          label="QRIS (QR Code)"},
-                            {group="Virtual Account",  code="BCA",           label="BCA Virtual Account"},
-                            {group="Virtual Account",  code="BNI",           label="BNI Virtual Account"},
-                            {group="Virtual Account",  code="BRI",           label="BRI Virtual Account"},
-                            {group="Virtual Account",  code="MANDIRI",       label="Mandiri Virtual Account"},
-                            {group="Virtual Account",  code="PERMATA",       label="Permata Virtual Account"},
-                            {group="Virtual Account",  code="BSI",           label="BSI Virtual Account"},
-                            {group="Virtual Account",  code="CIMB",          label="CIMB Virtual Account"},
-                            {group="Virtual Account",  code="BJB",           label="BJB Virtual Account"},
-                            {group="Virtual Account",  code="BNC",           label="BNC Virtual Account"},
-                            {group="E-Wallet",         code="OVO",           label="OVO"},
-                            {group="E-Wallet",         code="DANA",          label="DANA"},
-                            {group="E-Wallet",         code="SHOPEEPAY",     label="ShopeePay"},
-                            {group="E-Wallet",         code="LINKAJA",       label="LinkAja"},
-                            {group="E-Wallet",         code="ASTRAPAY",      label="AstraPay"},
-                            {group="E-Wallet",         code="GOPAY",         label="GoPay"},
-                            {group="E-Wallet",         code="JENIUSPAY",     label="Jenius Pay"},
-                            {group="Credit Card",      code="CREDIT_CARD",   label="Credit / Debit Card"},
-                            {group="Retail Outlet",    code="ALFAMART",      label="Alfamart"},
-                            {group="Retail Outlet",    code="INDOMARET",     label="Indomaret"}
+                            {group="QR Code",          code="QRIS",                    label="QRIS"},
+                            {group="Virtual Account",  code="BCA_VIRTUAL_ACCOUNT",     label="BCA"},
+                            {group="Virtual Account",  code="BNI_VIRTUAL_ACCOUNT",     label="BNI"},
+                            {group="Virtual Account",  code="BRI_VIRTUAL_ACCOUNT",     label="BRI"},
+                            {group="Virtual Account",  code="MANDIRI_VIRTUAL_ACCOUNT", label="Mandiri"},
+                            {group="Virtual Account",  code="PERMATA_VIRTUAL_ACCOUNT", label="Permata"},
+                            {group="Virtual Account",  code="BSI_VIRTUAL_ACCOUNT",     label="BSI"},
+                            {group="Virtual Account",  code="CIMB_VIRTUAL_ACCOUNT",    label="CIMB"},
+                            {group="Virtual Account",  code="BJB_VIRTUAL_ACCOUNT",     label="BJB"},
+                            {group="Virtual Account",  code="BNC_VIRTUAL_ACCOUNT",     label="BNC"},
+                            {group="E-Wallet",         code="OVO",                     label="OVO"},
+                            {group="E-Wallet",         code="DANA",                    label="DANA"},
+                            {group="E-Wallet",         code="SHOPEEPAY",               label="ShopeePay"},
+                            {group="E-Wallet",         code="LINKAJA",                 label="LinkAja"},
+                            {group="E-Wallet",         code="ASTRAPAY",                label="AstraPay"},
+                            {group="E-Wallet",         code="GOPAY",                   label="GoPay"},
+                            {group="E-Wallet",         code="JENIUSPAY",               label="Jenius Pay"},
+                            {group="Card",             code="CARDS",                   label="Credit / Debit Card"},
+                            {group="Retail Outlet",    code="ALFAMART",                label="Alfamart"},
+                            {group="Retail Outlet",    code="INDOMARET",               label="Indomaret"},
+                            {group="Pay Later",        code="KREDIVO",                 label="Kredivo"},
+                            {group="Pay Later",        code="AKULAKU",                 label="Akulaku"}
                         ]>
+                        <cfelseif countryCode eq "MY">
+                        <cfset allMethods = [
+                            {group="E-Wallet",          code="TOUCHNGO",               label="Touch 'n Go"},
+                            {group="E-Wallet",          code="GRABPAY",                label="GrabPay"},
+                            {group="E-Wallet",          code="SHOPEEPAY",              label="ShopeePay"},
+                            {group="E-Wallet",          code="WECHATPAY",              label="WeChat Pay"},
+                            {group="Card",              code="CARDS",                  label="Credit / Debit Card"},
+                            {group="FPX Online Banking",code="MAYB2U_FPX",            label="Maybank"},
+                            {group="FPX Online Banking",code="CIMB_FPX",              label="CIMB"},
+                            {group="FPX Online Banking",code="PUBLIC_FPX",             label="Public Bank"},
+                            {group="FPX Online Banking",code="HLB_FPX",               label="Hong Leong Bank"},
+                            {group="FPX Online Banking",code="RHB_FPX",               label="RHB Bank"},
+                            {group="FPX Online Banking",code="BSN_FPX",               label="BSN"},
+                            {group="FPX Online Banking",code="AFFIN_FPX",             label="Affin Bank"},
+                            {group="FPX Online Banking",code="ALLIANCE_FPX",          label="Alliance Bank"},
+                            {group="FPX Online Banking",code="AMBANK_FPX",            label="AmBank"},
+                            {group="FPX Online Banking",code="HSBC_FPX",              label="HSBC"},
+                            {group="FPX Online Banking",code="OCBC_FPX",              label="OCBC"},
+                            {group="FPX Online Banking",code="UOB_FPX",               label="UOB"},
+                            {group="FPX Online Banking",code="ISLAM_FPX",             label="Bank Islam"},
+                            {group="FPX Online Banking",code="MUAMALAT_FPX",          label="Bank Muamalat"},
+                            {group="FPX Online Banking",code="RAKYAT_FPX",            label="Bank Rakyat"}
+                        ]>
+                        <cfelseif countryCode eq "PH">
+                        <cfset allMethods = [
+                            {group="E-Wallet",         code="GCASH",                   label="GCash"},
+                            {group="E-Wallet",         code="PAYMAYA",                 label="Maya"},
+                            {group="E-Wallet",         code="GRABPAY",                 label="GrabPay"},
+                            {group="E-Wallet",         code="SHOPEEPAY",               label="ShopeePay"},
+                            {group="QR Code",          code="QRPH",                    label="QR Ph"},
+                            {group="Card",             code="CARDS",                   label="Credit / Debit Card"},
+                            {group="Bank Transfer",    code="BANK_TRANSFER",           label="Bank Transfer"},
+                            {group="Direct Debit",     code="BPI_DIRECT_DEBIT",        label="BPI"},
+                            {group="Direct Debit",     code="UBP_DIRECT_DEBIT",        label="UnionBank"},
+                            {group="Direct Debit",     code="RCBC_DIRECT_DEBIT",       label="RCBC"},
+                            {group="OTC",              code="7ELEVEN",                 label="7-Eleven"},
+                            {group="OTC",              code="CEBUANA",                 label="Cebuana"},
+                            {group="OTC",              code="LBC",                     label="LBC"},
+                            {group="OTC",              code="ECPAY",                   label="ECPay"},
+                            {group="Pay Later",        code="BILLEASE",                label="BillEase"}
+                        ]>
+                        <cfelseif countryCode eq "TH">
+                        <cfset allMethods = [
+                            {group="QR Code",          code="PROMPTPAY",               label="PromptPay"},
+                            {group="E-Wallet",         code="TRUEMONEY",               label="TrueMoney"},
+                            {group="E-Wallet",         code="LINEPAY",                 label="LINE Pay"},
+                            {group="E-Wallet",         code="SHOPEEPAY",               label="ShopeePay"},
+                            {group="E-Wallet",         code="WECHATPAY",               label="WeChat Pay"},
+                            {group="Card",             code="CARDS",                   label="Credit / Debit Card"},
+                            {group="Mobile Banking",   code="KBANK_MOBILE_BANKING",    label="KBank"},
+                            {group="Mobile Banking",   code="BBL_MOBILE_BANKING",      label="Bangkok Bank"},
+                            {group="Mobile Banking",   code="SCB_MOBILE_BANKING",      label="SCB"},
+                            {group="Mobile Banking",   code="KTB_MOBILE_BANKING",      label="Krungthai Bank"},
+                            {group="Mobile Banking",   code="KRUNGSRI_MOBILE_BANKING", label="Krungsri"}
+                        ]>
+                        <cfelseif countryCode eq "VN">
+                        <cfset allMethods = [
+                            {group="E-Wallet",         code="MOMO",                    label="MoMo"},
+                            {group="E-Wallet",         code="ZALOPAY",                 label="ZaloPay"},
+                            {group="E-Wallet",         code="SHOPEEPAY",               label="ShopeePay"},
+                            {group="E-Wallet",         code="VNPTWALLET",              label="VNPTWallet"},
+                            {group="Card",             code="CARDS",                   label="Credit / Debit Card"},
+                            {group="Virtual Account",  code="BIDV_VIRTUAL_ACCOUNT",    label="BIDV"},
+                            {group="Virtual Account",  code="MSB_VIRTUAL_ACCOUNT",     label="MSB"},
+                            {group="Virtual Account",  code="VPB_VIRTUAL_ACCOUNT",     label="VPBank"}
+                        ]>
+                        </cfif>
 
                         <cfset currentGroup = "">
                         <div class="row">
