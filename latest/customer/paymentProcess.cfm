@@ -49,12 +49,32 @@
     <cfif payAction eq "online">
         <cfset baseUrl = "https://" & CGI.SERVER_NAME>
 
+        <!--- Resolve currency from tenant's country code --->
+        <cfset xCurrency = "IDR">
+        <cftry>
+            <cfquery name="qDtsCtry" datasource="#dts#">
+                SELECT userCty FROM main.users
+                WHERE  userDept = <cfqueryparam cfsqltype="cf_sql_varchar" value="#dts#">
+                  AND  userCty IS NOT NULL AND userCty <> ''
+                LIMIT  1
+            </cfquery>
+            <cfif qDtsCtry.recordCount AND len(trim(qDtsCtry.userCty))>
+                <cfset ctryCode = uCase(trim(qDtsCtry.userCty))>
+                <cfset currencyMap = {"ID"="IDR","MY"="MYR","PH"="PHP","TH"="THB","VN"="VND"}>
+                <cfif structKeyExists(currencyMap, ctryCode)>
+                    <cfset xCurrency = currencyMap[ctryCode]>
+                </cfif>
+            </cfif>
+        <cfcatch type="any"><!--- fall back to IDR --->
+        </cfcatch>
+        </cftry>
+
         <cfset xPayload = structNew()>
         <cfset xPayload.external_id          = orderNumber>
         <cfset xPayload.metadata             = {"dts" = dts}>
         <cfset xPayload.amount               = javaCast("int", round(payAmount))>
         <cfset xPayload.description          = "Order " & orderNumber>
-        <cfset xPayload.currency             = "IDR">
+        <cfset xPayload.currency             = xCurrency>
         <cfset xPayload.success_redirect_url = baseUrl & "/latest/customer/payment_done.cfm?method=xendit">
         <cfset xPayload.failure_redirect_url = baseUrl & "/latest/customer/payment.cfm?err=xendit_failed">
 
@@ -105,6 +125,22 @@
                 <cfqueryparam cfsqltype="cf_sql_clob"    value="#xenditData.invoice_url#">
             )
         </cfquery>
+
+        <!--- Store invoice→dts mapping in main so webhook can resolve tenant without relying on metadata --->
+        <cftry>
+            <cfquery datasource="#dts#">
+                INSERT INTO main.xendit_invoice_dts (xendit_invoice_id, dts, created_at)
+                VALUES (
+                    <cfqueryparam cfsqltype="cf_sql_varchar" value="#xenditData.id#">,
+                    <cfqueryparam cfsqltype="cf_sql_varchar" value="#dts#">,
+                    <cfqueryparam cfsqltype="cf_sql_timestamp" value="#now()#">
+                )
+                ON DUPLICATE KEY UPDATE dts = VALUES(dts)
+            </cfquery>
+        <cfcatch type="any"><!--- table may not exist yet — webhook falls back to metadata --->
+        </cfcatch>
+        </cftry>
+
         <cflocation url="#xenditData.invoice_url#" addtoken="false">
 
     <cfelseif payAction eq "cashier">

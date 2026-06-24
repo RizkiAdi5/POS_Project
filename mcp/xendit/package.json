@@ -1,0 +1,11 @@
+{
+  "name": "mcp-xendit",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "bin": { "mcp-xendit": "./index.js" },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "zod": "^3.23.0"
+  }
+}

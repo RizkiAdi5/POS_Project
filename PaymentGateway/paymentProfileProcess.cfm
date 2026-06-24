@@ -214,8 +214,20 @@
 
     <!--- ── save_payment_methods ── --->
     <cfelseif action eq "save_payment_methods">
-        <!--- Collect checked methods from form (multi-value field) --->
-        <cfset allowedCodes = "QRIS,BCA,BNI,BRI,MANDIRI,PERMATA,BSI,CIMB,BJB,BNC,OVO,DANA,SHOPEEPAY,LINKAJA,ASTRAPAY,GOPAY,JENIUSPAY,CREDIT_CARD,ALFAMART,INDOMARET">
+        <!--- Resolve country to validate against the correct method set --->
+        <cfset countryCode = (isDefined("HUserCty") AND len(trim(HUserCty))) ? uCase(trim(HUserCty)) : "ID">
+        <cfif NOT listFindNoCase("ID,MY,PH,TH,VN", countryCode)><cfset countryCode = "ID"></cfif>
+        <cfif countryCode eq "ID">
+            <cfset allowedCodes = "QRIS,BCA_VIRTUAL_ACCOUNT,BNI_VIRTUAL_ACCOUNT,BRI_VIRTUAL_ACCOUNT,MANDIRI_VIRTUAL_ACCOUNT,PERMATA_VIRTUAL_ACCOUNT,BSI_VIRTUAL_ACCOUNT,CIMB_VIRTUAL_ACCOUNT,BJB_VIRTUAL_ACCOUNT,BNC_VIRTUAL_ACCOUNT,OVO,DANA,SHOPEEPAY,LINKAJA,ASTRAPAY,GOPAY,JENIUSPAY,CARDS,ALFAMART,INDOMARET,KREDIVO,AKULAKU">
+        <cfelseif countryCode eq "MY">
+            <cfset allowedCodes = "TOUCHNGO,GRABPAY,SHOPEEPAY,WECHATPAY,CARDS,MAYB2U_FPX,CIMB_FPX,PUBLIC_FPX,HLB_FPX,RHB_FPX,BSN_FPX,AFFIN_FPX,ALLIANCE_FPX,AMBANK_FPX,HSBC_FPX,OCBC_FPX,UOB_FPX,ISLAM_FPX,MUAMALAT_FPX,RAKYAT_FPX">
+        <cfelseif countryCode eq "PH">
+            <cfset allowedCodes = "GCASH,PAYMAYA,GRABPAY,SHOPEEPAY,QRPH,CARDS,BANK_TRANSFER,BPI_DIRECT_DEBIT,UBP_DIRECT_DEBIT,RCBC_DIRECT_DEBIT,7ELEVEN,CEBUANA,LBC,ECPAY,BILLEASE">
+        <cfelseif countryCode eq "TH">
+            <cfset allowedCodes = "PROMPTPAY,TRUEMONEY,LINEPAY,SHOPEEPAY,WECHATPAY,CARDS,KBANK_MOBILE_BANKING,BBL_MOBILE_BANKING,SCB_MOBILE_BANKING,KTB_MOBILE_BANKING,KRUNGSRI_MOBILE_BANKING">
+        <cfelseif countryCode eq "VN">
+            <cfset allowedCodes = "MOMO,ZALOPAY,SHOPEEPAY,VNPTWALLET,CARDS,BIDV_VIRTUAL_ACCOUNT,MSB_VIRTUAL_ACCOUNT,VPB_VIRTUAL_ACCOUNT">
+        </cfif>
         <cfset submittedMethods = (isDefined("FORM.methods") ? FORM.methods : "")>
 
         <!--- Upsert every known method — enabled if submitted, disabled if not --->

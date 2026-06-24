@@ -20,22 +20,7 @@
 <cfset callbackToken = structKeyExists(reqData.headers, "x-callback-token") ? trim(reqData.headers["x-callback-token"]) : "">
 <cfset rawBody       = toString(reqData.content)>
 
-<!--- Verify token against DB --->
-<cfquery name="qGateway" datasource="#dts#">
-    SELECT webhook_token
-    FROM   main.master_api
-    WHERE  provider  = <cfqueryparam cfsqltype="cf_sql_varchar" value="Xendit">
-      AND  is_active = <cfqueryparam cfsqltype="cf_sql_varchar" value="Y">
-    LIMIT  1
-</cfquery>
-
-<cfif qGateway.recordCount eq 0 OR callbackToken neq trim(qGateway.webhook_token)>
-    <cfheader statuscode="401" statustext="Unauthorized">
-    <cfoutput>{"error":"unauthorized"}</cfoutput>
-    <cfabort>
-</cfif>
-
-<!--- Parse JSON body --->
+<!--- Parse JSON body first — we need dts from payload before we can query the DB --->
 <cftry>
     <cfset payload = deserializeJSON(rawBody)>
     <cfcatch type="any">
@@ -54,11 +39,57 @@
 <cfset xenditInvoiceId = trim(payload.id)>
 <cfset xenditStatus    = uCase(trim(payload.status))>
 
-<!--- Extract dts: new invoices carry it in metadata.dts; old invoices used "dts__orderNumber" format --->
-<cfif structKeyExists(payload, "metadata") AND isStruct(payload.metadata) AND structKeyExists(payload.metadata, "dts") AND len(trim(payload.metadata.dts))>
-    <cfset dts = trim(payload.metadata.dts)>
-<cfelseif structKeyExists(payload, "external_id") AND find("__", payload.external_id)>
-    <cfset dts = listFirst(trim(payload.external_id), "__")>
+<!--- Resolve dts — try three sources in priority order:
+     1. main.xendit_invoice_dts lookup table (most reliable)
+     2. payload.metadata.dts (new invoice format)
+     3. external_id prefix with __ separator (legacy format) --->
+<cfset resolvedDts = "">
+
+<!--- 1. Lookup table via any known datasource — use pos_i as the gateway to main schema --->
+<cftry>
+    <cfquery name="qInvDts" datasource="pos_i">
+        SELECT dts FROM main.xendit_invoice_dts
+        WHERE  xendit_invoice_id = <cfqueryparam cfsqltype="cf_sql_varchar" value="#xenditInvoiceId#">
+        LIMIT  1
+    </cfquery>
+    <cfif qInvDts.recordCount AND len(trim(qInvDts.dts))>
+        <cfset resolvedDts = trim(qInvDts.dts)>
+    </cfif>
+<cfcatch type="any"><!--- table not yet created, fall through --->
+</cfcatch>
+</cftry>
+
+<!--- 2. metadata.dts --->
+<cfif NOT len(resolvedDts) AND structKeyExists(payload, "metadata") AND isStruct(payload.metadata) AND structKeyExists(payload.metadata, "dts") AND len(trim(payload.metadata.dts))>
+    <cfset resolvedDts = trim(payload.metadata.dts)>
+</cfif>
+
+<!--- 3. legacy external_id prefix --->
+<cfif NOT len(resolvedDts) AND structKeyExists(payload, "external_id") AND find("__", payload.external_id)>
+    <cfset resolvedDts = listFirst(trim(payload.external_id), "__")>
+</cfif>
+
+<cfif NOT len(resolvedDts)>
+    <cfheader statuscode="400" statustext="Bad Request">
+    <cfoutput>{"error":"cannot_resolve_tenant"}</cfoutput>
+    <cfabort>
+</cfif>
+
+<cfset dts = resolvedDts>
+
+<!--- Now verify token against DB using the resolved dts --->
+<cfquery name="qGateway" datasource="#dts#">
+    SELECT webhook_token
+    FROM   main.master_api
+    WHERE  provider  = <cfqueryparam cfsqltype="cf_sql_varchar" value="Xendit">
+      AND  is_active = <cfqueryparam cfsqltype="cf_sql_varchar" value="Y">
+    LIMIT  1
+</cfquery>
+
+<cfif qGateway.recordCount eq 0 OR callbackToken neq trim(qGateway.webhook_token)>
+    <cfheader statuscode="401" statustext="Unauthorized">
+    <cfoutput>{"error":"unauthorized"}</cfoutput>
+    <cfabort>
 </cfif>
 
 <cfif listFindNoCase("PAID,SETTLED", xenditStatus)>
