@@ -54,35 +54,21 @@
 <!--- Load menu items --->
 <cfset menuError = "">
 <!--- Waiter uploads store files in image_bytes; admin list uses MenuImage.cfm — customer must use same path --->
-<cfset menuImgBlobCols = false>
-<cftry>
-    <cfquery name="qMenuImgCol" datasource="#dts#">
-        SELECT COUNT(*) AS col_count
-        FROM   information_schema.COLUMNS
-        WHERE  TABLE_SCHEMA = DATABASE()
-        AND    TABLE_NAME   = 'app_menu'
-        AND    COLUMN_NAME  = 'image_bytes'
-    </cfquery>
-    <cfif val(qMenuImgCol.col_count) gt 0><cfset menuImgBlobCols = true></cfif>
-    <cfcatch type="any"><cfset menuImgBlobCols = false></cfcatch>
-</cftry>
 <cfquery name="qMenu" datasource="#dts#">
-    SELECT menu_id, item_code, display_name, category, sub_category,
-           price, COALESCE(promo_price, 0) AS promo_price,
-           is_available, is_vegetarian, is_halal, is_spicy, is_featured,
-           COALESCE(description,'') AS description,
-           COALESCE(image_url,'')   AS image_url,
-           <cfif menuImgBlobCols>
-           CASE WHEN image_bytes IS NOT NULL AND LENGTH(image_bytes) > 0 THEN 1 ELSE 0 END AS has_img_blob,
-           <cfelse>
-           0 AS has_img_blob,
-           </cfif>
-           COALESCE(prep_time, 0)   AS prep_time,
-           COALESCE(calories, 0)    AS calories,
-           display_order
-    FROM   app_menu
-    WHERE  is_available = 1
-    ORDER  BY display_order ASC, category, display_name
+    SELECT ITEMNO AS item_code, DESP AS display_name, CATEGORY AS category,
+           sub_cat AS sub_category,
+           PRICE AS price, COALESCE(promo_price, 0) AS promo_price,
+           is_avail AS is_available, is_veg AS is_vegetarian, is_halal, is_spicy,
+           is_feat AS is_featured,
+           COALESCE(`comment`,'') AS description,
+           COALESCE(img_url,'') AS image_url,
+           CASE WHEN img_bytes IS NOT NULL AND LENGTH(img_bytes) > 0 THEN 1 ELSE 0 END AS has_img_blob,
+           COALESCE(prep_time, 0) AS prep_time,
+           COALESCE(calories, 0)  AS calories,
+           sort_ord AS display_order
+    FROM   icitem
+    WHERE  is_avail = 'T'
+    ORDER  BY sort_ord ASC, CATEGORY, DESP
 </cfquery>
 
 <!--- Distinct categories --->
@@ -348,11 +334,11 @@
         <cfif len(trim(qMenu.image_url))>
             <cfset itemImgSrc = trim(qMenu.image_url)>
         <cfelseif val(qMenu.has_img_blob) eq 1>
-            <cfset itemImgSrc = "/latest/Waiter/MenuImage.cfm?id=" & val(qMenu.menu_id)>
+            <cfset itemImgSrc = "/latest/Waiter/MenuImage.cfm?id=" & URLEncodedFormat(qMenu.item_code)>
         </cfif>
 
         <div class="item-card"
-             data-id="#qMenu.menu_id#"
+             data-id="#JSStringFormat(qMenu.item_code)#"
              data-name="#JSStringFormat(qMenu.display_name)#"
              data-price="#displayPrice#"
              data-cat="#JSStringFormat(trim(qMenu.category))#"
@@ -388,16 +374,16 @@
                     </cfif>
                     <!--- Badges --->
                     <div class="badge-row">
-                        <cfif qMenu.is_halal>
+                        <cfif qMenu.is_halal eq 'T'>
                             <span class="badge badge-halal">Halal</span>
                         </cfif>
-                        <cfif qMenu.is_vegetarian>
+                        <cfif qMenu.is_vegetarian eq 'T'>
                             <span class="badge badge-veg">Veg</span>
                         </cfif>
-                        <cfif qMenu.is_spicy>
+                        <cfif qMenu.is_spicy eq 'T'>
                             <span class="badge badge-spicy">Spicy</span>
                         </cfif>
-                        <cfif qMenu.is_featured>
+                        <cfif qMenu.is_featured eq 'T'>
                             <span class="badge badge-featured">Featured</span>
                         </cfif>
                     </div>
@@ -409,13 +395,13 @@
                     </div>
                 </div>
                 <div class="add-row">
-                    <div class="qty-ctrl" id="ctrl-#qMenu.menu_id#">
-                        <button class="qty-btn" onclick="changeQty('#qMenu.menu_id#',-1)">&minus;</button>
-                        <span class="qty-num" id="qty-#qMenu.menu_id#">1</span>
-                        <button class="qty-btn" onclick="changeQty('#qMenu.menu_id#',1)">+</button>
+                    <div class="qty-ctrl" id="ctrl-#qMenu.item_code#">
+                        <button class="qty-btn" onclick="changeQty('#JSStringFormat(qMenu.item_code)#',-1)">&minus;</button>
+                        <span class="qty-num" id="qty-#qMenu.item_code#">1</span>
+                        <button class="qty-btn" onclick="changeQty('#JSStringFormat(qMenu.item_code)#',1)">+</button>
                     </div>
-                    <button class="add-btn" id="addbtn-#qMenu.menu_id#"
-                            onclick="addToCart('#qMenu.menu_id#','#JSStringFormat(qMenu.display_name)#',#displayPrice#)">
+                    <button class="add-btn" id="addbtn-#qMenu.item_code#"
+                            onclick="addToCart('#JSStringFormat(qMenu.item_code)#','#JSStringFormat(qMenu.display_name)#',#displayPrice#)">
                         + Add
                     </button>
                 </div>
