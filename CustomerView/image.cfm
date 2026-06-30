@@ -1,13 +1,14 @@
 <cfprocessingdirective pageencoding="UTF-8">
 <cfinclude template="../application.cfm">
 <cfsetting showdebugoutput="false">
-<cfparam name="url.id" default="0">
-<cfif NOT isNumeric(url.id) OR val(url.id) lte 0 OR NOT isDefined("dts") OR NOT len(trim(dts))>
+<cfparam name="url.id" default="">
+<cfif NOT len(trim(url.id)) OR NOT isDefined("dts") OR NOT len(trim(dts))>
     <cfheader statuscode="404" statustext="Not Found"><cfabort>
 </cfif>
 <cfquery name="qImg" datasource="#dts#">
-    SELECT image_type, image_bytes FROM app_menu WHERE menu_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#val(url.id)#">
-    AND is_available = <cfqueryparam cfsqltype="cf_sql_tinyint" value="1">
+    SELECT img_type AS image_type, img_bytes AS image_bytes FROM icitem
+    WHERE ITEMNO = <cfqueryparam cfsqltype="cf_sql_varchar" value="#trim(url.id)#">
+    AND is_avail = 'T'
 </cfquery>
 <cfif qImg.recordCount neq 1 OR NOT isBinary(qImg.image_bytes) OR len(qImg.image_bytes) lte 0>
     <cfheader statuscode="404" statustext="Not Found"><cfabort>
