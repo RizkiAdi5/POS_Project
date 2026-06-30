@@ -30,22 +30,22 @@
     <cflocation url="/latest/customer/menu.cfm" addtoken="false">
 </cfif>
 
-<!--- Build list of menu_ids from cart for a single batch lookup --->
+<!--- Build list of ITEMNOs from cart for a single batch lookup --->
 <cfset menuIdList = "">
 <cfloop array="#cartItems#" index="ci">
-    <cfset menuIdList = listAppend(menuIdList, val(ci.id))>
+    <cfset menuIdList = listAppend(menuIdList, trim(ci.id))>
 </cfloop>
 
 <!--- Single query: fetch authoritative price + item_code for all cart items --->
 <cfset dbPrices = structNew()>
 <cftry>
     <cfquery name="qMenuPrices" datasource="#dts#">
-        SELECT menu_id, item_code, display_name, price
-        FROM   app_menu
-        WHERE  menu_id IN (<cfqueryparam cfsqltype="cf_sql_integer" value="#menuIdList#" list="true">)
+        SELECT ITEMNO AS item_code, DESP AS display_name, PRICE AS price
+        FROM   icitem
+        WHERE  ITEMNO IN (<cfqueryparam cfsqltype="cf_sql_varchar" value="#menuIdList#" list="true">)
     </cfquery>
     <cfloop query="qMenuPrices">
-        <cfset dbPrices[toString(qMenuPrices.menu_id)] = {
+        <cfset dbPrices[trim(qMenuPrices.item_code)] = {
             "item_code"   : trim(qMenuPrices.item_code),
             "display_name": trim(qMenuPrices.display_name),
             "price"       : val(qMenuPrices.price)
@@ -106,8 +106,8 @@
 
 <!--- ── INSERT app_order_items (one per cart line) ── --->
 <cfloop array="#cartItems#" index="ci">
-    <cfset ciMenuId  = val(ci.id)>
-    <cfset ciMidKey  = toString(ciMenuId)>
+    <cfset ciMenuId  = trim(ci.id)>
+    <cfset ciMidKey  = ciMenuId>
     <cfset ciQty     = val(ci.qty)>
     <cfset ciNote    = isDefined("ci.note") ? trim(ci.note) : "">
 

@@ -1,6 +1,6 @@
 <cfscript>
 /**
- * app_menu.item_code -> icitem.ITEMNO (Data Dictionary)
+ * Menu data sourced from icitem (ITEMNO=item_code, DESP=display_name, CATEGORY, PRICE, plus e-menu columns)
  */
 numeric function menuEffectivePrice(required numeric price, numeric promo_price) {
     var p = val(arguments.promo_price);
@@ -25,25 +25,26 @@ string function formatRupiah(required numeric amount) {
 <cfif isDefined("dts") AND len(trim(dts))>
     <cftry>
         <cfquery name="qMenuCats" datasource="#dts#">
-            SELECT DISTINCT category AS catname FROM app_menu WHERE is_available = <cfqueryparam cfsqltype="cf_sql_tinyint" value="1"> ORDER BY catname
+            SELECT DISTINCT CATEGORY AS catname FROM icitem WHERE is_avail = 'T' ORDER BY catname
         </cfquery>
         <cfquery name="qAppMenu" datasource="#dts#">
-            SELECT menu_id, item_code, display_name, category, price, promo_price, image_url,
-            CASE WHEN image_bytes IS NULL THEN 0 ELSE 1 END AS has_img_blob,
-            is_available
-            FROM app_menu
-            WHERE is_available = <cfqueryparam cfsqltype="cf_sql_tinyint" value="1">
+            SELECT ITEMNO AS item_code, ITEMNO AS menu_id, DESP AS display_name, CATEGORY AS category,
+            PRICE AS price, promo_price, img_url AS image_url,
+            CASE WHEN img_bytes IS NULL THEN 0 ELSE 1 END AS has_img_blob,
+            is_avail AS is_available
+            FROM icitem
+            WHERE is_avail = 'T'
             <cfif len(kw)>
-                AND (LOWER(display_name) LIKE <cfqueryparam cfsqltype="cf_sql_varchar" value="#kwLike#">
-                OR LOWER(item_code) LIKE <cfqueryparam cfsqltype="cf_sql_varchar" value="#kwLike#">)
+                AND (LOWER(DESP) LIKE <cfqueryparam cfsqltype="cf_sql_varchar" value="#kwLike#">
+                OR LOWER(ITEMNO) LIKE <cfqueryparam cfsqltype="cf_sql_varchar" value="#kwLike#">)
             </cfif>
             <cfif url.category neq "all" AND len(trim(url.category))>
-                AND category = <cfqueryparam cfsqltype="cf_sql_varchar" value="#trim(url.category)#">
+                AND CATEGORY = <cfqueryparam cfsqltype="cf_sql_varchar" value="#trim(url.category)#">
             </cfif>
-            ORDER BY category, display_name
+            ORDER BY CATEGORY, DESP
         </cfquery>
         <cfquery name="qMenuStat" datasource="#dts#">
-            SELECT COUNT(*) AS cnt FROM app_menu WHERE is_available = <cfqueryparam cfsqltype="cf_sql_tinyint" value="1">
+            SELECT COUNT(*) AS cnt FROM icitem WHERE is_avail = 'T'
         </cfquery>
         <cfset availableMenuCount = qMenuStat.cnt>
         <cfcatch type="any">

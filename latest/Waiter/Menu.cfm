@@ -18,55 +18,14 @@
 <cfset flashMsg = "">
 <cfif len(url.msg)><cfset flashMsg = url.msg></cfif>
 <cfset flashErr = "">
-<cfset promoCol = "">
-<cfif isDefined("dts") AND len(trim(dts))>
-    <cftry>
-        <cfquery name="qPromo" datasource="#dts#">
-            SELECT COALESCE(
-                MAX(CASE WHEN COLUMN_NAME = 'promo_price' THEN 'promo_price' END),
-                MAX(CASE WHEN COLUMN_NAME = 'original_price' THEN 'original_price' END),
-                ''
-            ) AS promo_col
-            FROM information_schema.COLUMNS
-            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'app_menu'
-            AND COLUMN_NAME IN ('promo_price','original_price')
-        </cfquery>
-        <cfif qPromo.recordCount AND (qPromo.promo_col eq "promo_price" OR qPromo.promo_col eq "original_price")>
-            <cfset promoCol = qPromo.promo_col>
-        </cfif>
-        <cfcatch type="any">
-            <cftry>
-                <cfquery name="qTryPromo" datasource="#dts#">SELECT promo_price FROM app_menu LIMIT 1</cfquery>
-                <cfset promoCol = "promo_price">
-                <cfcatch type="any">
-                    <cftry>
-                        <cfquery name="qTryOrig" datasource="#dts#">SELECT original_price FROM app_menu LIMIT 1</cfquery>
-                        <cfset promoCol = "original_price">
-                        <cfcatch type="any"><cfset promoCol = ""></cfcatch>
-                    </cftry>
-                </cfcatch>
-            </cftry>
-        </cfcatch>
-    </cftry>
-</cfif>
-<cfset blobCols = false>
-<cfif isDefined("dts") AND len(trim(dts))>
-    <cftry>
-        <cfquery name="qBlob" datasource="#dts#">
-            SELECT COUNT(*) AS colcnt FROM information_schema.COLUMNS
-            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'app_menu'
-            AND COLUMN_NAME IN ('image_bytes','image_type')
-        </cfquery>
-        <cfif qBlob.recordCount AND val(qBlob.colcnt) gte 2><cfset blobCols = true></cfif>
-        <cfcatch type="any"></cfcatch>
-    </cftry>
-</cfif>
+<cfset promoCol = "promo_price">
+<cfset blobCols = true>
 
-<cfif isDefined("form.form_action") AND form.form_action eq "delete" AND isNumeric(form.menu_id) AND isDefined("dts") AND len(trim(dts))>
+<cfif isDefined("form.form_action") AND form.form_action eq "delete" AND len(trim(form.menu_id)) gt 0 AND isDefined("dts") AND len(trim(dts))>
     <cfset rtCat = ""><cfif structKeyExists(form, "rt_category")><cfset rtCat = form.rt_category></cfif>
     <cfset rtQ = ""><cfif structKeyExists(form, "rt_q")><cfset rtQ = form.rt_q></cfif>
     <cftry>
-        <cfquery datasource="#dts#">DELETE FROM app_menu WHERE menu_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#val(form.menu_id)#"></cfquery>
+        <cfquery datasource="#dts#">DELETE FROM icitem WHERE ITEMNO = <cfqueryparam cfsqltype="cf_sql_varchar" value="#trim(form.menu_id)#"></cfquery>
         <cfset flashMsg = "deleted">
         <cfcatch type="any"><cfset flashMsg = ""><cfset flashErr = "Delete failed: " & left(trim(cfcatch.message & " " & toString(cfcatch.detail)), 400)></cfcatch>
     </cftry>
@@ -88,8 +47,8 @@
     <cfset priceVal = val(form.price)>
     <cfset promoStr = trim(form.promo_price)>
     <cfset promoEmpty = (NOT len(promoStr) OR NOT isNumeric(promoStr) OR val(promoStr) eq 0)>
-    <cfset isAvail = 0>
-    <cfif structKeyExists(form, "is_available") AND form.is_available eq "1"><cfset isAvail = 1></cfif>
+    <cfset isAvail = 'F'>
+    <cfif structKeyExists(form, "is_available") AND form.is_available eq "1"><cfset isAvail = 'T'></cfif>
     <cfif len(itemCode) eq 0 OR len(displayName) eq 0 OR len(categoryVal) eq 0>
         <cfset flashErr = "item_code, display_name, and category are required.">
     <cfelseif NOT len(trim(form.price)) OR NOT isNumeric(trim(form.price))>
@@ -126,46 +85,41 @@
         </cfif>
         <cftry>
             <cfif form.form_action eq "save_insert">
-                <cfquery name="qDup" datasource="#dts#">SELECT menu_id FROM app_menu WHERE item_code = <cfqueryparam cfsqltype="cf_sql_varchar" value="#itemCode#"></cfquery>
+                <cfquery name="qDup" datasource="#dts#">SELECT ITEMNO FROM icitem WHERE ITEMNO = <cfqueryparam cfsqltype="cf_sql_varchar" value="#itemCode#"></cfquery>
                 <cfif qDup.recordCount gt 0>
                     <cfset flashErr = "item_code is already in use.">
                 <cfelse>
                     <cfquery datasource="#dts#">
-                        INSERT INTO app_menu (item_code, display_name, category, price<cfif len(promoCol)>, #promoCol#</cfif>, image_url<cfif blobCols>, image_bytes, image_type</cfif>, is_available) VALUES (
+                        INSERT INTO icitem (ITEMNO, DESP, CATEGORY, PRICE, promo_price, img_url, img_bytes, img_type, is_avail) VALUES (
                         <cfqueryparam cfsqltype="cf_sql_varchar" value="#itemCode#">,
                         <cfqueryparam cfsqltype="cf_sql_varchar" value="#displayName#">,
                         <cfqueryparam cfsqltype="cf_sql_varchar" value="#categoryVal#">,
-                        <cfqueryparam cfsqltype="cf_sql_decimal" value="#priceVal#">
-                        <cfif len(promoCol)>,<cfif promoEmpty>NULL<cfelse><cfqueryparam cfsqltype="cf_sql_decimal" value="#val(promoStr)#"></cfif></cfif>,
+                        <cfqueryparam cfsqltype="cf_sql_decimal" value="#priceVal#">,
+                        <cfif promoEmpty>NULL<cfelse><cfqueryparam cfsqltype="cf_sql_decimal" value="#val(promoStr)#"></cfif>,
                         <cfif hasNewUpload>NULL<cfelseif len(trim(preserveUrl))><cfqueryparam cfsqltype="cf_sql_varchar" value="#preserveUrl#"><cfelse>NULL</cfif>,
-                        <cfif blobCols><cfif hasNewUpload><cfqueryparam cfsqltype="cf_sql_blob" value="#imgBytes#"><cfelse>NULL</cfif>,<cfif hasNewUpload><cfqueryparam cfsqltype="cf_sql_varchar" value="#imgMime#"><cfelse>NULL</cfif>,</cfif>
-                        <cfqueryparam cfsqltype="cf_sql_tinyint" value="#isAvail#">)
+                        <cfif hasNewUpload><cfqueryparam cfsqltype="cf_sql_blob" value="#imgBytes#"><cfelse>NULL</cfif>,
+                        <cfif hasNewUpload><cfqueryparam cfsqltype="cf_sql_varchar" value="#imgMime#"><cfelse>NULL</cfif>,
+                        <cfqueryparam cfsqltype="cf_sql_char" value="#isAvail#">)
                     </cfquery>
                     <cfset flashMsg = "saved">
                 </cfif>
             <cfelse>
-                <cfif NOT isNumeric(form.menu_id)>
+                <cfif NOT len(trim(form.menu_id)) gt 0>
                     <cfset flashErr = "Invalid ID.">
                 <cfelse>
-                    <cfquery name="qDup2" datasource="#dts#">SELECT menu_id FROM app_menu WHERE item_code = <cfqueryparam cfsqltype="cf_sql_varchar" value="#itemCode#"> AND menu_id <> <cfqueryparam cfsqltype="cf_sql_integer" value="#val(form.menu_id)#"></cfquery>
-                    <cfif qDup2.recordCount gt 0>
-                        <cfset flashErr = "item_code conflicts with another row.">
-                    <cfelse>
-                        <cfquery datasource="#dts#">
-                            UPDATE app_menu SET
-                            item_code = <cfqueryparam cfsqltype="cf_sql_varchar" value="#itemCode#">,
-                            display_name = <cfqueryparam cfsqltype="cf_sql_varchar" value="#displayName#">,
-                            category = <cfqueryparam cfsqltype="cf_sql_varchar" value="#categoryVal#">,
-                            price = <cfqueryparam cfsqltype="cf_sql_decimal" value="#priceVal#">
-                            <cfif len(promoCol)>, #promoCol# = <cfif promoEmpty>NULL<cfelse><cfqueryparam cfsqltype="cf_sql_decimal" value="#val(promoStr)#"></cfif></cfif>,
-                            image_url = <cfif hasNewUpload>NULL<cfelseif len(trim(preserveUrl))><cfqueryparam cfsqltype="cf_sql_varchar" value="#preserveUrl#"><cfelse>NULL</cfif>,
-                            <cfif blobCols AND hasNewUpload>image_bytes = <cfqueryparam cfsqltype="cf_sql_blob" value="#imgBytes#">, image_type = <cfqueryparam cfsqltype="cf_sql_varchar" value="#imgMime#">,</cfif>
-                            <cfif blobCols AND clearImage AND NOT hasNewUpload>image_bytes = NULL, image_type = NULL,</cfif>
-                            is_available = <cfqueryparam cfsqltype="cf_sql_tinyint" value="#isAvail#">
-                            WHERE menu_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#val(form.menu_id)#">
-                        </cfquery>
-                        <cfset flashMsg = "saved">
-                    </cfif>
+                    <cfquery datasource="#dts#">
+                        UPDATE icitem SET
+                        DESP = <cfqueryparam cfsqltype="cf_sql_varchar" value="#displayName#">,
+                        CATEGORY = <cfqueryparam cfsqltype="cf_sql_varchar" value="#categoryVal#">,
+                        PRICE = <cfqueryparam cfsqltype="cf_sql_decimal" value="#priceVal#">,
+                        promo_price = <cfif promoEmpty>NULL<cfelse><cfqueryparam cfsqltype="cf_sql_decimal" value="#val(promoStr)#"></cfif>,
+                        img_url = <cfif hasNewUpload>NULL<cfelseif len(trim(preserveUrl))><cfqueryparam cfsqltype="cf_sql_varchar" value="#preserveUrl#"><cfelse>NULL</cfif>,
+                        <cfif hasNewUpload>img_bytes = <cfqueryparam cfsqltype="cf_sql_blob" value="#imgBytes#">, img_type = <cfqueryparam cfsqltype="cf_sql_varchar" value="#imgMime#">,</cfif>
+                        <cfif clearImage AND NOT hasNewUpload>img_bytes = NULL, img_type = NULL,</cfif>
+                        is_avail = <cfqueryparam cfsqltype="cf_sql_char" value="#isAvail#">
+                        WHERE ITEMNO = <cfqueryparam cfsqltype="cf_sql_varchar" value="#trim(form.menu_id)#">
+                    </cfquery>
+                    <cfset flashMsg = "saved">
                 </cfif>
             </cfif>
             <cfcatch type="any"><cfset flashErr = "Save failed: " & left(trim(cfcatch.message & " " & toString(cfcatch.detail)), 400)></cfcatch>
@@ -173,7 +127,7 @@
     </cfif>
     <cfif len(flashErr)>
         <cfset eurl = "Menu.cfm?err=" & URLEncodedFormat(flashErr)>
-        <cfif structKeyExists(form, "menu_id") AND isNumeric(form.menu_id)><cfset eurl = eurl & "&edit=" & val(form.menu_id)></cfif>
+        <cfif structKeyExists(form, "menu_id") AND len(trim(form.menu_id)) gt 0><cfset eurl = eurl & "&edit=" & URLEncodedFormat(trim(form.menu_id))></cfif>
         <cfif structKeyExists(form, "rt_new") AND form.rt_new eq "1"><cfset eurl = eurl & "&new=1"></cfif>
         <cfset eurl = eurl & "&category=" & URLEncodedFormat(rtCat) & "&q=" & URLEncodedFormat(rtQ)>
         <cflocation url="#eurl#" addtoken="false">
@@ -182,11 +136,11 @@
     </cfif>
 </cfif>
 
-<cfif isDefined("url.action") AND url.action eq "toggle" AND isNumeric(url.menu_id) AND isDefined("dts") AND len(trim(dts))>
-    <cfquery name="qCur" datasource="#dts#">SELECT is_available FROM app_menu WHERE menu_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#val(url.menu_id)#"></cfquery>
+<cfif isDefined("url.action") AND url.action eq "toggle" AND len(trim(url.menu_id)) gt 0 AND isDefined("dts") AND len(trim(dts))>
+    <cfquery name="qCur" datasource="#dts#">SELECT is_avail AS is_available FROM icitem WHERE ITEMNO = <cfqueryparam cfsqltype="cf_sql_varchar" value="#trim(url.menu_id)#"></cfquery>
     <cfif qCur.recordCount eq 1>
-        <cfset newv = 0><cfif qCur.is_available neq 1><cfset newv = 1></cfif>
-        <cfquery datasource="#dts#">UPDATE app_menu SET is_available = <cfqueryparam cfsqltype="cf_sql_tinyint" value="#newv#"> WHERE menu_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#val(url.menu_id)#"></cfquery>
+        <cfset newv = 'F'><cfif qCur.is_available neq 'T'><cfset newv = 'T'></cfif>
+        <cfquery datasource="#dts#">UPDATE icitem SET is_avail = <cfqueryparam cfsqltype="cf_sql_char" value="#newv#"> WHERE ITEMNO = <cfqueryparam cfsqltype="cf_sql_varchar" value="#trim(url.menu_id)#"></cfquery>
     </cfif>
     <cflocation url="Menu.cfm?category=#URLEncodedFormat(url.category)#&q=#URLEncodedFormat(url.q)#" addtoken="false">
 </cfif>
@@ -198,33 +152,33 @@
 <cfset showForm = false>
 <cfset isNew = false>
 <cfif url.new eq "1"><cfset showForm = true><cfset isNew = true></cfif>
-<cfif isNumeric(url.edit) AND val(url.edit) gt 0><cfset showForm = true><cfset isNew = false></cfif>
+<cfif len(trim(url.edit)) gt 0><cfset showForm = true><cfset isNew = false></cfif>
 <cfif isDefined("dts") AND len(trim(dts))>
     <cftry>
-        <cfquery name="qCats" datasource="#dts#">SELECT DISTINCT category AS catname FROM app_menu ORDER BY catname</cfquery>
+        <cfquery name="qCats" datasource="#dts#">SELECT DISTINCT CATEGORY AS catname FROM icitem ORDER BY catname</cfquery>
         <cfif showForm AND NOT isNew>
             <cfquery name="qRow" datasource="#dts#">
-                SELECT menu_id, item_code, display_name, category, price,
-                <cfif promoCol eq "promo_price">promo_price<cfelseif promoCol eq "original_price">original_price AS promo_price<cfelse>NULL AS promo_price</cfif>,
-                image_url,
-                <cfif blobCols>CASE WHEN image_bytes IS NULL THEN 0 ELSE 1 END AS has_img_blob<cfelse>0 AS has_img_blob</cfif>,
-                is_available FROM app_menu WHERE menu_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#val(url.edit)#">
+                SELECT ITEMNO AS menu_id, ITEMNO AS item_code, DESP AS display_name, CATEGORY AS category, PRICE AS price,
+                promo_price,
+                img_url AS image_url,
+                CASE WHEN img_bytes IS NULL THEN 0 ELSE 1 END AS has_img_blob,
+                is_avail AS is_available FROM icitem WHERE ITEMNO = <cfqueryparam cfsqltype="cf_sql_varchar" value="#trim(url.edit)#">
             </cfquery>
             <cfif qRow.recordCount eq 0><cfset showForm = false><cfset flashErr = "Record not found."></cfif>
         </cfif>
         <cfif NOT showForm>
             <cfquery name="qList" datasource="#dts#">
-                SELECT menu_id, item_code, display_name, category, price,
-                <cfif promoCol eq "promo_price">promo_price<cfelseif promoCol eq "original_price">original_price AS promo_price<cfelse>NULL AS promo_price</cfif>,
-                image_url,
-                <cfif blobCols>CASE WHEN image_bytes IS NULL THEN 0 ELSE 1 END AS has_img_blob<cfelse>0 AS has_img_blob</cfif>,
-                is_available FROM app_menu WHERE 1=1
-                <cfif len(trim(url.category))>AND category = <cfqueryparam cfsqltype="cf_sql_varchar" value="#trim(url.category)#"></cfif>
-                <cfif len(kw)>AND (LOWER(display_name) LIKE <cfqueryparam cfsqltype="cf_sql_varchar" value="#kwLike#"> OR LOWER(item_code) LIKE <cfqueryparam cfsqltype="cf_sql_varchar" value="#kwLike#">)</cfif>
-                ORDER BY category, display_name
+                SELECT ITEMNO AS menu_id, ITEMNO AS item_code, DESP AS display_name, CATEGORY AS category, PRICE AS price,
+                promo_price,
+                img_url AS image_url,
+                CASE WHEN img_bytes IS NULL THEN 0 ELSE 1 END AS has_img_blob,
+                is_avail AS is_available FROM icitem WHERE 1=1
+                <cfif len(trim(url.category))>AND CATEGORY = <cfqueryparam cfsqltype="cf_sql_varchar" value="#trim(url.category)#"></cfif>
+                <cfif len(kw)>AND (LOWER(DESP) LIKE <cfqueryparam cfsqltype="cf_sql_varchar" value="#kwLike#"> OR LOWER(ITEMNO) LIKE <cfqueryparam cfsqltype="cf_sql_varchar" value="#kwLike#">)</cfif>
+                ORDER BY CATEGORY, DESP
             </cfquery>
         </cfif>
-        <cfcatch type="any"><cfset qErr = "app_menu query failed: " & left(trim(cfcatch.message & " " & toString(cfcatch.detail)), 400)></cfcatch>
+        <cfcatch type="any"><cfset qErr = "icitem query failed: " & left(trim(cfcatch.message & " " & toString(cfcatch.detail)), 400)></cfcatch>
     </cftry>
 </cfif>
 <cfif isDefined("url.err") AND len(trim(url.err))><cfset flashErr = trim(url.err)></cfif>
@@ -236,7 +190,7 @@
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>E-Menu admin — app_menu</title>
+<title>E-Menu admin — Menu catalog</title>
 <link rel="stylesheet" type="text/css" href="/latest/css/bootstrap/bootstrap.min.css" />
 <style type="text/css">
 body { font-family: "Segoe UI", Arial, sans-serif; background:##ededed; color:##1D2835; margin: 0; padding: 16px 12px 40px; }
@@ -326,7 +280,7 @@ a:hover { color: ##d04050; text-decoration: underline; }
     <cfif showForm>
         <cfset f = structNew()>
         <cfif isNew>
-            <cfset f.menu_id = ""><cfset f.item_code = ""><cfset f.display_name = ""><cfset f.category = ""><cfset f.price = ""><cfset f.promo_price = ""><cfset f.image_url = ""><cfset f.is_available = 1><cfset f.has_img_blob = 0>
+            <cfset f.menu_id = ""><cfset f.item_code = ""><cfset f.display_name = ""><cfset f.category = ""><cfset f.price = ""><cfset f.promo_price = ""><cfset f.image_url = ""><cfset f.is_available = 'T'><cfset f.has_img_blob = 0>
         <cfelse>
             <cfset f.menu_id = qRow.menu_id><cfset f.item_code = qRow.item_code><cfset f.display_name = qRow.display_name><cfset f.category = qRow.category><cfset f.price = qRow.price>
             <cfset f.promo_price = ""><cfif isNumeric(qRow.promo_price) AND val(qRow.promo_price) gt 0><cfset f.promo_price = qRow.promo_price></cfif>
@@ -339,7 +293,7 @@ a:hover { color: ##d04050; text-decoration: underline; }
         </cfif>
         <cfset showCategorySelect = (NOT len(catTrim)) OR catInList>
         <div class="waiter-panel">
-        <h2 class="waiter-panel-title"><cfif isNew>New menu item<cfelse>Edit menu — ID #val(f.menu_id)#</cfif></h2>
+        <h2 class="waiter-panel-title"><cfif isNew>New menu item<cfelse>Edit menu — #esc(f.item_code)#</cfif></h2>
         <form method="post" action="Menu.cfm" class="form-horizontal waiter-form-horizontal" enctype="multipart/form-data">
             <input type="hidden" name="rt_category" value="#htmlCat#" />
             <input type="hidden" name="rt_q" value="#htmlQ#" />
@@ -348,7 +302,13 @@ a:hover { color: ##d04050; text-decoration: underline; }
             <input type="hidden" name="form_action" value="<cfif isNew>save_insert<cfelse>save_update</cfif>" />
             <div class="form-group">
                 <label class="col-sm-3 control-label" for="wf_item_code">item_code <small class="text-muted">(max 60)</small></label>
-                <div class="col-sm-9"><input type="text" name="item_code" id="wf_item_code" maxlength="60" required="required" value="#esc(f.item_code)#" class="form-control" /></div>
+                <div class="col-sm-9">
+                    <cfif isNew>
+                        <input type="text" name="item_code" id="wf_item_code" maxlength="60" required="required" value="#esc(f.item_code)#" class="form-control" />
+                    <cfelse>
+                        <input type="text" id="wf_item_code" maxlength="60" value="#esc(f.item_code)#" class="form-control" readonly="readonly" style="background:#f5f5f5;" />
+                    </cfif>
+                </div>
             </div>
             <div class="form-group">
                 <label class="col-sm-3 control-label" for="wf_display_name">display_name</label>
@@ -408,7 +368,7 @@ a:hover { color: ##d04050; text-decoration: underline; }
                                 <div class="waiter-upload-preview-col">
                                     <p class="waiter-preview-caption">Preview · click to enlarge</p>
                                     <img id="imgPreview" class="waiter-img-preview waiter-thumb-zoom" alt="Preview" title="Click to enlarge"
-                                        <cfif NOT isNew AND f.has_img_blob eq 1> src="MenuImage.cfm?id=#val(f.menu_id)#&amp;v=#imgVer#" data-fullsrc="MenuImage.cfm?id=#val(f.menu_id)#&amp;v=#imgVer#" style="display:inline-block;"
+                                        <cfif NOT isNew AND f.has_img_blob eq 1> src="MenuImage.cfm?id=#URLEncodedFormat(f.item_code)#&amp;v=#imgVer#" data-fullsrc="MenuImage.cfm?id=#URLEncodedFormat(f.item_code)#&amp;v=#imgVer#" style="display:inline-block;"
                                         <cfelseif len(trim(f.image_url))> src="#xmlFormat(trim(f.image_url))#" data-fullsrc="#xmlFormat(trim(f.image_url))#" style="display:inline-block;"
                                         <cfelse> src="" data-fullsrc="" style="display:none;"</cfif> />
                                 </div>
@@ -427,7 +387,7 @@ a:hover { color: ##d04050; text-decoration: underline; }
                 <div class="col-sm-9">
                     <div class="checkbox" style="margin-top:0;padding-top:7px;">
                         <label style="font-weight:normal;padding-left:0;margin-left:0;">
-                            <input type="checkbox" name="is_available" id="wf_is_available" value="1" <cfif f.is_available eq 1>checked="checked"</cfif> /> Available
+                            <input type="checkbox" name="is_available" id="wf_is_available" value="1" <cfif f.is_available eq 'T'>checked="checked"</cfif> /> Available
                         </label>
                     </div>
                 </div>
@@ -476,7 +436,7 @@ a:hover { color: ##d04050; text-decoration: underline; }
             <table class="table table-striped table-bordered table-hover table-condensed waiter-table">
                 <thead>
                     <tr>
-                        <th class="waiter-col-id text-center">ID</th>
+                        <th class="waiter-col-id text-center">Item Code</th>
                         <th class="waiter-col-photo text-center">Photo</th>
                         <th class="waiter-col-code text-center">item_code</th>
                         <th class="text-center">display_name</th>
@@ -493,10 +453,10 @@ a:hover { color: ##d04050; text-decoration: underline; }
                     <cfelse>
                         <cfloop query="qList">
                             <tr>
-                                <td class="waiter-col-id text-muted"><small>#menu_id#</small></td>
+                                <td class="waiter-col-id text-muted"><small><code>#item_code#</code></small></td>
                                 <td class="waiter-col-photo">
                                     <cfif blobCols AND val(has_img_blob) eq 1>
-                                        <img class="waiter-thumb waiter-thumb-zoom" src="MenuImage.cfm?id=#menu_id#&amp;v=#imgVer#" data-fullsrc="MenuImage.cfm?id=#menu_id#&amp;v=#imgVer#" alt="" title="Click to enlarge" />
+                                        <img class="waiter-thumb waiter-thumb-zoom" src="MenuImage.cfm?id=#URLEncodedFormat(item_code)#&amp;v=#imgVer#" data-fullsrc="MenuImage.cfm?id=#URLEncodedFormat(item_code)#&amp;v=#imgVer#" alt="" title="Click to enlarge" />
                                     <cfelseif len(trim(toString(image_url)))>
                                         <img class="waiter-thumb waiter-thumb-zoom" src="#xmlFormat(trim(image_url))#" data-fullsrc="#xmlFormat(trim(image_url))#" alt="" title="Click to enlarge" onerror="this.style.visibility='hidden';" />
                                     <cfelse>
@@ -508,10 +468,10 @@ a:hover { color: ##d04050; text-decoration: underline; }
                                 <td>#esc(category)#</td>
                                 <td class="text-right">#NumberFormat(price, "9,999.99")#</td>
                                 <td class="text-right text-muted"><cfif val(promo_price) gt 0>#NumberFormat(promo_price, "9,999.99")#<cfelse>&mdash;</cfif></td>
-                                <td class="waiter-col-flag"><cfif is_available eq 1><span class="label label-success">Yes</span><cfelse><span class="label label-default">No</span></cfif></td>
+                                <td class="waiter-col-flag"><cfif is_available eq 'T'><span class="label label-success">Yes</span><cfelse><span class="label label-default">No</span></cfif></td>
                                 <td class="waiter-col-actions waiter-actions">
-                                    <a href="Menu.cfm?edit=#menu_id#&amp;category=#URLEncodedFormat(url.category)#&amp;q=#URLEncodedFormat(url.q)#" class="btn btn-default btn-xs" title="Edit"><span class="glyphicon glyphicon-pencil"></span></a>
-                                    <a href="Menu.cfm?action=toggle&amp;menu_id=#menu_id#&amp;category=#URLEncodedFormat(url.category)#&amp;q=#URLEncodedFormat(url.q)#" class="btn btn-default btn-xs" title="<cfif is_available eq 1>Deactivate<cfelse>Activate</cfif>"><span class="glyphicon <cfif is_available eq 1>glyphicon-ban-circle<cfelse>glyphicon-ok-circle</cfif>"></span></a>
+                                    <a href="Menu.cfm?edit=#URLEncodedFormat(item_code)#&amp;category=#URLEncodedFormat(url.category)#&amp;q=#URLEncodedFormat(url.q)#" class="btn btn-default btn-xs" title="Edit"><span class="glyphicon glyphicon-pencil"></span></a>
+                                    <a href="Menu.cfm?action=toggle&amp;menu_id=#URLEncodedFormat(item_code)#&amp;category=#URLEncodedFormat(url.category)#&amp;q=#URLEncodedFormat(url.q)#" class="btn btn-default btn-xs" title="<cfif is_available eq 'T'>Deactivate<cfelse>Activate</cfif>"><span class="glyphicon <cfif is_available eq 'T'>glyphicon-ban-circle<cfelse>glyphicon-ok-circle</cfif>"></span></a>
                                     <form method="post" action="Menu.cfm" style="display:inline;">
                                         <input type="hidden" name="form_action" value="delete" />
                                         <input type="hidden" name="menu_id" value="#menu_id#" />

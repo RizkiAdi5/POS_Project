@@ -32,7 +32,8 @@
                                         unit2,factor1,factor2,priceu2,<cfloop index="i" from="3" to="6">unit#i#,factoru#i#_a,factoru#i#_b,priceu#i#,</cfloop>
                                         <cfloop index="i" from="1" to="10">packingdesp#i#,packingqty#i#,packingfreeqty#i#,</cfloop>
                                         fcurrcode,fucost,fprice,fprice_min,<cfloop index="i" from="2" to="10">fcurrcode#i#,fucost#i#,fprice#i#,fprice#i#_min,</cfloop>
-                                        <cfloop index="i" from="1" to="30">remark#i# <cfif i NEQ 30>,</cfif></cfloop>
+                                        <cfloop index="i" from="1" to="30">remark#i#,</cfloop>
+                                        sort_ord,promo_price,is_avail,is_feat,for_dine,for_take,for_deliv,is_veg,is_halal,is_spicy,spice_lvl,allergens,calories,prep_time
                                         )
 					VALUES
 					(
@@ -128,8 +129,23 @@
                         </cfloop>
                         <!---Panel 8--->
                         <cfloop index="i" from="1" to="30">
-                        	<cfqueryparam cfsqltype="cf_sql_varchar" value="#trim(evaluate('form.remark#i#'))#"> <cfif i NEQ 30>,</cfif>
+                        	<cfqueryparam cfsqltype="cf_sql_varchar" value="#trim(evaluate('form.remark#i#'))#">,
                         </cfloop>
+                        <!---FnB Panel--->
+                        <cfqueryparam cfsqltype="cf_sql_integer" value="#val(form.fnb_sort_ord)#">,
+                        <cfif len(trim(form.fnb_promo_price)) AND val(replace(form.fnb_promo_price,',','','all')) GT 0><cfqueryparam cfsqltype="cf_sql_decimal" value="#val(replace(form.fnb_promo_price,',','','all'))#"><cfelse>NULL</cfif>,
+                        <cfif IsDefined('form.fnb_is_avail')>'T'<cfelse>'F'</cfif>,
+                        <cfif IsDefined('form.fnb_is_feat')>'T'<cfelse>'F'</cfif>,
+                        <cfif IsDefined('form.fnb_for_dine')>'T'<cfelse>'F'</cfif>,
+                        <cfif IsDefined('form.fnb_for_take')>'T'<cfelse>'F'</cfif>,
+                        <cfif IsDefined('form.fnb_for_deliv')>'T'<cfelse>'F'</cfif>,
+                        <cfif IsDefined('form.fnb_is_veg')>'T'<cfelse>'F'</cfif>,
+                        <cfif IsDefined('form.fnb_is_halal')>'T'<cfelse>'F'</cfif>,
+                        <cfif IsDefined('form.fnb_is_spicy')>'T'<cfelse>'F'</cfif>,
+                        <cfqueryparam cfsqltype="cf_sql_integer" value="#val(form.fnb_spice_lvl)#">,
+                        <cfqueryparam cfsqltype="cf_sql_varchar" value="#trim(form.fnb_allergens)#">,
+                        <cfif len(trim(form.fnb_calories))><cfqueryparam cfsqltype="cf_sql_integer" value="#val(form.fnb_calories)#"><cfelse>NULL</cfif>,
+                        <cfif len(trim(form.fnb_prep_time))><cfqueryparam cfsqltype="cf_sql_integer" value="#val(form.fnb_prep_time)#"><cfelse>NULL</cfif>
 					)
 				</cfquery>
 
@@ -279,8 +295,23 @@
 
                     <!---Panel 8--->
                     <cfloop index="i" from="1" to="30">
-                        remark#i# = <cfqueryparam cfsqltype="cf_sql_varchar" value="#trim(evaluate('form.remark#i#'))#"> <cfif i NEQ 30>,</cfif>
+                        remark#i# = <cfqueryparam cfsqltype="cf_sql_varchar" value="#trim(evaluate('form.remark#i#'))#">,
                     </cfloop>
+                    <!---FnB Panel--->
+                    sort_ord = <cfqueryparam cfsqltype="cf_sql_integer" value="#val(form.fnb_sort_ord)#">,
+                    promo_price = <cfif len(trim(form.fnb_promo_price)) AND val(replace(form.fnb_promo_price,',','','all')) GT 0><cfqueryparam cfsqltype="cf_sql_decimal" value="#val(replace(form.fnb_promo_price,',','','all'))#"><cfelse>NULL</cfif>,
+                    is_avail = <cfif IsDefined('form.fnb_is_avail')>'T'<cfelse>'F'</cfif>,
+                    is_feat = <cfif IsDefined('form.fnb_is_feat')>'T'<cfelse>'F'</cfif>,
+                    for_dine = <cfif IsDefined('form.fnb_for_dine')>'T'<cfelse>'F'</cfif>,
+                    for_take = <cfif IsDefined('form.fnb_for_take')>'T'<cfelse>'F'</cfif>,
+                    for_deliv = <cfif IsDefined('form.fnb_for_deliv')>'T'<cfelse>'F'</cfif>,
+                    is_veg = <cfif IsDefined('form.fnb_is_veg')>'T'<cfelse>'F'</cfif>,
+                    is_halal = <cfif IsDefined('form.fnb_is_halal')>'T'<cfelse>'F'</cfif>,
+                    is_spicy = <cfif IsDefined('form.fnb_is_spicy')>'T'<cfelse>'F'</cfif>,
+                    spice_lvl = <cfqueryparam cfsqltype="cf_sql_integer" value="#val(form.fnb_spice_lvl)#">,
+                    allergens = <cfqueryparam cfsqltype="cf_sql_varchar" value="#trim(form.fnb_allergens)#">,
+                    calories = <cfif len(trim(form.fnb_calories))><cfqueryparam cfsqltype="cf_sql_integer" value="#val(form.fnb_calories)#"><cfelse>NULL</cfif>,
+                    prep_time = <cfif len(trim(form.fnb_prep_time))><cfqueryparam cfsqltype="cf_sql_integer" value="#val(form.fnb_prep_time)#"><cfelse>NULL</cfif>
 				WHERE itemno = <cfqueryparam cfsqltype="cf_sql_varchar" value="#trim(form.itemno)#">;
 			</cfquery>
             <cfif IsDefined('form.grade') AND form.grade EQ "Y">
