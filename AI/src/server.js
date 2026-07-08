@@ -524,124 +524,35 @@ app.post('/chat/customer', authMiddleware, async (req, res) => {
   res.json(out);
 });
 
-app.post('/xendit/disburse', authMiddleware, async (req, res) => {
-  const xenditKey = process.env.XENDIT_SECRET_KEY || '';
-  if (!xenditKey) {
-    return res.status(500).json({ error: 'XENDIT_SECRET_KEY not configured' });
-  }
 
-  // CF10 uppercases JSON keys — normalise
+app.post('/xendit/invoice', authMiddleware, async (req, res) => {
+  // CF10 serializes struct keys as UPPERCASE — normalise to lowercase
   const body = {};
   for (const [k, v] of Object.entries(req.body || {})) body[k.toLowerCase()] = v;
-  const { dts, order_id, gross_amount } = body;
+  const { external_id, amount, description, currency, success_redirect_url, failure_redirect_url, payment_methods, metadata, dts } = body;
 
-  if (!dts || !order_id || !gross_amount) {
+  if (!external_id || !amount || !dts) {
     return res.status(400).json({ error: 'missing_required_fields' });
   }
   if (!checkDts(dts)) {
     return res.status(400).json({ error: 'dts_not_allowed' });
   }
 
+  // Look up this tenant's own Xendit secret key from DB
+  let xenditKey;
   try {
-    // Look up client's bank account and fee config (cross-schema: main.*)
-    const accounts = await db.runQuery(dts,
-      'SELECT bank_code, account_number, account_name, platform_fee_pct, absorb_gateway_fee FROM main.client_payment_accounts WHERE dts = ? AND is_active = 1 LIMIT 1',
-      [dts]
+    const rows = await db.runQuery(dts,
+      "SELECT secret_key FROM master_api WHERE provider = 'Xendit' AND is_active = 'Y' LIMIT 1",
+      []
     );
-    if (!accounts.length) {
-      return res.status(404).json({ error: 'no_bank_account_registered', dts });
+    if (!rows.length || !rows[0].secret_key) {
+      return res.status(503).json({ error: 'xendit_not_configured', dts });
     }
-    const acct = accounts[0];
-
-    // Fee calculation — Xendit disbursement flat fee IDR 5,000
-    const XENDIT_DISBURSE_FEE = 5000;
-    const gross = parseFloat(gross_amount);
-    const platformFee = Math.round(gross * (parseFloat(acct.platform_fee_pct) / 100));
-    const xenditFee = acct.absorb_gateway_fee ? XENDIT_DISBURSE_FEE : 0;
-    const disburseAmount = Math.round(gross - platformFee - xenditFee);
-
-    if (disburseAmount <= 0) {
-      return res.status(422).json({ error: 'disburse_amount_too_low', disburse_amount: disburseAmount });
-    }
-
-    const externalId = `DSB-${dts}-${order_id}-${Date.now()}`;
-
-    // Insert pending disbursement record
-    const ins = await runWrite(dts,
-      `INSERT INTO main.disbursements
-        (dts, order_id, gross_amount, platform_fee, xendit_fee, disburse_amount, status)
-       VALUES (?, ?, ?, ?, ?, ?, 'pending')`,
-      [dts, order_id, gross, platformFee, xenditFee, disburseAmount]
-    );
-    const disbursementId = ins.insertId;
-
-    // Call Xendit Disbursement API
-    let xenditDisbId = null;
-    let finalStatus = 'pending';
-    try {
-      const xenditRes = await fetch('https://api.xendit.co/disbursements', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Basic ' + Buffer.from(`${xenditKey}:`).toString('base64'),
-        },
-        body: JSON.stringify({
-          external_id: externalId,
-          bank_code: acct.bank_code,
-          account_holder_name: acct.account_name,
-          account_number: acct.account_number,
-          description: `Order disbursement ${order_id} for ${dts}`,
-          amount: disburseAmount,
-        }),
-      });
-      const xenditData = await xenditRes.json();
-      if (xenditRes.ok && xenditData.id) {
-        xenditDisbId = xenditData.id;
-        finalStatus = xenditData.status ? xenditData.status.toLowerCase() : 'pending';
-      } else {
-        finalStatus = 'failed';
-        logEvent({ kind: 'disburse_xendit_error', dts, order_id, http_status: xenditRes.status, body: JSON.stringify(xenditData).slice(0, 400) });
-      }
-    } catch (fetchErr) {
-      finalStatus = 'failed';
-      logEvent({ kind: 'disburse_fetch_error', dts, order_id, error: fetchErr.message });
-    }
-
-    // Update disbursement record with Xendit response
-    await runWrite(dts,
-      'UPDATE main.disbursements SET xendit_disburse_id = ?, status = ? WHERE id = ?',
-      [xenditDisbId, finalStatus, disbursementId]
-    );
-
-    return res.json({
-      ok: finalStatus !== 'failed',
-      disbursement_id: disbursementId,
-      xendit_disburse_id: xenditDisbId,
-      status: finalStatus,
-      gross_amount: gross,
-      platform_fee: platformFee,
-      xendit_fee: xenditFee,
-      disburse_amount: disburseAmount,
-    });
-
-  } catch (err) {
-    logEvent({ kind: 'disburse_error', dts, order_id, error: err.message });
-    return res.status(500).json({ error: 'disburse_failed', detail: err.message });
+    xenditKey = rows[0].secret_key;
+  } catch (e) {
+    return res.status(500).json({ error: 'db_error', detail: e.message });
   }
-});
 
-app.post('/xendit/invoice', authMiddleware, async (req, res) => {
-  const xenditKey = process.env.XENDIT_SECRET_KEY || '';
-  if (!xenditKey) {
-    return res.status(500).json({ error: 'XENDIT_SECRET_KEY not configured' });
-  }
-  // CF10 serializes struct keys as UPPERCASE — normalise to lowercase
-  const body = {};
-  for (const [k, v] of Object.entries(req.body || {})) body[k.toLowerCase()] = v;
-  const { external_id, amount, description, currency, success_redirect_url, failure_redirect_url, payment_methods, metadata } = body;
-  if (!external_id || !amount) {
-    return res.status(400).json({ error: 'missing_required_fields' });
-  }
   try {
     const invoicePayload = { external_id, amount, description, currency, success_redirect_url, failure_redirect_url };
     if (metadata && typeof metadata === 'object') {
@@ -660,7 +571,6 @@ app.post('/xendit/invoice', authMiddleware, async (req, res) => {
       body: JSON.stringify(invoicePayload),
     });
     let data = await xenditRes.json();
-    // If specific payment methods are not available on this Xendit account, retry without restriction
     if (!xenditRes.ok && data.error_code === 'UNAVAILABLE_PAYMENT_METHOD_ERROR' && invoicePayload.payment_methods) {
       delete invoicePayload.payment_methods;
       xenditRes = await fetch('https://api.xendit.co/v2/invoices', {
@@ -676,53 +586,6 @@ app.post('/xendit/invoice', authMiddleware, async (req, res) => {
   }
 });
 
-app.post('/xendit/disburse-batch', authMiddleware, async (req, res) => {
-  const xenditKey = process.env.XENDIT_SECRET_KEY || '';
-  if (!xenditKey) {
-    return res.status(500).json({ error: 'XENDIT_SECRET_KEY not configured' });
-  }
-  const body = {};
-  for (const [k, v] of Object.entries(req.body || {})) body[k.toLowerCase()] = v;
-  const { dts, batch_id, amount, bank_code, account_number, account_name } = body;
-  if (!dts || !batch_id || !amount || !bank_code || !account_number || !account_name) {
-    return res.status(400).json({ error: 'missing_required_fields' });
-  }
-  if (!checkDts(dts)) {
-    return res.status(400).json({ error: 'dts_not_allowed' });
-  }
-  const externalId = `BATCH-${dts}-${batch_id}-${Date.now()}`;
-  try {
-    const xenditRes = await fetch('https://api.xendit.co/disbursements', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Basic ' + Buffer.from(`${xenditKey}:`).toString('base64'),
-      },
-      body: JSON.stringify({
-        external_id:          externalId,
-        bank_code:            bank_code,
-        account_holder_name:  account_name,
-        account_number:       account_number,
-        description:          `Batch payout ${batch_id} for ${dts}`,
-        amount:               Math.round(parseFloat(amount)),
-      }),
-    });
-    const data = await xenditRes.json();
-    if (xenditRes.ok && data.id) {
-      logEvent({ kind: 'disburse_batch_ok', dts, batch_id, xendit_id: data.id, amount });
-      return res.json({
-        ok:                 true,
-        xendit_disburse_id: data.id,
-        status:             (data.status || 'PENDING').toLowerCase(),
-      });
-    }
-    logEvent({ kind: 'disburse_batch_xendit_error', dts, batch_id, http_status: xenditRes.status, body: JSON.stringify(data).slice(0, 400) });
-    return res.status(xenditRes.status || 502).json({ ok: false, error: 'xendit_rejected', detail: data });
-  } catch (err) {
-    logEvent({ kind: 'disburse_batch_error', dts, batch_id, error: err.message });
-    return res.status(500).json({ error: 'disburse_batch_failed', detail: err.message });
-  }
-});
 
 app.use((err, _req, res, _next) => {
   // eslint-disable-next-line no-console

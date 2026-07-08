@@ -162,7 +162,7 @@
     <cfif statusMsg eq "already_paid">
         <div class="info-box">This bill has already been paid. Ask staff to complete the table session if you are leaving.</div>
     <cfelseif payPendingCash>
-        <div class="info-box">Cash payment pending — please pay at the cashier. Staff will confirm on the waiter dashboard.</div>
+        <div class="info-box">Cash payment pending &mdash; please pay at the cashier. Staff will confirm on the waiter dashboard.</div>
     <cfelseif isPaid>
         <div class="info-box">Payment received. Thank you! Staff will clear this table when your visit is finished.</div>
     </cfif>
