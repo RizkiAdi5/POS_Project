@@ -2,6 +2,22 @@
 <cfset pageTitle="Kitchen Profile">
 <cfset targetTitle="Kitchen">
 <cfset targetTable="kitchen">
+<!--- Always allow add/edit/delete for admin & super; fall back to cashier pin column if available --->
+<cfif isDefined("getuserpin2.H10412_3b")>
+    <cfset displayEditDelete = getuserpin2.H10412_3b>
+<cfelse>
+    <cfset displayEditDelete = "T">
+</cfif>
+<cfif isDefined("getuserpin2.H10412_3a")>
+    <cfset displayAdd = getuserpin2.H10412_3a>
+<cfelse>
+    <cfset displayAdd = "T">
+</cfif>
+<cfif isDefined("getuserpin2.H10412_3c")>
+    <cfset displayPrint = getuserpin2.H10412_3c>
+<cfelse>
+    <cfset displayPrint = "T">
+</cfif>
 
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
@@ -25,9 +41,10 @@
 
     <cfoutput>
     <script type="text/javascript">
-        var dts='#dts#';
-        var targetTitle='#targetTitle#';
-        var targetTable='#targetTable#';
+        var dts         = '#dts#';
+        var display     = '#displayEditDelete#';
+        var targetTitle = '#targetTitle#';
+        var targetTable = '#targetTable#';
     </script>
     </cfoutput>
     <script type="text/javascript" src="/latest/js/maintenance/kitchenProfile.js"></script>
@@ -40,13 +57,21 @@
     <div class="page-header">
         <h2>
             #pageTitle#
+            <span class="glyphicon glyphicon-question-sign btn-link"></span>
+
             <div class="pull-right">
-                <button type="button" class="btn btn-default" onclick="window.open('/latest/maintenance/kitchen.cfm?action=create','_self');">
-                    <span class="glyphicon glyphicon-plus"></span> Add Kitchen Staff
-                </button>
-                <button type="button" class="btn btn-default" onclick="window.open('/latest/maintenance/kitchenProcess.cfm?action=print','_blank');">
-                    <span class="glyphicon glyphicon-print"></span> Print
-                </button>
+                <cfif displayAdd EQ "T">
+                    <button type="button" class="btn btn-default"
+                            onclick="window.open('/latest/maintenance/kitchen.cfm?action=create','_self');">
+                        <span class="glyphicon glyphicon-plus"></span> Add Kitchen Staff
+                    </button>
+                </cfif>
+                <cfif displayPrint EQ "T">
+                    <button type="button" class="btn btn-default"
+                            onclick="window.open('/latest/maintenance/kitchenProcess.cfm?action=print','_blank');">
+                        <span class="glyphicon glyphicon-print"></span> Print
+                    </button>
+                </cfif>
             </div>
         </h2>
     </div>

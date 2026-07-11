@@ -56,54 +56,91 @@
     <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Kitchen Login</title>
+        <title>Kitchen Dashboard</title>
         <link rel="stylesheet" href="/latest/css/bootstrap/bootstrap.min.css" />
         <style>
-            body { background: #f5f5f5; }
-            .login-card {
-                max-width: 380px;
-                margin: 80px auto;
-                background: #fff;
-                border-radius: 8px;
-                box-shadow: 0 2px 12px rgba(0,0,0,.12);
-                padding: 32px 28px;
+            body { margin:0; padding:0; background:#888; }
+            .overlay {
+                position: fixed; top:0; left:0; width:100%; height:100%;
+                background: rgba(0,0,0,0.55);
+                display: flex; align-items: center; justify-content: center;
+                z-index: 9999;
             }
-            .login-card h3 { margin-top: 0; margin-bottom: 24px; text-align: center; }
-            .login-card .form-group { margin-bottom: 16px; }
-            .login-card .btn-block { margin-top: 20px; }
-            .error-msg { color: #c0392b; font-size: 13px; margin-bottom: 12px; }
+            .chooser-box {
+                background: #fff;
+                width: 440px;
+                border-radius: 4px;
+                overflow: hidden;
+                box-shadow: 0 4px 24px rgba(0,0,0,.35);
+            }
+            .chooser-header {
+                background: #c0392b;
+                color: #fff;
+                text-align: center;
+                padding: 16px;
+                font-size: 18px;
+                font-weight: bold;
+            }
+            .chooser-body { padding: 24px 28px 20px; }
+            .chooser-body table { width: 100%; }
+            .chooser-body td { padding: 8px 6px; vertical-align: middle; }
+            .chooser-body td:first-child { white-space: nowrap; padding-right: 14px; font-size: 14px; }
+            .chooser-body select, .chooser-body input[type=password] {
+                width: 100%; padding: 6px 10px; border: 1px solid #ccc;
+                border-radius: 3px; font-size: 14px;
+            }
+            .chooser-footer { text-align: center; padding: 0 28px 20px; }
+            .chooser-footer .btn-go {
+                padding: 7px 36px; background: #e8e8e8;
+                border: 1px solid #ccc; border-radius: 3px;
+                font-size: 14px; cursor: pointer;
+            }
+            .chooser-footer .btn-go:hover { background: #d4d4d4; }
+            .error-msg { color: #c0392b; font-size: 13px; text-align: center; margin-bottom: 8px; }
+            .no-staff { color: #888; text-align: center; padding: 10px 0 4px; font-size: 14px; }
         </style>
     </head>
     <body>
     <cfoutput>
-    <div class="login-card">
-        <h3>Kitchen Sign-In</h3>
-        <cfif len(kitchenLoginError)>
-            <p class="error-msg">#kitchenLoginError#</p>
-        </cfif>
-        <cfif qKitchenStaff.recordcount EQ 0>
-            <p style="color:##888;text-align:center;">No kitchen profiles set up yet.<br/>
-               Contact your administrator to add kitchen staff in<br/>
-               <strong>Maintenance &rarr; Kitchen Profile</strong>.</p>
-        <cfelse>
-        <form method="post" action="Orders.cfm">
-            <div class="form-group">
-                <label>Kitchen Staff</label>
-                <select name="kitchen_id" class="form-control" required>
-                    <option value="">-- Select --</option>
-                    <cfloop query="qKitchenStaff">
-                        <option value="#kitchenID#">#kitchenID# - #name#</option>
-                    </cfloop>
-                </select>
+    <div class="overlay">
+        <div class="chooser-box">
+            <div class="chooser-header">Choose Kitchen Staff</div>
+            <cfif qKitchenStaff.recordcount EQ 0>
+                <div class="chooser-body">
+                    <p class="no-staff">No kitchen profiles set up yet.<br/>
+                       Go to <strong>Maintenance &rarr; Kitchen Profile</strong> to add staff.</p>
+                </div>
+            <cfelse>
+            <form method="post" action="Orders.cfm">
+            <div class="chooser-body">
+                <cfif len(kitchenLoginError)>
+                    <p class="error-msg">#kitchenLoginError#</p>
+                </cfif>
+                <table>
+                    <tr>
+                        <td>Kitchen Staff :</td>
+                        <td>
+                            <select name="kitchen_id" required>
+                                <option value="">Choose Kitchen Staff</option>
+                                <cfloop query="qKitchenStaff">
+                                    <option value="#kitchenID#">#kitchenID# - #name#</option>
+                                </cfloop>
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Password :</td>
+                        <td><input type="password" name="kitchen_password" /></td>
+                    </tr>
+                </table>
             </div>
-            <div class="form-group">
-                <label>Password</label>
-                <input type="password" name="kitchen_password" class="form-control" required />
+            <div class="chooser-footer">
+                <input type="hidden" name="kitchen_login_submit" value="1" />
+                <button type="submit" class="btn-go">Go</button>
             </div>
-            <input type="hidden" name="kitchen_login_submit" value="1" />
-            <button type="submit" class="btn btn-primary btn-block">Sign In</button>
-        </form>
-        </cfif>
+            </form>
+            </cfif>
+        </div>
     </div>
     </cfoutput>
     </body>
