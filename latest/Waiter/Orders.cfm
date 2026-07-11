@@ -3,6 +3,114 @@
 <cfsetting enablecfoutputonly="false">
 <cfsetting showdebugoutput="false">
 
+<!--- ── Kitchen session defaults ── --->
+<cfparam name="SESSION.kitchen_loggedin" default="No">
+<cfparam name="SESSION.kitchen_id"       default="">
+<cfparam name="SESSION.kitchen_name"     default="">
+<cfparam name="SESSION.kitchen_dts"      default="">
+
+<!--- ── Logout ── --->
+<cfif isDefined("url.kitchen_logout") AND url.kitchen_logout EQ "1">
+    <cfset SESSION.kitchen_loggedin = "No">
+    <cfset SESSION.kitchen_id       = "">
+    <cfset SESSION.kitchen_name     = "">
+    <cfset SESSION.kitchen_dts      = "">
+    <cflocation url="Orders.cfm" addtoken="false">
+</cfif>
+
+<!--- ── Handle kitchen login POST ── --->
+<cfset kitchenLoginError = "">
+<cfif isDefined("form.kitchen_login_submit")>
+    <cfif NOT len(trim(form.kitchen_id))>
+        <cfset kitchenLoginError = "Please select a kitchen staff.">
+    <cfelseif NOT len(trim(form.kitchen_password))>
+        <cfset kitchenLoginError = "Please enter your password.">
+    <cfelse>
+        <cfquery name="qCheckKitchen" datasource="#dts#">
+            SELECT kitchenID, name
+            FROM   kitchen
+            WHERE  kitchenID = <cfqueryparam cfsqltype="cf_sql_varchar" value="#trim(form.kitchen_id)#">
+              AND  password  = <cfqueryparam cfsqltype="cf_sql_varchar" value="#trim(form.kitchen_password)#">
+        </cfquery>
+        <cfif qCheckKitchen.recordcount EQ 1>
+            <cfset SESSION.kitchen_loggedin = "Yes">
+            <cfset SESSION.kitchen_id       = qCheckKitchen.kitchenID>
+            <cfset SESSION.kitchen_name     = qCheckKitchen.name>
+            <cfset SESSION.kitchen_dts      = dts>
+            <cflocation url="Orders.cfm" addtoken="false">
+        <cfelse>
+            <cfset kitchenLoginError = "Invalid kitchen ID or password.">
+        </cfif>
+    </cfif>
+</cfif>
+
+<!--- ── Show login page if not authenticated ── --->
+<cfif SESSION.kitchen_loggedin NEQ "Yes" OR SESSION.kitchen_dts NEQ dts>
+
+    <cfquery name="qKitchenStaff" datasource="#dts#">
+        SELECT kitchenID, name FROM kitchen ORDER BY name
+    </cfquery>
+
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Kitchen Login</title>
+        <link rel="stylesheet" href="/latest/css/bootstrap/bootstrap.min.css" />
+        <style>
+            body { background: #f5f5f5; }
+            .login-card {
+                max-width: 380px;
+                margin: 80px auto;
+                background: #fff;
+                border-radius: 8px;
+                box-shadow: 0 2px 12px rgba(0,0,0,.12);
+                padding: 32px 28px;
+            }
+            .login-card h3 { margin-top: 0; margin-bottom: 24px; text-align: center; }
+            .login-card .form-group { margin-bottom: 16px; }
+            .login-card .btn-block { margin-top: 20px; }
+            .error-msg { color: #c0392b; font-size: 13px; margin-bottom: 12px; }
+        </style>
+    </head>
+    <body>
+    <cfoutput>
+    <div class="login-card">
+        <h3>Kitchen Sign-In</h3>
+        <cfif len(kitchenLoginError)>
+            <p class="error-msg">#kitchenLoginError#</p>
+        </cfif>
+        <cfif qKitchenStaff.recordcount EQ 0>
+            <p style="color:##888;text-align:center;">No kitchen profiles set up yet.<br/>
+               Contact your administrator to add kitchen staff in<br/>
+               <strong>Maintenance &rarr; Kitchen Profile</strong>.</p>
+        <cfelse>
+        <form method="post" action="Orders.cfm">
+            <div class="form-group">
+                <label>Kitchen Staff</label>
+                <select name="kitchen_id" class="form-control" required>
+                    <option value="">-- Select --</option>
+                    <cfloop query="qKitchenStaff">
+                        <option value="#kitchenID#">#kitchenID# - #name#</option>
+                    </cfloop>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" name="kitchen_password" class="form-control" required />
+            </div>
+            <input type="hidden" name="kitchen_login_submit" value="1" />
+            <button type="submit" class="btn btn-primary btn-block">Sign In</button>
+        </form>
+        </cfif>
+    </div>
+    </cfoutput>
+    </body>
+    </html>
+    <cfabort>
+</cfif>
+
 <cfset flashMsg = "">
 <cfset flashErr = "">
 <cfif structKeyExists(url,"msg") AND len(trim(url.msg))><cfset flashMsg = trim(url.msg)></cfif>
@@ -185,7 +293,13 @@ body{background:#f5f7fb;font-family:'Segoe UI',Arial,sans-serif;padding:20px 16p
         <h1 class="page-title">Kitchen Dashboard</h1>
         <p style="margin:0;font-size:12px;color:##9ca3af;">Showing paid orders ready to prepare</p>
     </div>
-    <a href="WaiterDashboard.cfm" class="btn btn-default btn-sm">Dashboard</a>
+    <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:13px;color:##6b7280;">
+            <cfoutput>#HTMLEditFormat(SESSION.kitchen_name)#</cfoutput>
+        </span>
+        <a href="WaiterDashboard.cfm" class="btn btn-default btn-sm">Dashboard</a>
+        <a href="Orders.cfm?kitchen_logout=1" class="btn btn-default btn-sm">Sign Out</a>
+    </div>
 </div>
 
 <cfif len(flashMsg)><div class="alert alert-success">#HTMLEditFormat(flashMsg)#</div></cfif>

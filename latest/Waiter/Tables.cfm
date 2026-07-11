@@ -545,6 +545,12 @@ body { font-family: "Segoe UI", Arial, sans-serif; background:#f3f5f8; color:#1d
             <p class="page-sub">Monitor tables, payments, and customer QR order sessions. Regenerate QR when a table is finished to start a new order.</p>
         </div>
         <div class="head-links">
+            <cfif isDefined("SESSION.waiter_name") AND len(trim(SESSION.waiter_name))>
+                <span style="font-size:13px;color:##6b7280;line-height:30px;">
+                    #HTMLEditFormat(SESSION.waiter_name)#
+                </span>
+                <a href="WaiterDashboard.cfm?waiter_logout=1" class="btn btn-default btn-sm">Sign Out</a>
+            </cfif>
             <a href="Menu.cfm" class="btn btn-default btn-sm">Menu</a>
             <a href="Orders.cfm" class="btn btn-default btn-sm">Orders</a>
             <button type="button" class="btn btn-primary btn-sm" data-toggle="modal" data-target="##addTableModal">+ Add Table</button>
