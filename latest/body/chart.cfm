@@ -25,24 +25,25 @@
         LIMIT 5;
 	</cfquery>
 </cfif>
-<!--- E-Menu: daily order totals for current calendar month (app_orders) --->
+<!--- E-Menu: peak ordering hours for last 7 days (order count by hour) --->
 <cfif url.type EQ 'type3'>
 	<cftry>
-		<cfquery name="getEMenuMonthDaily" datasource="#dts#">
-			SELECT DAY(o.created_at) AS day_num,
-				SUM(o.total_amount) AS day_total
+		<cfquery name="getEMenuPeakHours" datasource="#dts#">
+			SELECT HOUR(o.created_at) AS hour_num,
+				CONCAT(LPAD(HOUR(o.created_at), 2, '0'), ':00') AS hour_label,
+				COUNT(*) AS order_count
 			FROM app_orders o
 			WHERE o.status NOT IN ('cancelled')
-			AND o.created_at >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
-			AND o.created_at < DATE_FORMAT(DATE_ADD(CURDATE(), INTERVAL 1 MONTH), '%Y-%m-01')
-			GROUP BY DAY(o.created_at), DATE(o.created_at)
-			ORDER BY DATE(o.created_at) ASC
+			AND o.created_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+			AND o.created_at < CURDATE() + INTERVAL 1 DAY
+			GROUP BY HOUR(o.created_at)
+			ORDER BY hour_num ASC
 		</cfquery>
 		<cfset emenuChartOk = true>
-		<cfset emenuChartEmpty = (getEMenuMonthDaily.recordCount EQ 0)>
+		<cfset emenuChartEmpty = (getEMenuPeakHours.recordCount EQ 0)>
 		<cfcatch type="any">
 			<cfset emenuChartOk = false>
-			<cfset emenuChartErr = "E-Menu sales chart is unavailable: #cfcatch.message#">
+			<cfset emenuChartErr = "E-Menu peak hours chart is unavailable: #cfcatch.message#">
 		</cfcatch>
 	</cftry>
 </cfif>
@@ -133,15 +134,15 @@
 <cfif url.type EQ 'type3'>
 	<cfif isDefined("emenuChartOk") AND emenuChartOk>
 		<cfif isDefined("emenuChartEmpty") AND emenuChartEmpty>
-			<p style="font-family:Verdana,Geneva,sans-serif;font-size:12px;color:#666666;padding:24px 16px;line-height:1.5;">No e-menu orders recorded this month yet.</p>
+			<p style="font-family:Verdana,Geneva,sans-serif;font-size:12px;color:#666666;padding:24px 16px;line-height:1.5;">No e-menu orders recorded in the last 7 days yet.</p>
 		<cfelse>
 		<cfchart
 			format="png"
 			backgroundColor="FFF1EB"
 			chartheight="240"
 			chartwidth="450"
-			xAxisTitle="Day of month"
-			yAxisTitle="Order total"
+			xAxisTitle="Hour of day"
+			yAxisTitle="Orders"
 			showborder="no"
 			show3d="no"
 			>
@@ -149,9 +150,9 @@
 				type="bar"
 				seriesColor="CF5D5D"
 				paintStyle="light"
-				query="getEMenuMonthDaily"
-				valueColumn="day_total"
-				itemColumn="day_num"
+				query="getEMenuPeakHours"
+				valueColumn="order_count"
+				itemColumn="hour_label"
 				>
 			</cfchartseries>
 		</cfchart>

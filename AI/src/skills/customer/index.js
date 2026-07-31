@@ -3,11 +3,12 @@
 const menuCatalog = require('./menu-catalog');
 const menuRecommend = require('./menu-recommend');
 const menuPopular = require('./menu-popular');
+const menuPromotions = require('./menu-promotions');
 const myOrder = require('./my-order');
 const diningHelp = require('./dining-help');
 const restaurantHours = require('./restaurant-hours');
 
-const ALL = [menuCatalog, menuRecommend, menuPopular, myOrder, diningHelp, restaurantHours];
+const ALL = [menuCatalog, menuRecommend, menuPopular, menuPromotions, myOrder, diningHelp, restaurantHours];
 
 const byName = new Map();
 for (const s of ALL) {

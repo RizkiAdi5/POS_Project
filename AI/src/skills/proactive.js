@@ -293,7 +293,7 @@ const weeklyExecutiveBrief = {
 const CHART_META = {
   type1: { chart_title: 'Last 5 Month Sales', source: 'artran POS invoices' },
   type2: { chart_title: 'Top 5 Customers', source: 'artran customer totals' },
-  type3: { chart_title: 'E-Menu Sales This Month (by day)', source: 'app_orders daily totals' },
+  type3: { chart_title: 'E-Menu Peak Hours (last 7 days)', source: 'app_orders order count by hour' },
   type4: { chart_title: 'Top 5 E-Menu Items This Month', source: 'app_order_items line revenue' },
 };
 

@@ -54,6 +54,27 @@
     <cfset creditorTo = getGsetup.creditorto>
 </cfif>
 
+<!--- Ensure gsetup has opening-hour columns used by Customer AI restaurant_hours skill --->
+<cftry>
+	<cfquery name="chkOpenFromCol" datasource="#dts#">
+		SELECT COUNT(*) AS cnt
+		FROM information_schema.COLUMNS
+		WHERE TABLE_SCHEMA = DATABASE()
+		AND TABLE_NAME = 'gsetup'
+		AND COLUMN_NAME = 'open_from'
+	</cfquery>
+	<cfif val(chkOpenFromCol.cnt) EQ 0>
+		<cfquery datasource="#dts#">
+			ALTER TABLE gsetup
+			ADD COLUMN open_from VARCHAR(10) NULL COMMENT 'Daily open time HH:MM for e-menu AI',
+			ADD COLUMN open_to VARCHAR(10) NULL COMMENT 'Daily close time HH:MM for e-menu AI'
+		</cfquery>
+	</cfif>
+	<cfcatch type="any">
+		<!--- Column may already exist or user lacks ALTER privilege; form still loads --->
+	</cfcatch>
+</cftry>
+
 <cfquery name="getGsetup" datasource="#dts#">
     SELECT *
     FROM gsetup;
@@ -68,6 +89,20 @@
 <cfset compro6 = getGsetup.compro6>
 <cfset compro7 = getGsetup.compro7>
 <cfset comUEN = getGsetup.comuen>
+<cfset openFrom = "">
+<cfset openTo = "">
+<cfif listFindNoCase(getGsetup.columnList, "open_from")>
+	<cfset openFrom = trim(toString(getGsetup.open_from))>
+	<cfif len(openFrom) GTE 5>
+		<cfset openFrom = left(openFrom, 5)>
+	</cfif>
+</cfif>
+<cfif listFindNoCase(getGsetup.columnList, "open_to")>
+	<cfset openTo = trim(toString(getGsetup.open_to))>
+	<cfif len(openTo) GTE 5>
+		<cfset openTo = left(openTo, 5)>
+	</cfif>
+</cfif>
 
 <cfset GSTno = getGsetup.gstno>
 <cfset xcurrency= getGsetup.bCurr>
@@ -196,6 +231,17 @@ $('.input-group.date').datepicker({
                                                 </select>
                                             </div>
                                         </div>
+										<div class="form-group">
+											<label class="col-sm-4 control-label">Opening Hours</label>
+											<div class="col-sm-4">
+												<input type="time" class="form-control input-sm" id="open_from" name="open_from" value="#openFrom#" title="Opens at">
+												<span class="help-block" style="margin-bottom:0;font-size:11px;color:##888;">From (daily)</span>
+											</div>
+											<div class="col-sm-4">
+												<input type="time" class="form-control input-sm" id="open_to" name="open_to" value="#openTo#" title="Closes at">
+												<span class="help-block" style="margin-bottom:0;font-size:11px;color:##888;">To (daily) — used by e-menu AI</span>
+											</div>
+										</div>
                                     </div>
                                 </div>
                             </div>
