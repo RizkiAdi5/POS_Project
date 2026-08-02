@@ -85,8 +85,19 @@
     <cfargument name="custno" type="string" required="true">
     <cfargument name="orderNumber" type="string" required="true">
     <cfargument name="amountForPoints" type="numeric" required="true">
-    <cfset var pointsEarned = int(val(arguments.amountForPoints) * 10)>
-    <cfif NOT len(trim(arguments.custno)) OR pointsEarned lte 0><cfreturn 0></cfif>
+    <cfset var pointsEarned = int(val(arguments.amountForPoints) * 0.05)>
+    <cfif NOT len(trim(arguments.custno)) OR arguments.custno eq "-" OR pointsEarned lte 0><cfreturn 0></cfif>
+    <cftry>
+        <!--- Idempotency guard: skip if points already awarded for this order --->
+        <cfquery name="qAlreadyAwarded" datasource="#arguments.dsn#">
+            SELECT COUNT(*) AS cnt
+            FROM   points_transactions
+            WHERE  order_number = <cfqueryparam cfsqltype="cf_sql_varchar" value="#arguments.orderNumber#">
+              AND  type         = 'Earned'
+        </cfquery>
+        <cfif val(qAlreadyAwarded.cnt) gt 0><cfreturn 0></cfif>
+    <cfcatch type="any"></cfcatch>
+    </cftry>
     <cftry>
         <cfquery datasource="#arguments.dsn#">
             UPDATE arcust
@@ -113,6 +124,48 @@
         <cfcatch type="any"><cfset pointsEarned = 0></cfcatch>
     </cftry>
     <cfreturn pointsEarned>
+</cffunction>
+
+<cffunction name="emenuRedeemLoyaltyPoints" output="false" returntype="numeric">
+    <cfargument name="dsn"           type="string"  required="true">
+    <cfargument name="custno"        type="string"  required="true">
+    <cfargument name="orderNumber"   type="string"  required="true">
+    <cfargument name="pointsToRedeem" type="numeric" required="true">
+    <cfset var pts = int(val(arguments.pointsToRedeem))>
+    <cfif NOT len(trim(arguments.custno)) OR arguments.custno eq "-" OR pts lte 0><cfreturn 0></cfif>
+    <cftry>
+        <!--- Re-read live balance to prevent over-redemption --->
+        <cfquery name="qCurrent" datasource="#arguments.dsn#">
+            SELECT COALESCE(POINT_BF, 0) AS pts FROM arcust
+            WHERE  CUSTNO = <cfqueryparam cfsqltype="cf_sql_varchar" value="#trim(arguments.custno)#">
+        </cfquery>
+        <cfif val(qCurrent.pts) lt pts><cfreturn 0></cfif>
+        <!--- Atomic deduct: WHERE guard prevents balance going negative under concurrent requests --->
+        <cfquery datasource="#arguments.dsn#">
+            UPDATE arcust
+            SET    POINT_BF = COALESCE(POINT_BF, 0) - <cfqueryparam cfsqltype="cf_sql_integer" value="#pts#">
+            WHERE  CUSTNO   = <cfqueryparam cfsqltype="cf_sql_varchar" value="#trim(arguments.custno)#">
+              AND  COALESCE(POINT_BF, 0) >= <cfqueryparam cfsqltype="cf_sql_integer" value="#pts#">
+        </cfquery>
+        <cfquery name="qNewBal" datasource="#arguments.dsn#">
+            SELECT COALESCE(POINT_BF, 0) AS pts FROM arcust
+            WHERE  CUSTNO = <cfqueryparam cfsqltype="cf_sql_varchar" value="#trim(arguments.custno)#">
+        </cfquery>
+        <cfquery datasource="#arguments.dsn#">
+            INSERT INTO points_transactions
+                (custno, order_number, type, points, balance_after, created_at)
+            VALUES (
+                <cfqueryparam cfsqltype="cf_sql_varchar"   value="#trim(arguments.custno)#">,
+                <cfqueryparam cfsqltype="cf_sql_varchar"   value="#arguments.orderNumber#">,
+                'Redeemed',
+                <cfqueryparam cfsqltype="cf_sql_integer"   value="#pts#">,
+                <cfqueryparam cfsqltype="cf_sql_integer"   value="#val(qNewBal.pts)#">,
+                <cfqueryparam cfsqltype="cf_sql_timestamp" value="#now()#">
+            )
+        </cfquery>
+        <cfreturn pts>
+    <cfcatch type="any"><cfreturn 0></cfcatch>
+    </cftry>
 </cffunction>
 
 <cffunction name="emenuNewOrderNumber" output="false" returntype="string">
@@ -284,7 +337,8 @@
     </cfif>
     <cftry>
         <cfquery name="qOrd" datasource="#arguments.dsn#">
-            SELECT order_id, order_number, total_amount, status
+            SELECT order_id, order_number, total_amount, status,
+                   TRIM(IFNULL(custno, '')) AS custno
             FROM app_orders
             WHERE order_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#arguments.orderId#">
               AND table_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#arguments.tableId#">
@@ -303,19 +357,29 @@
             <cfreturn out>
         </cfif>
         <cfif arguments.recordCash>
-            <cfset var payAmt = arguments.cashAmount>
-            <cfif payAmt lte 0><cfset payAmt = val(qOrd.total_amount)></cfif>
-            <cfquery datasource="#arguments.dsn#">
-                INSERT INTO app_payments
-                    (order_id, payment_method, amount, status, paid_at)
-                VALUES (
-                    <cfqueryparam cfsqltype="cf_sql_integer" value="#arguments.orderId#">,
-                    <cfqueryparam cfsqltype="cf_sql_varchar" value="cash">,
-                    <cfqueryparam cfsqltype="cf_sql_decimal" value="#payAmt#">,
-                    <cfqueryparam cfsqltype="cf_sql_varchar" value="success">,
-                    <cfqueryparam cfsqltype="cf_sql_timestamp" value="#now()#">
-                )
+            <!--- Skip cash insert if a successful online payment already exists --->
+            <cfquery name="qExistPay" datasource="#arguments.dsn#">
+                SELECT COUNT(*) AS cnt
+                FROM   app_payments
+                WHERE  order_id       = <cfqueryparam cfsqltype="cf_sql_integer" value="#arguments.orderId#">
+                  AND  status         = 'success'
+                  AND  payment_method <> 'cash'
             </cfquery>
+            <cfif val(qExistPay.cnt) eq 0>
+                <cfset var payAmt = arguments.cashAmount>
+                <cfif payAmt lte 0><cfset payAmt = val(qOrd.total_amount)></cfif>
+                <cfquery datasource="#arguments.dsn#">
+                    INSERT INTO app_payments
+                        (order_id, payment_method, amount, status, paid_at)
+                    VALUES (
+                        <cfqueryparam cfsqltype="cf_sql_integer" value="#arguments.orderId#">,
+                        <cfqueryparam cfsqltype="cf_sql_varchar" value="cash">,
+                        <cfqueryparam cfsqltype="cf_sql_decimal" value="#payAmt#">,
+                        <cfqueryparam cfsqltype="cf_sql_varchar" value="success">,
+                        <cfqueryparam cfsqltype="cf_sql_timestamp" value="#now()#">
+                    )
+                </cfquery>
+            </cfif>
         </cfif>
         <cfquery datasource="#arguments.dsn#">
             UPDATE app_orders
@@ -335,6 +399,18 @@
               AND order_id  <> <cfqueryparam cfsqltype="cf_sql_integer" value="#arguments.orderId#">
               AND status NOT IN ('completed','cancelled')
         </cfquery>
+        <!--- Award loyalty points only when a confirmed payment exists (cash recorded or online paid) --->
+        <cfif len(qOrd.custno) AND qOrd.custno neq "-" AND val(qOrd.total_amount) gt 0>
+            <cfquery name="qConfirmedPay" datasource="#arguments.dsn#">
+                SELECT COUNT(*) AS cnt
+                FROM   app_payments
+                WHERE  order_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#arguments.orderId#">
+                  AND  status   = 'success'
+            </cfquery>
+            <cfif val(qConfirmedPay.cnt) gt 0>
+                <cfset emenuAwardLoyaltyPoints(arguments.dsn, qOrd.custno, qOrd.order_number, val(qOrd.total_amount))>
+            </cfif>
+        </cfif>
         <!--- Auto-create a new placeholder order so the table's QR stays active --->
         <cfset emenuCreatePlaceholderOrder(arguments.dsn, arguments.tableId)>
         <cfset out.ok = true>

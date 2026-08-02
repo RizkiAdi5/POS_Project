@@ -3,6 +3,128 @@
 <cfsetting enablecfoutputonly="false">
 <cfsetting showdebugoutput="false">
 
+<!--- ── Kitchen session defaults ── --->
+<cfparam name="SESSION.kitchen_loggedin" default="No">
+<cfparam name="SESSION.kitchen_id"       default="">
+<cfparam name="SESSION.kitchen_name"     default="">
+<cfparam name="SESSION.kitchen_dts"      default="">
+
+<!--- ── Logout ── --->
+<cfif isDefined("url.kitchen_logout") AND url.kitchen_logout EQ "1">
+    <cfset SESSION.kitchen_loggedin = "No">
+    <cfset SESSION.kitchen_id       = "">
+    <cfset SESSION.kitchen_name     = "">
+    <cfset SESSION.kitchen_dts      = "">
+    <cflocation url="Orders.cfm" addtoken="false">
+</cfif>
+
+<!--- ── Handle login POST ── --->
+<cfset kitchenLoginError = "">
+<cfif isDefined("form.kitchen_login_submit")>
+    <cfif NOT len(trim(form.kitchen_id))>
+        <cfset kitchenLoginError = "Please select a kitchen staff.">
+    <cfelseif NOT len(trim(form.kitchen_password))>
+        <cfset kitchenLoginError = "Please enter your password.">
+    <cfelse>
+        <cfquery name="qCheckKitchen" datasource="#dts#">
+            SELECT kitchenID, name
+            FROM   kitchen
+            WHERE  kitchenID = <cfqueryparam cfsqltype="cf_sql_varchar" value="#trim(form.kitchen_id)#">
+              AND  password  = <cfqueryparam cfsqltype="cf_sql_varchar" value="#trim(form.kitchen_password)#">
+        </cfquery>
+        <cfif qCheckKitchen.recordcount EQ 1>
+            <cfset SESSION.kitchen_loggedin = "Yes">
+            <cfset SESSION.kitchen_id       = qCheckKitchen.kitchenID>
+            <cfset SESSION.kitchen_name     = qCheckKitchen.name>
+            <cfset SESSION.kitchen_dts      = dts>
+            <cflocation url="Orders.cfm" addtoken="false">
+        <cfelse>
+            <cfset kitchenLoginError = "Invalid kitchen ID or password.">
+        </cfif>
+    </cfif>
+</cfif>
+
+<!--- ── Show modal chooser if not logged in ── --->
+<cfif SESSION.kitchen_loggedin NEQ "Yes" OR SESSION.kitchen_dts NEQ dts>
+
+    <cfquery name="qKitchenStaff" datasource="#dts#">
+        SELECT kitchenID, name FROM kitchen ORDER BY name
+    </cfquery>
+
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Kitchen Dashboard</title>
+        <link rel="stylesheet" href="/latest/css/bootstrap/bootstrap.min.css" />
+        <style>
+            body { margin:0; padding:0; background:#888; }
+            .overlay {
+                position:fixed; top:0; left:0; width:100%; height:100%;
+                background:rgba(0,0,0,0.55);
+                display:flex; align-items:center; justify-content:center;
+                z-index:9999;
+            }
+            .chooser-box { background:#fff; width:440px; border-radius:4px; overflow:hidden; box-shadow:0 4px 24px rgba(0,0,0,.35); }
+            .chooser-header { background:#c0392b; color:#fff; text-align:center; padding:16px; font-size:18px; font-weight:bold; }
+            .chooser-body { padding:24px 28px 20px; }
+            .chooser-body table { width:100%; }
+            .chooser-body td { padding:8px 6px; vertical-align:middle; }
+            .chooser-body td:first-child { white-space:nowrap; padding-right:14px; font-size:14px; }
+            .chooser-body select, .chooser-body input[type=password] { width:100%; padding:6px 10px; border:1px solid #ccc; border-radius:3px; font-size:14px; }
+            .chooser-footer { text-align:center; padding:0 28px 20px; }
+            .btn-go { padding:7px 36px; background:#e8e8e8; border:1px solid #ccc; border-radius:3px; font-size:14px; cursor:pointer; }
+            .btn-go:hover { background:#d4d4d4; }
+            .error-msg { color:#c0392b; font-size:13px; text-align:center; margin-bottom:8px; }
+            .no-staff-msg { color:#555; font-size:13px; text-align:center; margin-top:10px; }
+        </style>
+    </head>
+    <body>
+    <cfoutput>
+    <div class="overlay">
+        <div class="chooser-box">
+            <div class="chooser-header">Choose Kitchen Staff</div>
+            <form method="post" action="Orders.cfm">
+            <div class="chooser-body">
+                <cfif len(kitchenLoginError)><p class="error-msg">#kitchenLoginError#</p></cfif>
+                <cfif qKitchenStaff.recordcount EQ 0>
+                    <p class="no-staff-msg">No kitchen staff found.<br/>Go to Maintenance &rsaquo; Kitchen Profile to add staff.</p>
+                <cfelse>
+                    <table>
+                        <tr>
+                            <td>Staff :</td>
+                            <td>
+                                <select name="kitchen_id" required>
+                                    <option value="">Choose Kitchen Staff</option>
+                                    <cfloop query="qKitchenStaff">
+                                        <option value="#kitchenID#">#kitchenID# - #name#</option>
+                                    </cfloop>
+                                </select>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Password :</td>
+                            <td><input type="password" name="kitchen_password" /></td>
+                        </tr>
+                    </table>
+                </cfif>
+            </div>
+            <div class="chooser-footer">
+                <input type="hidden" name="kitchen_login_submit" value="1" />
+                <cfif qKitchenStaff.recordcount GT 0>
+                    <button type="submit" class="btn-go">Go</button>
+                </cfif>
+            </div>
+            </form>
+        </div>
+    </div>
+    </cfoutput>
+    </body>
+    </html>
+    <cfabort>
+</cfif>
+
 <cfset flashMsg = "">
 <cfset flashErr = "">
 <cfif structKeyExists(url,"msg") AND len(trim(url.msg))><cfset flashMsg = trim(url.msg)></cfif>
@@ -207,7 +329,7 @@ body { font-family:"Segoe UI",Arial,sans-serif; background:#f3f5f8; color:#1d283
             <p class="page-sub">Paid orders ready to prepare — update item status as you cook.</p>
         </div>
         <div>
-            <a href="/latest/Waiter/WaiterDashboard.cfm" class="btn btn-default btn-sm">Waiter Dashboard</a>
+            <a href="/Waiter/WaiterDashboard.cfm" class="btn btn-default btn-sm">Waiter Dashboard</a>
         </div>
     </div>
 
