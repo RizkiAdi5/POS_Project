@@ -305,6 +305,48 @@
     <cfreturn out>
 </cffunction>
 
+<cffunction name="emenuCreateTakeawayOrder" output="false" returntype="struct">
+    <!--- Waiter POS: standalone order with no table, its own order_number as the pickup reference --->
+    <cfargument name="dsn" type="string" required="true">
+    <cfset var out = { "ok" = false, "order_id" = 0, "order_number" = "", "error" = "" }>
+    <cfset var orderNum = emenuNewOrderNumber()>
+    <cftry>
+        <cfquery name="qIns" datasource="#arguments.dsn#" result="insRes">
+            INSERT INTO app_orders
+                (order_number, custno, table_id, order_type, order_source, status, total_amount, created_at)
+            VALUES (
+                <cfqueryparam cfsqltype="cf_sql_varchar" value="#orderNum#">,
+                <cfqueryparam cfsqltype="cf_sql_varchar" value="-">,
+                NULL,
+                'takeaway',
+                'waiter_pos',
+                'pending',
+                <cfqueryparam cfsqltype="cf_sql_decimal" value="0">,
+                <cfqueryparam cfsqltype="cf_sql_timestamp" value="#now()#">
+            )
+        </cfquery>
+        <cfset out.order_id = val(insRes.GENERATED_KEY)>
+        <cfif out.order_id lte 0>
+            <cfquery name="qOid" datasource="#arguments.dsn#">
+                SELECT order_id FROM app_orders
+                WHERE order_number = <cfqueryparam cfsqltype="cf_sql_varchar" value="#orderNum#">
+                LIMIT 1
+            </cfquery>
+            <cfif qOid.recordCount><cfset out.order_id = val(qOid.order_id)></cfif>
+        </cfif>
+        <cfif out.order_id gt 0>
+            <cfset out.order_number = orderNum>
+            <cfset out.ok = true>
+        <cfelse>
+            <cfset out.error = "Could not create takeaway order.">
+        </cfif>
+        <cfcatch type="any">
+            <cfset out.error = left(trim(cfcatch.message & " " & toString(cfcatch.detail)), 300)>
+        </cfcatch>
+    </cftry>
+    <cfreturn out>
+</cffunction>
+
 <cffunction name="emenuTableHasOpenOrder" output="false" returntype="boolean">
     <cfargument name="dsn" type="string" required="true">
     <cfargument name="tableId" type="numeric" required="true">
