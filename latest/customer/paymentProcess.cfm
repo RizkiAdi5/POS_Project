@@ -89,7 +89,9 @@
 
         <cfset xPayload = structNew()>
         <cfset xPayload.dts                  = dts>
-        <cfset xPayload.external_id          = orderNumber>
+        <!--- Xendit's Invoice API doesn't echo back a "metadata" field, so external_id is the
+              only reliable channel for the webhook to resolve which tenant DB to route to --->
+        <cfset xPayload.external_id          = dts & "__" & orderNumber>
         <cfset xPayload.metadata             = {"dts" = dts}>
         <cfset xPayload.amount               = javaCast("int", round(payAmount))>
         <cfset xPayload.description          = "Order " & orderNumber>

@@ -17,15 +17,19 @@
 <cfset gatewayWebhook = (qGateway.recordCount ? trim(qGateway.webhook_token) : "")>
 <cfset gatewayActive  = (qGateway.recordCount ? trim(qGateway.is_active)     : "Y")>
 
-<!--- Payment method config for this client --->
+<!--- Payment method config for this client — select ALL rows (not just enabled ones) so we can
+      tell "never configured this page" apart from "configured it and disabled everything".
+      Using only is_enabled=1 rows here would make methodsConfigured false again the moment every
+      method is deactivated, forcing every checkbox back to checked on reload. --->
 <cfset enabledMethods = "">
 <cftry>
     <cfquery name="qMethods" datasource="#dts#">
-        SELECT method_code FROM payment_method_config
-        WHERE  is_enabled = 1
+        SELECT method_code, is_enabled FROM payment_method_config
     </cfquery>
     <cfloop query="qMethods">
-        <cfset enabledMethods = listAppend(enabledMethods, trim(qMethods.method_code))>
+        <cfif val(qMethods.is_enabled) eq 1>
+            <cfset enabledMethods = listAppend(enabledMethods, trim(qMethods.method_code))>
+        </cfif>
     </cfloop>
     <cfset methodsConfigured = (qMethods.recordCount gt 0)>
 <cfcatch type="database">

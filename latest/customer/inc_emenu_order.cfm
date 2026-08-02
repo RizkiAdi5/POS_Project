@@ -37,11 +37,12 @@
     <cfargument name="orderStatus" type="string" required="true">
     <cfset var pay = "">
     <cfif lCase(trim(arguments.orderStatus)) eq "paid"><cfreturn true></cfif>
+    <!--- Check the payment record directly rather than relying solely on app_orders.status —
+          that column is also written by the kitchen prep workflow (new/confirmed/preparing/ready),
+          which can silently overwrite a "paid" status set by cash confirmation. A successful
+          payment of ANY method (cash included) means the order is paid. --->
     <cfset pay = emenuGetLatestPayment(arguments.dsn, arguments.orderId)>
-    <cfif pay.status eq "success" AND listFindNoCase("online,qris,ewallet,card", pay.payment_method)>
-        <cfreturn true>
-    </cfif>
-    <cfreturn false>
+    <cfreturn pay.status eq "success">
 </cffunction>
 
 <cffunction name="emenuCustomerCanAddItems" output="false" returntype="boolean">
@@ -381,16 +382,28 @@
                 </cfquery>
             </cfif>
         </cfif>
+        <!--- A session only "completes" if payment was actually collected (cash just recorded above,
+              or already paid online). No payment on close-out = the visit is cancelled, not completed. --->
+        <cfquery name="qConfirmedPay" datasource="#arguments.dsn#">
+            SELECT COUNT(*) AS cnt
+            FROM   app_payments
+            WHERE  order_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#arguments.orderId#">
+              AND  status   = 'success'
+        </cfquery>
+        <cfset var finalStatus = (val(qConfirmedPay.cnt) gt 0) ? "completed" : "cancelled">
         <cfquery datasource="#arguments.dsn#">
             UPDATE app_orders
-            SET status = <cfqueryparam cfsqltype="cf_sql_varchar" value="completed">,
+            SET status = <cfqueryparam cfsqltype="cf_sql_varchar" value="#finalStatus#">
+                <cfif finalStatus eq "completed">,
                 completed_at = <cfqueryparam cfsqltype="cf_sql_timestamp" value="#now()#">
+                </cfif>
                 <cfif len(noteText)>,
                 kitchen_notes = <cfqueryparam cfsqltype="cf_sql_longvarchar" value="#noteText#">
                 </cfif>
             WHERE order_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#arguments.orderId#">
         </cfquery>
-        <!--- Also complete any other lingering paid/open orders for the same table --->
+        <!--- Also close out any other lingering open orders for the same table — completed if they
+              were paid, cancelled if not, same rule as the main order above --->
         <cfquery datasource="#arguments.dsn#">
             UPDATE app_orders
             SET status = <cfqueryparam cfsqltype="cf_sql_varchar" value="completed">,
@@ -398,22 +411,30 @@
             WHERE table_id  = <cfqueryparam cfsqltype="cf_sql_integer" value="#arguments.tableId#">
               AND order_id  <> <cfqueryparam cfsqltype="cf_sql_integer" value="#arguments.orderId#">
               AND status NOT IN ('completed','cancelled')
+              AND EXISTS (
+                  SELECT 1 FROM app_payments
+                  WHERE app_payments.order_id = app_orders.order_id AND app_payments.status = 'success'
+              )
         </cfquery>
-        <!--- Award loyalty points only when a confirmed payment exists (cash recorded or online paid) --->
-        <cfif len(qOrd.custno) AND qOrd.custno neq "-" AND val(qOrd.total_amount) gt 0>
-            <cfquery name="qConfirmedPay" datasource="#arguments.dsn#">
-                SELECT COUNT(*) AS cnt
-                FROM   app_payments
-                WHERE  order_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#arguments.orderId#">
-                  AND  status   = 'success'
-            </cfquery>
-            <cfif val(qConfirmedPay.cnt) gt 0>
-                <cfset emenuAwardLoyaltyPoints(arguments.dsn, qOrd.custno, qOrd.order_number, val(qOrd.total_amount))>
-            </cfif>
+        <cfquery datasource="#arguments.dsn#">
+            UPDATE app_orders
+            SET status = <cfqueryparam cfsqltype="cf_sql_varchar" value="cancelled">
+            WHERE table_id  = <cfqueryparam cfsqltype="cf_sql_integer" value="#arguments.tableId#">
+              AND order_id  <> <cfqueryparam cfsqltype="cf_sql_integer" value="#arguments.orderId#">
+              AND status NOT IN ('completed','cancelled')
+              AND NOT EXISTS (
+                  SELECT 1 FROM app_payments
+                  WHERE app_payments.order_id = app_orders.order_id AND app_payments.status = 'success'
+              )
+        </cfquery>
+        <!--- Award loyalty points only when the order actually completed with a confirmed payment --->
+        <cfif finalStatus eq "completed" AND len(qOrd.custno) AND qOrd.custno neq "-" AND val(qOrd.total_amount) gt 0>
+            <cfset emenuAwardLoyaltyPoints(arguments.dsn, qOrd.custno, qOrd.order_number, val(qOrd.total_amount))>
         </cfif>
         <!--- Auto-create a new placeholder order so the table's QR stays active --->
         <cfset emenuCreatePlaceholderOrder(arguments.dsn, arguments.tableId)>
         <cfset out.ok = true>
+        <cfset out.status = finalStatus>
         <cfcatch type="any">
             <cfset out.error = left(trim(cfcatch.message & " " & toString(cfcatch.detail)), 300)>
         </cfcatch>
