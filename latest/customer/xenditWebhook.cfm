@@ -102,10 +102,6 @@
                 WHERE  order_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#val(qPay.order_id)#">
                   AND  status NOT IN ('paid','completed','cancelled')
             </cfquery>
-            <cfset custno = trim(qPay.custno)>
-            <cfif len(custno) AND custno neq "-">
-                <cfset emenuAwardLoyaltyPoints(dts, custno, qPay.order_number, val(qPay.total_amount))>
-            </cfif>
         </cfif>
         <cfcatch type="any"><!--- swallow — always return 200 so Xendit doesn't retry --->
         </cfcatch>

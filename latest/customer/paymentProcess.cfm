@@ -42,12 +42,30 @@
 <cfif payAmount lte 0><cfset payAmount = val(qOrd.total_amount)></cfif>
 <cfset orderNumber = trim(qOrd.order_number)>
 
+<!--- Loyalty points redemption --->
+<cfset pointsRedeemed = 0>
+<cfset custno = trim(qOrd.custno)>
+<cfif structKeyExists(FORM, "points_to_redeem") AND val(FORM.points_to_redeem) gt 0
+      AND len(custno) AND custno neq "-">
+    <cfset ptsRequested = int(val(FORM.points_to_redeem))>
+    <!--- Cap at bill total to never produce a negative payAmount --->
+    <cfset ptsCapped = min(ptsRequested, int(payAmount))>
+    <cfif ptsCapped gt 0>
+        <cfset pointsRedeemed = emenuRedeemLoyaltyPoints(dts, custno, orderNumber, ptsCapped)>
+        <cfset payAmount = max(0, payAmount - pointsRedeemed)>
+    </cfif>
+</cfif>
+
 <!--- AI_SHARED_SECRET must match WEB-INF/ai/.env --->
 <cfset AI_SHARED_SECRET = "cleRkQqi7ogrKX5mAn6xr8LXmz9MobDlzcnKAYYHYCIqDnBy2c5bfuWRyrXDTcVw">
 
 <cftry>
     <cfif payAction eq "online">
-        <cfset baseUrl = "https://" & CGI.SERVER_NAME>
+        <cfset xScheme  = (CGI.HTTPS eq "on" OR CGI.SERVER_PORT eq "443") ? "https" : "http">
+        <cfset baseUrl  = xScheme & "://" & CGI.SERVER_NAME>
+        <cfif (xScheme eq "http" AND CGI.SERVER_PORT neq "80") OR (xScheme eq "https" AND CGI.SERVER_PORT neq "443")>
+            <cfset baseUrl = baseUrl & ":" & CGI.SERVER_PORT>
+        </cfif>
 
         <!--- Resolve currency from tenant's country code --->
         <cfset xCurrency = "IDR">

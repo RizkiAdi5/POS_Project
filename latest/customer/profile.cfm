@@ -259,7 +259,7 @@
                 <span class="points-num">#numberFormat(custPts,'9,999')#</span>
             </div>
             <div class="points-label">Loyalty Points</div>
-            <div class="points-equiv">= RM #numberFormat(custPts/100,'9.00')# in rewards</div>
+            <div class="points-equiv">= Rp #numberFormat(custPts,'9,999')# in rewards</div>
         </div>
     </div>
 </div>
@@ -463,10 +463,8 @@
     <div class="rewards-box">
         <div class="rewards-title">How Rewards Work</div>
         <div class="rewards-list">
-            &bull; Earn 10 points for every RM 1 spent<br>
-            &bull; Redeem 100 points for RM 1 off<br>
-            &bull; Points never expire<br>
-            &bull; Earn bonus points on your birthday
+            &bull; Earn 5% back on every transaction as points<br>
+            &bull; 1 point = Rp 1
         </div>
     </div>
 
