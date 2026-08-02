@@ -448,7 +448,7 @@ app.post('/chat/customer', authMiddleware, async (req, res) => {
 
   let routed;
   try {
-    routed = await pickCustomerSkill({ question: safeQuestion });
+    routed = await pickCustomerSkill({ question: safeQuestion, dts });
   } catch (e) {
     const detail = e && e.message ? e.message : 'unknown';
     logEvent({ kind: 'customer_router_error', user, dts, error: detail });

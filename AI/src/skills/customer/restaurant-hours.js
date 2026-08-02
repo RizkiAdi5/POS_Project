@@ -25,6 +25,54 @@ async function tableExists(dts, tableName) {
   return exists;
 }
 
+function formatClock(raw) {
+  const s = String(raw || '').trim();
+  if (!s) return '';
+  // Accept HH:MM or HH:MM:SS from <input type="time"> / MySQL TIME
+  const m = s.match(/^(\d{1,2}):(\d{2})/);
+  if (!m) return s;
+  let h = parseInt(m[1], 10);
+  const min = m[2];
+  if (!Number.isFinite(h) || h < 0 || h > 23) return s;
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}:${min} ${ampm}`;
+}
+
+function buildHoursText(openFrom, openTo) {
+  const from = formatClock(openFrom);
+  const to = formatClock(openTo);
+  if (from && to) return `Daily: ${from} – ${to}`;
+  if (from) return `Opens daily from ${from}`;
+  if (to) return `Open daily until ${to}`;
+  return '';
+}
+
+async function loadGsetup(dts) {
+  // Prefer query with hour columns; fall back if they do not exist yet.
+  // Note: this branch gsetup uses compro* (Company Profile), not legacy desp/add1.
+  try {
+    const rows = await db.runQuery(dts, `
+      SELECT COMPANYID, compro, compro2, compro3, compro4, compro5, compro6, compro7,
+             open_from, open_to
+      FROM gsetup
+      LIMIT 1
+    `);
+    return rows[0] || null;
+  } catch (_) {
+    try {
+      const rows = await db.runQuery(dts, `
+        SELECT COMPANYID, compro, compro2, compro3, compro4, compro5, compro6, compro7
+        FROM gsetup
+        LIMIT 1
+      `);
+      return rows[0] || null;
+    } catch (__) {
+      return null;
+    }
+  }
+}
+
 module.exports = {
   name: 'restaurant_hours',
   description:
@@ -33,7 +81,7 @@ module.exports = {
   params: {
     topic: 'optional: hours | location | contact | general — default hours',
   },
-  cacheTtlSec: 600,
+  cacheTtlSec: 30,
   followups: [
     { label: 'Menu help', question: 'What are the most popular dishes right now?' },
     { label: 'How to order', question: 'How do I place an order from the menu?' },
@@ -60,30 +108,40 @@ module.exports = {
 
     let companyName = '';
     let companyAddress = '';
-    try {
-      const gs = await db.runQuery(dts, `
-        SELECT COMPANYID, desp, add1, add2, add3, tel
-        FROM gsetup
-        LIMIT 1
-      `);
-      if (gs.length) {
-        companyName = String(gs[0].desp || gs[0].COMPANYID || '').trim();
-        companyAddress = [gs[0].add1, gs[0].add2, gs[0].add3]
-          .map((x) => String(x || '').trim())
-          .filter(Boolean)
-          .join(', ');
-      }
-    } catch (_) {
-      /* gsetup optional */
+    let gsetupHours = '';
+    let openFrom = '';
+    let openTo = '';
+    let source = 'config';
+
+    const g = await loadGsetup(dts);
+    if (g) {
+      companyName = String(g.compro || g.COMPANYID || '').trim();
+      const comproAddr = [g.compro2, g.compro3, g.compro4, g.compro5, g.compro6, g.compro7]
+        .map((x) => String(x || '').trim())
+        .filter(Boolean);
+      companyAddress = comproAddr.join(', ');
+
+      openFrom = String(g.open_from || '').trim();
+      openTo = String(g.open_to || '').trim();
+      gsetupHours = buildHoursText(openFrom, openTo);
     }
 
     const name = (dbSettings && dbSettings.restaurant_name)
       ? String(dbSettings.restaurant_name).trim()
       : (r.name || companyName || 'Restaurant');
 
-    const hours = (dbSettings && dbSettings.opening_hours)
-      ? String(dbSettings.opening_hours).trim()
-      : (r.hours || 'Please ask staff for today\'s opening hours.');
+    // Priority: Company Profile (gsetup) → app_emenu_settings → AI/.env default
+    let hours = '';
+    if (gsetupHours) {
+      hours = gsetupHours;
+      source = 'gsetup';
+    } else if (dbSettings && String(dbSettings.opening_hours || '').trim()) {
+      hours = String(dbSettings.opening_hours).trim();
+      source = 'database';
+    } else {
+      hours = r.hours || 'Please ask staff for today\'s opening hours.';
+      source = 'config';
+    }
 
     const address = (dbSettings && dbSettings.address)
       ? String(dbSettings.address).trim()
@@ -109,11 +167,13 @@ module.exports = {
       topic,
       restaurant_name: name,
       opening_hours: hours,
+      open_from: openFrom || null,
+      open_to: openTo || null,
       address,
       phone,
       extra_notes: notes,
       local_hint: localHint,
-      source: dbSettings ? 'database' : 'config',
+      source,
     });
   },
 };

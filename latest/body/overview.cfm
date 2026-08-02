@@ -12,7 +12,8 @@
 <title>Overview</title>
 <link rel="stylesheet" href="/latest/css/jqueryui/smoothness/jquery-ui-1.10.3.custom.min.css" />
 <link rel="stylesheet" href="/latest/css/dataTables/dataTables_fullPagination.css" />
-<link rel="stylesheet" href="/latest/css/body/overview.css" />
+<link rel="stylesheet" href="/latest/css/body/overview.css?v=20260714d" />
+<link rel="stylesheet" href="/latest/css/waiter/emenu-admin.css" />
 <script type="text/javascript" src="/latest/js/jquery/jquery-1.10.2.min.js"></script>
 <script type="text/javascript" src="/latest/js/dataTables/jquery.dataTables.min.js"></script>
 <cfoutput>
@@ -36,11 +37,11 @@
 		<div class="chartDiv">
 			<div class="chartTitleDiv">Top 5 Customers Last Month</div>
 			<div class="chartContentDiv">
-				<iframe marginwidth="5%" frameborder="0" align="middle" name="list" height="250px" width="500px" src="/latest/body/chart.cfm?type=type2" noresize scrolling="no"></iframe>				
+				<iframe marginwidth="5%" frameborder="0" align="middle" name="list" height="250px" width="500px" src="/latest/body/chart.cfm?type=type2" noresize scrolling="no"></iframe>
 			</div>
 		</div>
 		<div class="chartDiv">
-			<div class="chartTitleDiv">E-Menu Sales This Month (by day)</div>
+			<div class="chartTitleDiv">E-Menu Peak Hours (last 7 days)</div>
 			<div class="chartContentDiv">
 				<iframe marginwidth="5%" frameborder="0" align="middle" name="emenuMonthSales" height="250px" width="500px" src="/latest/body/chart.cfm?type=type3" noresize scrolling="no"></iframe>
 			</div>
@@ -52,6 +53,19 @@
 			</div>
 		</div>
 	</div>
+</cfoutput>
+	<div class="emenuOverviewDiv">
+		<cftry>
+			<cfset emenuDashCompact = true>
+			<cfinclude template="../Waiter/inc_emenu_sales_dashboard.cfm">
+			<cfcatch type="any">
+				<div class="emenu-sales-alert" style="margin:12px 0;padding:12px 14px;border:1px solid #fecaca;background:#fff;color:#991b1b;border-radius:8px;font-family:Verdana,Geneva,sans-serif;font-size:13px;">
+					E-Menu dashboard error: <cfoutput>#HTMLEditFormat(left(trim(cfcatch.message & " " & toString(cfcatch.detail)), 400))#</cfoutput>
+				</div>
+			</cfcatch>
+		</cftry>
+	</div>
+<cfoutput>
 	<div class="infoBoardDiv">
 		<div class="infoBoardTitleDiv">Information Board</div>
 		<div class="infoBoardContentDiv">
