@@ -525,8 +525,17 @@ body { font-family: "Segoe UI", Arial, sans-serif; background:#f3f5f8; color:#1d
 .tbl-actions .btn { width:100%; margin-top:6px; }
 .qr-block { margin-bottom:8px; }
 .qr-block .qr-label { display:block; font-size:11px; color:#6b7280; margin-bottom:6px; }
-.qr-canvas { display:inline-block; padding:6px; background:#fff; border:1px solid #e5e7eb; border-radius:6px; line-height:0; }
+.qr-canvas { display:inline-block; padding:6px; background:#fff; border:1px solid #e5e7eb; border-radius:6px; line-height:0; cursor:pointer; }
+.qr-canvas:hover { border-color:#F54900; box-shadow:0 0 0 2px rgba(245,73,0,.15); }
 .qr-canvas img, .qr-canvas canvas { display:block; max-width:100%; height:auto; }
+/* QR zoom modal */
+#qrZoomModal { display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,.65); align-items:center; justify-content:center; padding:24px; }
+#qrZoomModal.open { display:flex; }
+#qrZoomModal .qz-box { background:#fff; border-radius:16px; padding:24px 24px 20px; text-align:center; max-width:340px; width:100%; position:relative; }
+#qrZoomModal .qz-title { font-size:16px; font-weight:700; color:#111; margin-bottom:4px; }
+#qrZoomModal .qz-sub { font-size:12px; color:#6b7280; margin-bottom:16px; }
+#qrZoomModal .qz-canvas { display:inline-block; padding:10px; background:#fff; border:1px solid #e5e7eb; border-radius:8px; line-height:0; margin-bottom:14px; }
+#qrZoomModal .qz-close { width:100%; padding:10px; border:1px solid #e5e7eb; border-radius:10px; background:#f3f4f6; color:#374151; font-size:14px; font-weight:600; cursor:pointer; }
 .qr-url-input { margin-top:6px; font-size:11px; }
 .qr-flash { display:flex; flex-wrap:wrap; align-items:flex-start; gap:12px; }
 .qr-flash .qr-canvas { flex:0 0 auto; }
@@ -545,6 +554,12 @@ body { font-family: "Segoe UI", Arial, sans-serif; background:#f3f5f8; color:#1d
             <p class="page-sub">Monitor tables, payments, and customer QR order sessions. Regenerate QR when a table is finished to start a new order.</p>
         </div>
         <div class="head-links">
+            <cfif isDefined("SESSION.waiter_name") AND len(trim(SESSION.waiter_name))>
+                <span style="font-size:13px;color:##6b7280;line-height:30px;">
+                    #HTMLEditFormat(SESSION.waiter_name)#
+                </span>
+                <a href="WaiterDashboard.cfm?waiter_logout=1" class="btn btn-default btn-sm">Sign Out</a>
+            </cfif>
             <a href="Menu.cfm" class="btn btn-default btn-sm">Menu</a>
             <a href="Orders.cfm" class="btn btn-default btn-sm">Orders</a>
             <button type="button" class="btn btn-primary btn-sm" data-toggle="modal" data-target="##addTableModal">+ Add Table</button>
@@ -652,6 +667,7 @@ body { font-family: "Segoe UI", Arial, sans-serif; background:#f3f5f8; color:#1d
                                     data-order-id="#r.order_id#"
                                     data-order-number="#esc(r.order_number)#"
                                     data-order-total="#val(r.total_amount)#"
+                                    data-order-status="#lCase(trim(r.order_status))#"
                                 >Complete Session</button>
                                 <cfif r.order_status eq "paid">
                                     <p style="font-size:11px;color:##166534;margin:6px 0 0;">Payment received. Complete session to free the table.</p>
@@ -749,6 +765,10 @@ body { font-family: "Segoe UI", Arial, sans-serif; background:#f3f5f8; color:#1d
                     <p style="font-size:13px;color:##6b7280;margin-bottom:14px;">
                         Marks the order as <strong>completed</strong> and frees the table. You do not have to record payment for cash guests, but you can log it below for your records.
                     </p>
+                    <div id="online_paid_notice" style="display:none;background:##f0fdf4;border:1px solid ##bbf7d0;border-radius:6px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:##166534;">
+                        &#10003; Payment already received online &mdash; no cash entry needed.
+                    </div>
+                    <div id="cash_section">
                     <div class="checkbox">
                         <label>
                             <input type="checkbox" name="record_cash" id="record_cash" value="1" />
@@ -759,6 +779,7 @@ body { font-family: "Segoe UI", Arial, sans-serif; background:#f3f5f8; color:#1d
                         <label for="cash_amount">Cash amount (RM)</label>
                         <input type="number" name="cash_amount" id="cash_amount" class="form-control" min="0" step="0.01" />
                     </div>
+                    </div><!--- /cash_section --->
                     <div class="form-group" style="margin-bottom:0;">
                         <label for="waiter_note">Note (optional)</label>
                         <input type="text" name="waiter_note" id="waiter_note" class="form-control" maxlength="500" placeholder="e.g. Paid cash at counter" />
@@ -770,6 +791,15 @@ body { font-family: "Segoe UI", Arial, sans-serif; background:#f3f5f8; color:#1d
                 </div>
             </form>
         </div>
+    </div>
+</div>
+
+<!--- QR zoom modal --->
+<div id="qrZoomModal" role="dialog" aria-modal="true">
+    <div class="qz-box">
+        <div class="qz-title" id="qzTitle">Table QR Code</div>
+        <div class="qz-canvas" id="qzCanvas"></div>
+        <button class="qz-close" onclick="closeQrZoom()">Close</button>
     </div>
 </div>
 
@@ -820,7 +850,48 @@ body { font-family: "Segoe UI", Arial, sans-serif; background:#f3f5f8; color:#1d
         $modal.find('#cash_amount').val(total > 0 ? total.toFixed(2) : '0.00');
         $modal.find('#record_cash').prop('checked', false);
         $modal.find('#waiter_note').val('');
+        var alreadyPaid = (btn.data('order-status') === 'paid');
+        $modal.find('#cash_section').toggle(!alreadyPaid);
+        $modal.find('#online_paid_notice').toggle(alreadyPaid);
         toggleCashAmount();
+    });
+
+    /* QR zoom modal */
+    var qzQrObj = null;
+    function openQrZoom(url, tableLabel) {
+        if (typeof QRCode === 'undefined') { return; }
+        var $modal = $('#qrZoomModal');
+        var $canvas = $('#qzCanvas');
+        $('#qzTitle').text(tableLabel || 'Table QR Code');
+        $canvas.empty();
+        if (qzQrObj) { try { qzQrObj.clear(); } catch(e){} }
+        qzQrObj = new QRCode($canvas[0], {
+            text: url,
+            width: 260,
+            height: 260,
+            colorDark: '#111827',
+            colorLight: '#ffffff',
+            correctLevel: QRCode.CorrectLevel.M
+        });
+        $modal.addClass('open');
+    }
+    window.closeQrZoom = function() {
+        $('#qrZoomModal').removeClass('open');
+    };
+    $('#qrZoomModal').on('click', function(e) {
+        if (e.target === this) { closeQrZoom(); }
+    });
+    $(document).on('keydown', function(e) {
+        if (e.key === 'Escape') { closeQrZoom(); }
+    });
+
+    /* Attach click to each QR block — grab table name from the card header */
+    $(document).on('click', '.qr-canvas[data-qr-url]', function() {
+        var url = $.trim($(this).data('qr-url') || '');
+        if (!url) { return; }
+        var $card = $(this).closest('.tbl-card');
+        var tableName = $.trim($card.find('.tbl-title').first().text()) || 'Table QR Code';
+        openQrZoom(url, tableName);
     });
 
     $(renderQrCodes);
