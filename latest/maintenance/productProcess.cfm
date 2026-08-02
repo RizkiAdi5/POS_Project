@@ -131,21 +131,21 @@
                         <cfloop index="i" from="1" to="30">
                         	<cfqueryparam cfsqltype="cf_sql_varchar" value="#trim(evaluate('form.remark#i#'))#">,
                         </cfloop>
-                        <!---FnB Panel--->
-                        <cfqueryparam cfsqltype="cf_sql_integer" value="#val(form.fnb_sort_ord)#">,
-                        <cfif len(trim(form.fnb_promo_price)) AND val(replace(form.fnb_promo_price,',','','all')) GT 0><cfqueryparam cfsqltype="cf_sql_decimal" value="#val(replace(form.fnb_promo_price,',','','all'))#"><cfelse>NULL</cfif>,
-                        <cfif IsDefined('form.fnb_is_avail')>'T'<cfelse>'F'</cfif>,
+                        <!---FnB Panel (not yet exposed on this form — fall back to icitem's own column defaults when absent) --->
+                        <cfif IsDefined('form.fnb_sort_ord')><cfqueryparam cfsqltype="cf_sql_integer" value="#val(form.fnb_sort_ord)#"><cfelse>0</cfif>,
+                        <cfif IsDefined('form.fnb_promo_price') AND len(trim(form.fnb_promo_price)) AND val(replace(form.fnb_promo_price,',','','all')) GT 0><cfqueryparam cfsqltype="cf_sql_decimal" value="#val(replace(form.fnb_promo_price,',','','all'))#"><cfelse>NULL</cfif>,
+                        <cfif IsDefined('form.fnb_is_avail')>'T'<cfelseif IsDefined('form.fnb_sort_ord')>'F'<cfelse>'T'</cfif>,
                         <cfif IsDefined('form.fnb_is_feat')>'T'<cfelse>'F'</cfif>,
-                        <cfif IsDefined('form.fnb_for_dine')>'T'<cfelse>'F'</cfif>,
-                        <cfif IsDefined('form.fnb_for_take')>'T'<cfelse>'F'</cfif>,
-                        <cfif IsDefined('form.fnb_for_deliv')>'T'<cfelse>'F'</cfif>,
+                        <cfif IsDefined('form.fnb_for_dine')>'T'<cfelseif IsDefined('form.fnb_sort_ord')>'F'<cfelse>'T'</cfif>,
+                        <cfif IsDefined('form.fnb_for_take')>'T'<cfelseif IsDefined('form.fnb_sort_ord')>'F'<cfelse>'T'</cfif>,
+                        <cfif IsDefined('form.fnb_for_deliv')>'T'<cfelseif IsDefined('form.fnb_sort_ord')>'F'<cfelse>'T'</cfif>,
                         <cfif IsDefined('form.fnb_is_veg')>'T'<cfelse>'F'</cfif>,
                         <cfif IsDefined('form.fnb_is_halal')>'T'<cfelse>'F'</cfif>,
                         <cfif IsDefined('form.fnb_is_spicy')>'T'<cfelse>'F'</cfif>,
-                        <cfqueryparam cfsqltype="cf_sql_integer" value="#val(form.fnb_spice_lvl)#">,
-                        <cfqueryparam cfsqltype="cf_sql_varchar" value="#trim(form.fnb_allergens)#">,
-                        <cfif len(trim(form.fnb_calories))><cfqueryparam cfsqltype="cf_sql_integer" value="#val(form.fnb_calories)#"><cfelse>NULL</cfif>,
-                        <cfif len(trim(form.fnb_prep_time))><cfqueryparam cfsqltype="cf_sql_integer" value="#val(form.fnb_prep_time)#"><cfelse>NULL</cfif>
+                        <cfif IsDefined('form.fnb_spice_lvl')><cfqueryparam cfsqltype="cf_sql_integer" value="#val(form.fnb_spice_lvl)#"><cfelse>0</cfif>,
+                        <cfif IsDefined('form.fnb_allergens')><cfqueryparam cfsqltype="cf_sql_varchar" value="#trim(form.fnb_allergens)#"><cfelse>NULL</cfif>,
+                        <cfif IsDefined('form.fnb_calories') AND len(trim(form.fnb_calories))><cfqueryparam cfsqltype="cf_sql_integer" value="#val(form.fnb_calories)#"><cfelse>NULL</cfif>,
+                        <cfif IsDefined('form.fnb_prep_time') AND len(trim(form.fnb_prep_time))><cfqueryparam cfsqltype="cf_sql_integer" value="#val(form.fnb_prep_time)#"><cfelse>NULL</cfif>
 					)
 				</cfquery>
 
@@ -188,6 +188,12 @@
 		</cfif>
 	<cfelseif url.action EQ "update">
 		<cftry>
+			<!--- FnB Panel is not exposed on this form yet — preserve whatever Menu Maintenance already set instead of resetting it --->
+			<cfquery name="qExistingFnb" datasource="#dts#">
+				SELECT sort_ord, promo_price, is_avail, is_feat, for_dine, for_take, for_deliv, is_veg, is_halal, is_spicy, spice_lvl, allergens, calories, prep_time
+				FROM icitem
+				WHERE itemno = <cfqueryparam cfsqltype="cf_sql_varchar" value="#trim(form.itemno)#">
+			</cfquery>
 			<cfquery name="updateProduct" datasource="#dts#">
 				UPDATE icitem
 				SET
@@ -297,21 +303,21 @@
                     <cfloop index="i" from="1" to="30">
                         remark#i# = <cfqueryparam cfsqltype="cf_sql_varchar" value="#trim(evaluate('form.remark#i#'))#">,
                     </cfloop>
-                    <!---FnB Panel--->
-                    sort_ord = <cfqueryparam cfsqltype="cf_sql_integer" value="#val(form.fnb_sort_ord)#">,
-                    promo_price = <cfif len(trim(form.fnb_promo_price)) AND val(replace(form.fnb_promo_price,',','','all')) GT 0><cfqueryparam cfsqltype="cf_sql_decimal" value="#val(replace(form.fnb_promo_price,',','','all'))#"><cfelse>NULL</cfif>,
-                    is_avail = <cfif IsDefined('form.fnb_is_avail')>'T'<cfelse>'F'</cfif>,
-                    is_feat = <cfif IsDefined('form.fnb_is_feat')>'T'<cfelse>'F'</cfif>,
-                    for_dine = <cfif IsDefined('form.fnb_for_dine')>'T'<cfelse>'F'</cfif>,
-                    for_take = <cfif IsDefined('form.fnb_for_take')>'T'<cfelse>'F'</cfif>,
-                    for_deliv = <cfif IsDefined('form.fnb_for_deliv')>'T'<cfelse>'F'</cfif>,
-                    is_veg = <cfif IsDefined('form.fnb_is_veg')>'T'<cfelse>'F'</cfif>,
-                    is_halal = <cfif IsDefined('form.fnb_is_halal')>'T'<cfelse>'F'</cfif>,
-                    is_spicy = <cfif IsDefined('form.fnb_is_spicy')>'T'<cfelse>'F'</cfif>,
-                    spice_lvl = <cfqueryparam cfsqltype="cf_sql_integer" value="#val(form.fnb_spice_lvl)#">,
-                    allergens = <cfqueryparam cfsqltype="cf_sql_varchar" value="#trim(form.fnb_allergens)#">,
-                    calories = <cfif len(trim(form.fnb_calories))><cfqueryparam cfsqltype="cf_sql_integer" value="#val(form.fnb_calories)#"><cfelse>NULL</cfif>,
-                    prep_time = <cfif len(trim(form.fnb_prep_time))><cfqueryparam cfsqltype="cf_sql_integer" value="#val(form.fnb_prep_time)#"><cfelse>NULL</cfif>
+                    <!---FnB Panel (not yet exposed on this form — keep Menu Maintenance's existing values when absent) --->
+                    sort_ord = <cfif IsDefined('form.fnb_sort_ord')><cfqueryparam cfsqltype="cf_sql_integer" value="#val(form.fnb_sort_ord)#"><cfelse><cfqueryparam cfsqltype="cf_sql_integer" value="#val(qExistingFnb.sort_ord)#"></cfif>,
+                    promo_price = <cfif IsDefined('form.fnb_sort_ord')><cfif len(trim(form.fnb_promo_price)) AND val(replace(form.fnb_promo_price,',','','all')) GT 0><cfqueryparam cfsqltype="cf_sql_decimal" value="#val(replace(form.fnb_promo_price,',','','all'))#"><cfelse>NULL</cfif><cfelseif val(qExistingFnb.promo_price) GT 0><cfqueryparam cfsqltype="cf_sql_decimal" value="#val(qExistingFnb.promo_price)#"><cfelse>NULL</cfif>,
+                    is_avail = <cfif IsDefined('form.fnb_sort_ord')><cfif IsDefined('form.fnb_is_avail')>'T'<cfelse>'F'</cfif><cfelse><cfqueryparam cfsqltype="cf_sql_char" value="#qExistingFnb.is_avail#"></cfif>,
+                    is_feat = <cfif IsDefined('form.fnb_sort_ord')><cfif IsDefined('form.fnb_is_feat')>'T'<cfelse>'F'</cfif><cfelse><cfqueryparam cfsqltype="cf_sql_char" value="#qExistingFnb.is_feat#"></cfif>,
+                    for_dine = <cfif IsDefined('form.fnb_sort_ord')><cfif IsDefined('form.fnb_for_dine')>'T'<cfelse>'F'</cfif><cfelse><cfqueryparam cfsqltype="cf_sql_char" value="#qExistingFnb.for_dine#"></cfif>,
+                    for_take = <cfif IsDefined('form.fnb_sort_ord')><cfif IsDefined('form.fnb_for_take')>'T'<cfelse>'F'</cfif><cfelse><cfqueryparam cfsqltype="cf_sql_char" value="#qExistingFnb.for_take#"></cfif>,
+                    for_deliv = <cfif IsDefined('form.fnb_sort_ord')><cfif IsDefined('form.fnb_for_deliv')>'T'<cfelse>'F'</cfif><cfelse><cfqueryparam cfsqltype="cf_sql_char" value="#qExistingFnb.for_deliv#"></cfif>,
+                    is_veg = <cfif IsDefined('form.fnb_sort_ord')><cfif IsDefined('form.fnb_is_veg')>'T'<cfelse>'F'</cfif><cfelse><cfqueryparam cfsqltype="cf_sql_char" value="#qExistingFnb.is_veg#"></cfif>,
+                    is_halal = <cfif IsDefined('form.fnb_sort_ord')><cfif IsDefined('form.fnb_is_halal')>'T'<cfelse>'F'</cfif><cfelse><cfqueryparam cfsqltype="cf_sql_char" value="#qExistingFnb.is_halal#"></cfif>,
+                    is_spicy = <cfif IsDefined('form.fnb_sort_ord')><cfif IsDefined('form.fnb_is_spicy')>'T'<cfelse>'F'</cfif><cfelse><cfqueryparam cfsqltype="cf_sql_char" value="#qExistingFnb.is_spicy#"></cfif>,
+                    spice_lvl = <cfif IsDefined('form.fnb_spice_lvl')><cfqueryparam cfsqltype="cf_sql_integer" value="#val(form.fnb_spice_lvl)#"><cfelse><cfqueryparam cfsqltype="cf_sql_integer" value="#val(qExistingFnb.spice_lvl)#"></cfif>,
+                    allergens = <cfif IsDefined('form.fnb_allergens')><cfqueryparam cfsqltype="cf_sql_varchar" value="#trim(form.fnb_allergens)#"><cfelse><cfqueryparam cfsqltype="cf_sql_varchar" value="#qExistingFnb.allergens#"></cfif>,
+                    calories = <cfif IsDefined('form.fnb_calories')><cfif len(trim(form.fnb_calories))><cfqueryparam cfsqltype="cf_sql_integer" value="#val(form.fnb_calories)#"><cfelse>NULL</cfif><cfelseif len(trim(qExistingFnb.calories))><cfqueryparam cfsqltype="cf_sql_integer" value="#val(qExistingFnb.calories)#"><cfelse>NULL</cfif>,
+                    prep_time = <cfif IsDefined('form.fnb_prep_time')><cfif len(trim(form.fnb_prep_time))><cfqueryparam cfsqltype="cf_sql_integer" value="#val(form.fnb_prep_time)#"><cfelse>NULL</cfif><cfelseif len(trim(qExistingFnb.prep_time))><cfqueryparam cfsqltype="cf_sql_integer" value="#val(qExistingFnb.prep_time)#"><cfelse>NULL</cfif>
 				WHERE itemno = <cfqueryparam cfsqltype="cf_sql_varchar" value="#trim(form.itemno)#">;
 			</cfquery>
             <cfif IsDefined('form.grade') AND form.grade EQ "Y">

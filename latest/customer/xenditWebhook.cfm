@@ -49,9 +49,11 @@
     <cfset resolvedDts = trim(payload.metadata.dts)>
 </cfif>
 
-<!--- 2. legacy external_id prefix --->
+<!--- 2. legacy external_id prefix — NOTE: listFirst() treats its delimiter as a set of
+     characters, not a literal substring, so it can't be used here: a dts like "pos_i"
+     already contains "_", which would truncate it at the first underscore. --->
 <cfif NOT len(resolvedDts) AND structKeyExists(payload, "external_id") AND find("__", payload.external_id)>
-    <cfset resolvedDts = listFirst(trim(payload.external_id), "__")>
+    <cfset resolvedDts = left(trim(payload.external_id), find("__", trim(payload.external_id)) - 1)>
 </cfif>
 
 <cfif NOT len(resolvedDts)>

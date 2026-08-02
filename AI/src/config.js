@@ -15,15 +15,6 @@ function opt(name, fallback) {
   return v == null || String(v).trim() === '' ? fallback : String(v).trim();
 }
 
-const allowedDts = opt('ALLOWED_DTS', '')
-  .split(',')
-  .map((s) => s.trim())
-  .filter(Boolean);
-
-if (allowedDts.length === 0) {
-  throw new Error('ALLOWED_DTS must list at least one branch database (e.g. pos_i).');
-}
-
 module.exports = {
   deepseek: {
     apiKey: req('DEEPSEEK_API_KEY'),
@@ -35,7 +26,6 @@ module.exports = {
     port: parseInt(opt('DB_PORT', '3306'), 10),
     user: req('DB_USER'),
     password: opt('DB_PASS', ''),
-    allowedDts,
     queryTimeoutMs: parseInt(opt('QUERY_TIMEOUT_MS', '5000'), 10),
     rowLimit: parseInt(opt('ROW_LIMIT', '5000'), 10),
   },

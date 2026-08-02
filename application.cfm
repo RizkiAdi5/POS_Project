@@ -15,6 +15,12 @@ Program : To SET Application informations to all pages
 <cfset REQUEST.isCustomerRoute = (
     findNoCase("/latest/customer/", CGI.SCRIPT_NAME) gt 0
     OR findNoCase("/latest/customer/", CGI.PATH_INFO) gt 0
+    <!--- The customer chat widget lives under /latest/ai/ (not /latest/customer/) since it's
+          paired with the admin AI pages there — whitelist only the two customer-facing files
+          so admin-only pages in the same folder (analyst.cfm, aiproxy.cfm, etc.) still require
+          staff login. --->
+    OR findNoCase("/latest/ai/customer.cfm", CGI.SCRIPT_NAME) gt 0
+    OR findNoCase("/latest/ai/customerproxy.cfm", CGI.SCRIPT_NAME) gt 0
 )>
 
 <cfif REQUEST.isCustomerRoute>

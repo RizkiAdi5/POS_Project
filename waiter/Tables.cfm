@@ -200,7 +200,11 @@
         <cfif structKeyExists(form, "waiter_note")><cfset csNote = trim(form.waiter_note)></cfif>
         <cfset cs = emenuCompleteTableSession(dts, csTblId, csOrdId, csRecordCash, csAmount, csNote)>
         <cfif cs.ok>
-            <cfset flashMsg = "Session completed. You can regenerate QR for the next customers.">
+            <cfif cs.status eq "cancelled">
+                <cfset flashMsg = "No payment was recorded, so the order was cancelled. You can regenerate QR for the next customers.">
+            <cfelse>
+                <cfset flashMsg = "Session completed. You can regenerate QR for the next customers.">
+            </cfif>
         <cfelse>
             <cfset flashErr = cs.error>
         </cfif>
@@ -225,11 +229,21 @@
                     SET status = <cfqueryparam cfsqltype="cf_sql_varchar" value="success">,
                         paid_at = NOW()
                     WHERE payment_id = (
-                        SELECT MAX(payment_id)
-                        FROM app_payments
-                        WHERE order_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#oid#">
-                          AND payment_method = <cfqueryparam cfsqltype="cf_sql_varchar" value="cash">
+                        SELECT payment_id FROM (
+                            SELECT MAX(payment_id) AS payment_id
+                            FROM app_payments
+                            WHERE order_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#oid#">
+                              AND payment_method = <cfqueryparam cfsqltype="cf_sql_varchar" value="cash">
+                        ) AS latest_cash_payment
                     )
+                </cfquery>
+                <!--- Mirror what the Xendit webhook does on successful payment — otherwise the order
+                      stays stuck at its kitchen-workflow status and never shows as "paid" like online payments --->
+                <cfquery datasource="#dts#">
+                    UPDATE app_orders
+                    SET    status = <cfqueryparam cfsqltype="cf_sql_varchar" value="paid">
+                    WHERE  order_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#oid#">
+                      AND  status NOT IN ('paid','completed','cancelled')
                 </cfquery>
                 <cfset flashMsg = "Cash payment confirmed.">
                 <cfcatch type="any">

@@ -203,7 +203,11 @@
         <cfif structKeyExists(form, "waiter_note")><cfset csNote = trim(form.waiter_note)></cfif>
         <cfset cs = emenuCompleteTableSession(dts, csTblId, csOrdId, csRecordCash, csAmount, csNote)>
         <cfif cs.ok>
-            <cfset flashMsg = "Session completed. You can regenerate QR for the next customers.">
+            <cfif cs.status eq "cancelled">
+                <cfset flashMsg = "No payment was recorded, so the order was cancelled. You can regenerate QR for the next customers.">
+            <cfelse>
+                <cfset flashMsg = "Session completed. You can regenerate QR for the next customers.">
+            </cfif>
         <cfelse>
             <cfset flashErr = cs.error>
         </cfif>
@@ -228,11 +232,21 @@
                     SET status = <cfqueryparam cfsqltype="cf_sql_varchar" value="success">,
                         paid_at = NOW()
                     WHERE payment_id = (
-                        SELECT MAX(payment_id)
-                        FROM app_payments
-                        WHERE order_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#oid#">
-                          AND payment_method = <cfqueryparam cfsqltype="cf_sql_varchar" value="cash">
+                        SELECT payment_id FROM (
+                            SELECT MAX(payment_id) AS payment_id
+                            FROM app_payments
+                            WHERE order_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#oid#">
+                              AND payment_method = <cfqueryparam cfsqltype="cf_sql_varchar" value="cash">
+                        ) AS latest_cash_payment
                     )
+                </cfquery>
+                <!--- Mirror what the Xendit webhook does on successful payment — otherwise the order
+                      stays stuck at its kitchen-workflow status and never shows as "paid" like online payments --->
+                <cfquery datasource="#dts#">
+                    UPDATE app_orders
+                    SET    status = <cfqueryparam cfsqltype="cf_sql_varchar" value="paid">
+                    WHERE  order_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#oid#">
+                      AND  status NOT IN ('paid','completed','cancelled')
                 </cfquery>
                 <cfset flashMsg = "Cash payment confirmed.">
                 <cfcatch type="any">
@@ -659,8 +673,11 @@ body { font-family: "Segoe UI", Arial, sans-serif; background:#f3f5f8; color:#1d
                                     <input type="text" class="form-control input-sm qr-url-input" readonly="readonly" value="#esc(r.qr_url)#" onclick="this.select();" title="Click to copy link" />
                                 </div>
                             </cfif>
-                            <cfif r.has_order AND (r.order_is_open OR r.order_status eq "paid")>
-                                <button type="button" class="btn <cfif r.order_status eq 'paid'>btn-success<cfelse>btn-primary</cfif> btn-sm btn-block"
+                            <!--- Derive "paid" from the actual payment record (payment_tag), not app_orders.status —
+                                  that column is also written by the kitchen prep workflow and can overwrite "paid". --->
+                            <cfset rIsPaid = listFindNoCase("paid-online,paid-cash", r.payment_tag) gt 0>
+                            <cfif r.has_order AND (r.order_is_open OR rIsPaid)>
+                                <button type="button" class="btn <cfif rIsPaid>btn-success<cfelse>btn-primary</cfif> btn-sm btn-block"
                                     data-toggle="modal" data-target="##completeSessionModal"
                                     data-table-id="#r.table_id#"
                                     data-table-number="#esc(r.table_number)#"
@@ -668,8 +685,9 @@ body { font-family: "Segoe UI", Arial, sans-serif; background:#f3f5f8; color:#1d
                                     data-order-number="#esc(r.order_number)#"
                                     data-order-total="#val(r.total_amount)#"
                                     data-order-status="#lCase(trim(r.order_status))#"
+                                    data-is-paid="<cfif rIsPaid>1<cfelse>0</cfif>"
                                 >Complete Session</button>
-                                <cfif r.order_status eq "paid">
+                                <cfif rIsPaid>
                                     <p style="font-size:11px;color:##166534;margin:6px 0 0;">Payment received. Complete session to free the table.</p>
                                 <cfelse>
                                     <p style="font-size:11px;color:##92400e;margin:6px 0 0;">Finish this visit before regenerating QR. Cash payment is optional.</p>
@@ -850,7 +868,7 @@ body { font-family: "Segoe UI", Arial, sans-serif; background:#f3f5f8; color:#1d
         $modal.find('#cash_amount').val(total > 0 ? total.toFixed(2) : '0.00');
         $modal.find('#record_cash').prop('checked', false);
         $modal.find('#waiter_note').val('');
-        var alreadyPaid = (btn.data('order-status') === 'paid');
+        var alreadyPaid = (String(btn.data('is-paid')) === '1');
         $modal.find('#cash_section').toggle(!alreadyPaid);
         $modal.find('#online_paid_notice').toggle(alreadyPaid);
         toggleCashAmount();
