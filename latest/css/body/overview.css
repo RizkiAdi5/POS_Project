@@ -4,6 +4,11 @@
 	margin-left:50px;
 	width:100%;
 }
+.containerDiv:after{
+	content:"";
+	display:table;
+	clear:both;
+}
 .titleDiv{
 	float:left;
 	margin-top:16px;
@@ -15,12 +20,41 @@
 .chartGroupDiv{
 	float:left;
 	clear:both;
+	display:grid;
+	grid-template-columns:500px 500px;
+	column-gap:25px;
+	row-gap:0;
+	width:auto;
+	max-width:100%;
+	box-sizing:border-box;
+	margin-bottom:28px;
+}
+.chartGroupDiv:after{
+	display:none;
+}
+.emenuLegacyCharts{
+	margin-top:0;
+	margin-bottom:8px;
+}
+.emenuOverviewDiv{
+	float:none;
+	clear:both;
+	display:block;
+	width:100%;
+	max-width:1025px;
+	margin-top:32px;
+	margin-bottom:24px;
+	padding-top:8px;
+	box-sizing:border-box;
+	overflow:visible;
+	min-height:120px;
 }
 .chartDiv{
-	display:inline-block;
+	float:none;
 	width:500px;
 	margin-top:25px;
-	margin-right:25px;
+	margin-right:0;
+	overflow:hidden;
 	-moz-box-shadow:0px 3px 12px #CCCCCC;
     -webkit-box-shadow:0px 3px 12px #CCCCCC;
     box-shadow:0px 3px 12px #CCCCCC;

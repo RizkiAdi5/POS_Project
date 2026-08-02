@@ -326,6 +326,7 @@
             <button type="button" data-q="Give me a full weekly executive brief with forecast and action items.">Executive brief</button>
             <button type="button" data-q="Are there any unusual patterns or alerts I should know about right now?">Anomaly alerts</button>
             <button type="button" data-q="How is e-menu performing today by orders, revenue, and basket size?">Sales today</button>
+            <button type="button" data-q="List today's orders with order numbers and each line item with revenue.">Today's orders</button>
             <button type="button" data-q="How does this week compare to last week in revenue, order count, and average basket?">Week vs last</button>
             <button type="button" data-q="What e-menu revenue and order count should we expect next week?">Next week forecast</button>
             <button type="button" data-q="Which 10 menu items are bringing the most revenue this month and how concentrated is the mix?">Top items</button>
@@ -422,6 +423,17 @@
             '</svg>' +
         '</div>';
 
+    function scrollMessagesTo(el, align) {
+        if (!el || !elMsgs) return;
+        var pad = 12;
+        if (align === 'start') {
+            var top = el.getBoundingClientRect().top - elMsgs.getBoundingClientRect().top + elMsgs.scrollTop - pad;
+            elMsgs.scrollTop = Math.max(0, top);
+        } else {
+            elMsgs.scrollTop = elMsgs.scrollHeight;
+        }
+    }
+
     function addMsg(text, who, meta, isError) {
         var row = document.createElement('div');
         row.className = 'row ' + who + (isError ? ' error' : '');
@@ -445,7 +457,8 @@
             row.appendChild(bubbleU);
         }
         elMsgs.appendChild(row);
-        elMsgs.scrollTop = elMsgs.scrollHeight;
+        scrollMessagesTo(row, who === 'bot' ? 'start' : 'end');
+        return row;
     }
 
     /* ----- Follow-up icons (Feather-style line SVGs, picked by label keywords) ----- */
@@ -557,7 +570,6 @@
             '</a>' +
             '<span class="exportHint">Includes summary sheets and detailed rows · link expires in ~20 min</span>';
         elMsgs.appendChild(bar);
-        elMsgs.scrollTop = elMsgs.scrollHeight;
     }
 
     function addFollowups(items) {
@@ -588,7 +600,6 @@
             box.appendChild(b);
         });
         elMsgs.appendChild(box);
-        elMsgs.scrollTop = elMsgs.scrollHeight;
     }
 
     function addTyping() {
@@ -597,7 +608,6 @@
         row.innerHTML = BOT_AVATAR_HTML +
             '<div class="typing" aria-label="Thinking"><span></span><span></span><span></span></div>';
         elMsgs.appendChild(row);
-        elMsgs.scrollTop = elMsgs.scrollHeight;
         return row;
     }
 
@@ -647,7 +657,7 @@
             try { data = await resp.json(); } catch (e) { data = null; }
             typing.remove();
             if (!resp.ok || !data || !data.ok) {
-                var err = (data && (data.error || data.detail)) || ('HTTP ' + resp.status);
+                var err = (data && data.detail) || (data && data.error) || ('HTTP ' + resp.status);
                 addMsg('Sorry, the analyst could not answer: ' + err, 'bot', null, true);
                 return;
             }

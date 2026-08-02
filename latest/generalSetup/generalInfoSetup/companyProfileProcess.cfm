@@ -34,6 +34,30 @@
     		</cfquery>
 		</cfif>
 
+		<cfparam name="form.open_from" default="">
+		<cfparam name="form.open_to" default="">
+		<cfset saveOpenFrom = trim(form.open_from)>
+		<cfset saveOpenTo = trim(form.open_to)>
+
+		<!--- Ensure columns exist before UPDATE (first-time / other servers) --->
+		<cftry>
+			<cfquery name="chkOpenFromColSave" datasource="#dts#">
+				SELECT COUNT(*) AS cnt
+				FROM information_schema.COLUMNS
+				WHERE TABLE_SCHEMA = DATABASE()
+				AND TABLE_NAME = 'gsetup'
+				AND COLUMN_NAME = 'open_from'
+			</cfquery>
+			<cfif val(chkOpenFromColSave.cnt) EQ 0>
+				<cfquery datasource="#dts#">
+					ALTER TABLE gsetup
+					ADD COLUMN open_from VARCHAR(10) NULL,
+					ADD COLUMN open_to VARCHAR(10) NULL
+				</cfquery>
+			</cfif>
+			<cfcatch type="any"></cfcatch>
+		</cftry>
+
         <cfquery name="updateCompanyProfileIMS" datasource="#dts#">
             UPDATE gsetup
             SET
@@ -57,7 +81,9 @@
                 debtorto = <cfqueryparam cfsqltype="cf_sql_varchar" value="#form.debtorTo#">,
                 creditorfr = <cfqueryparam cfsqltype="cf_sql_varchar" value="#form.creditorFrom#">,
                 creditorto = <cfqueryparam cfsqltype="cf_sql_varchar" value="#form.creditorTo#">,
-                periodalfr = <cfqueryparam cfsqltype="cf_sql_varchar" value="#form.periodAllowed#">
+                periodalfr = <cfqueryparam cfsqltype="cf_sql_varchar" value="#form.periodAllowed#">,
+				open_from = <cfqueryparam cfsqltype="cf_sql_varchar" value="#saveOpenFrom#" null="#NOT len(saveOpenFrom)#">,
+				open_to = <cfqueryparam cfsqltype="cf_sql_varchar" value="#saveOpenTo#" null="#NOT len(saveOpenTo)#">
 
             WHERE companyid = 'IMS';
         </cfquery>

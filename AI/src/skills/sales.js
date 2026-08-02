@@ -12,7 +12,7 @@ const todaySales = {
     { label: 'Compare with last week', question: 'How does this week compare to last week in revenue, order count, and average basket?' },
     { label: 'Sales trend (7 days)', question: 'Show me e-menu sales day-by-day for the last 7 days and tell me which day drove the most revenue.' },
     { label: 'Peak hours', question: 'Which hours of the day drive the most orders in the last 14 days?' },
-    { label: 'Top items today', question: 'Which menu items earned the most revenue today and how concentrated is the top of the list?' },
+    { label: 'Top items today', question: 'List today\'s orders with order numbers and each line item with revenue.' },
   ],
   async run({ dts }) {
     const totals = await db.runQuery(dts, `

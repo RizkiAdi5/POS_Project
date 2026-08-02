@@ -70,6 +70,7 @@
         </cftry>
 
         <cfset xPayload = structNew()>
+        <cfset xPayload.dts                  = dts>
         <cfset xPayload.external_id          = orderNumber>
         <cfset xPayload.metadata             = {"dts" = dts}>
         <cfset xPayload.amount               = javaCast("int", round(payAmount))>
@@ -81,9 +82,8 @@
         <!--- Read client's enabled payment methods (empty = show all) --->
         <cftry>
             <cfquery name="qEnabledMethods" datasource="#dts#">
-                SELECT method_code FROM main.payment_method_config
-                WHERE  dts        = <cfqueryparam cfsqltype="cf_sql_varchar" value="#dts#">
-                  AND  is_enabled = 1
+                SELECT method_code FROM payment_method_config
+                WHERE  is_enabled = 1
             </cfquery>
             <cfif qEnabledMethods.recordCount gt 0>
                 <cfset methodArray = []>
@@ -126,22 +126,7 @@
             )
         </cfquery>
 
-        <!--- Store invoice→dts mapping in main so webhook can resolve tenant without relying on metadata --->
-        <cftry>
-            <cfquery datasource="#dts#">
-                INSERT INTO main.xendit_invoice_dts (xendit_invoice_id, dts, created_at)
-                VALUES (
-                    <cfqueryparam cfsqltype="cf_sql_varchar" value="#xenditData.id#">,
-                    <cfqueryparam cfsqltype="cf_sql_varchar" value="#dts#">,
-                    <cfqueryparam cfsqltype="cf_sql_timestamp" value="#now()#">
-                )
-                ON DUPLICATE KEY UPDATE dts = VALUES(dts)
-            </cfquery>
-        <cfcatch type="any"><!--- table may not exist yet — webhook falls back to metadata --->
-        </cfcatch>
-        </cftry>
-
-        <cflocation url="#xenditData.invoice_url#" addtoken="false">
+<cflocation url="#xenditData.invoice_url#" addtoken="false">
 
     <cfelseif payAction eq "cashier">
         <cfquery datasource="#dts#">

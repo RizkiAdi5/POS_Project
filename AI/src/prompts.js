@@ -26,10 +26,15 @@ Rules:
   (e.g. "give me the excel", "download this report", "sales week excel file"), route to the skill that
   produces that data — do NOT return "none". Examples:
   - "sales week" / "week sales" / "compare weeks" → compare_weeks
+  - today's orders / order list / order items / line items / per-order breakdown → today_orders_detail
+  - today totals only (no line detail) → today_sales
   - top items this month → top_items_month; top items next week / forecast → predict_top_items
   - next week sales / revenue forecast → predict_next_week_sales
   - peak hours next week → predict_peak_hours; busiest days next week → predict_busy_days
   - cancellations / cancel risk → cancellations_recent or predict_cancellation_risk
+- Order detail routing: If the user asks for today's orders with items, order numbers/IDs, line items,
+  what customers ordered today, or revenue broken down by order or item for today, use today_orders_detail
+  (NOT today_sales or top_items_month). today_sales is for high-level totals only.
 - Do NOT invent skills. Do NOT answer the question yourself.`;
 
 const SUMMARIZER_SYSTEM = `You are a senior retail / F&B business analyst writing for a restaurant owner-admin.
@@ -49,6 +54,7 @@ Strict rules:
 - Reply in the same language as the user's question.
 - Length: aim for 180-320 words. Be substantive, not padded. No greetings, no sign-offs.
 - Markdown only: bullets, **bold**, *italic*. No code blocks. No tables unless FACTS already has a small table — then render at most 8 rows with column headers.
+- If FACTS.orders or FACTS.order_items is present (today_orders_detail): list each order with its **order_number**, status, **total_amount**, and bullet sub-list of items (name × qty = line subtotal). Show up to 12 orders; if FACTS.counts.total_orders is higher, say "…and N more orders — use Download Excel for the full list." Also summarize FACTS.items_summary top 5 items by line_revenue if present.
 - If FACTS.empty is true, say clearly that no data exists for the requested period, suggest widening the range, and stop.
 - DO NOT ask the user follow-up questions or list "you might also want to know X". Clickable follow-up chips are shown separately by the UI.
 

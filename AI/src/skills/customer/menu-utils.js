@@ -54,6 +54,19 @@ function parsePriceParam(params, keys, currency) {
   return null;
 }
 
+/**
+ * Guard against router inventing MYR-style caps (e.g. 20) for zero-decimal currencies (IDR).
+ * Rp 20 is never a real restaurant budget — treat as "show cheapest" instead.
+ */
+function sanitizeMaxPrice(maxPrice, currency) {
+  if (maxPrice == null) return { maxPrice: null, ignored: false };
+  const decimals = currency && Number.isFinite(currency.decimals) ? currency.decimals : 2;
+  if (decimals === 0 && maxPrice > 0 && maxPrice < 1000) {
+    return { maxPrice: null, ignored: true, ignored_value: maxPrice };
+  }
+  return { maxPrice, ignored: false };
+}
+
 function parseAllergenList(raw) {
   if (!raw) return [];
   if (Array.isArray(raw)) {
@@ -142,7 +155,8 @@ async function queryMenu({ dts, params, defaultLimit }) {
     binds.push(kw, kw, kw);
   }
 
-  const maxPrice = parsePriceParam(params, ['max_price', 'max_price_rm'], currency);
+  const rawMaxPrice = parsePriceParam(params, ['max_price', 'max_price_rm'], currency);
+  const { maxPrice, ignored: maxPriceIgnored, ignored_value: ignoredMaxPrice } = sanitizeMaxPrice(rawMaxPrice, currency);
   const minPrice = parsePriceParam(params, ['min_price', 'min_price_rm'], currency);
   if (maxPrice != null) {
     if (cols.hasPromoPrice) {
@@ -193,6 +207,16 @@ async function queryMenu({ dts, params, defaultLimit }) {
 
   const items = rows.map((r) => mapMenuRow(r, currency));
 
+  const notes = [];
+  if (excludeAllergens.length && !cols.hasAllergens) {
+    notes.push('Allergen column not available on menu; only dietary flags (halal/vegetarian) were applied.');
+  }
+  if (maxPriceIgnored) {
+    notes.push(
+      `Price cap ${ignoredMaxPrice} is unrealistically low for ${currency.code || 'this currency'}; showing lowest-priced dishes instead.`
+    );
+  }
+
   return withCurrency(dts, {
     filter: {
       category: params.category || null,
@@ -204,13 +228,12 @@ async function queryMenu({ dts, params, defaultLimit }) {
       vegetarian_only: !!params.vegetarian_only,
       spicy_only: !!params.spicy_only,
       featured_only: !!params.featured_only,
+      budget_mode: !!maxPriceIgnored,
     },
     count: items.length,
     items,
     empty: items.length === 0,
-    note: excludeAllergens.length && !cols.hasAllergens
-      ? 'Allergen column not available on menu; only dietary flags (halal/vegetarian) were applied.'
-      : null,
+    note: notes.length ? notes.join(' ') : null,
   });
 }
 
@@ -218,6 +241,7 @@ module.exports = {
   getMenuColumns,
   queryMenu,
   parsePriceParam,
+  sanitizeMaxPrice,
   parseAllergenList,
   expandAllergenTokens,
   mapMenuRow,

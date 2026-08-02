@@ -6,11 +6,12 @@ const { limit } = require('../../util/dates');
 module.exports = {
   name: 'menu_recommend',
   description:
-    'Recommend dishes for guests. USE THIS for price limits (e.g. under 20, budget, cheap — use company currency), ' +
-    'allergen-safe options (exclude nuts/dairy/gluten/shellfish), or combined dietary + price requests. ' +
-    'Returns actual menu items with prices in the branch base currency.',
+    'Recommend dishes for guests. USE THIS for price limits, allergen-safe options, or dietary filters. ' +
+    'For vague "cheap/affordable/budget" with NO number: omit max_price (returns cheapest first). ' +
+    'For explicit caps set max_price in company currency (e.g. IDR 50000, MYR 20 — never invent 20 for IDR). ' +
+    'Also for allergen-safe options (exclude nuts/dairy/gluten/shellfish). Returns items with prices in branch currency.',
   params: {
-    max_price: 'optional number — maximum price per item in company currency (alias: max_price_rm)',
+    max_price: 'optional number — only when guest states an explicit max price in company currency (alias: max_price_rm). Omit for vague affordable/cheap.',
     min_price: 'optional number — minimum price (alias: min_price_rm)',
     exclude_allergens: 'optional string or list — allergens to avoid, e.g. "nuts", "dairy, gluten"',
     category: 'optional string — category name',

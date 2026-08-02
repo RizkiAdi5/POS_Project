@@ -11,7 +11,7 @@
 <!--- ── POST actions ── --->
 <cfif isDefined("form.form_action") AND len(trim(dts))>
 
-    <!--- Update single item kitchen_status --->
+    <!--- Update single item kitchen status --->
     <cfif form.form_action eq "update_item" AND isNumeric(form.item_id)>
         <cfset allowed = "Pending,In Progress,Ready">
         <cfif listFindNoCase(allowed, form.new_status)>
@@ -25,7 +25,7 @@
                     WHERE  item_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#form.item_id#">
                 </cfquery>
 
-                <!--- Auto-update order status if all items ready --->
+                <!--- Promote order to 'ready' only when all items are Ready --->
                 <cfquery name="qCheck" datasource="#dts#">
                     SELECT COUNT(*) AS total,
                            SUM(CASE WHEN status = 'Ready' THEN 1 ELSE 0 END) AS ready_count
@@ -37,15 +37,9 @@
                         UPDATE app_orders SET status = 'ready'
                         WHERE  order_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#form.order_id#">
                     </cfquery>
-                <cfelse>
-                    <cfquery datasource="#dts#">
-                        UPDATE app_orders SET status = 'in progress'
-                        WHERE  order_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#form.order_id#">
-                          AND  status NOT IN ('paid','cancelled')
-                    </cfquery>
                 </cfif>
 
-                <cfset flashMsg = "Item status updated to #form.new_status#.">
+                <cfset flashMsg = "Updated to #form.new_status#.">
                 <cfcatch type="any">
                     <cfset flashErr = "Update failed: " & left(cfcatch.message,200)>
                 </cfcatch>
@@ -77,57 +71,54 @@
     </cfif>
 </cfif>
 
-<!--- ── Load active orders ── --->
+<!--- ── Load paid orders awaiting kitchen preparation ── --->
 <cfset pageError = "">
-<cfset orders    = []>
-<cfset itemsByOrder = structNew()>
-<cfset qOrders = queryNew("order_id,order_number,table_number,custno,status,total_amount,created_at")>
+<cfset qOrders   = queryNew("order_id,order_number,table_number,custno,status,total_amount,created_at")>
 <cfset qAllItems = queryNew("item_id,order_id,quantity,kitchen_status,item_name")>
+<cfset itemsByOrder = structNew()>
 
 <cfif NOT isDefined("dts") OR NOT len(trim(dts))>
-    <cfset pageError = "Database not configured for this user. Log in via the staff menu or assign a branch database (userdept).">
+    <cfset pageError = "Database not configured. Log in via the staff menu.">
 <cfelse>
 <cftry>
     <cfquery name="qOrders" datasource="#dts#">
-        SELECT o.order_id, o.order_number, t.table_number AS table_number, o.custno,
-               o.status, o.total_amount, o.created_at
+        SELECT o.order_id, o.order_number,
+               COALESCE(t.table_number, '') AS table_number,
+               o.custno, o.status, o.total_amount, o.created_at
         FROM   app_orders o
         LEFT JOIN app_tables t ON o.table_id = t.table_id
-        WHERE  o.status NOT IN ('paid','cancelled','completed')
+        WHERE  o.status = 'paid'
         ORDER  BY o.created_at ASC
     </cfquery>
 
-    <cfquery name="qAllItems" datasource="#dts#">
-        SELECT item_id, order_id, quantity, status AS kitchen_status,
-               COALESCE(item_name, item_code) AS item_name
-        FROM   app_order_items
-        WHERE  order_id IN (
-            SELECT order_id FROM app_orders
-            WHERE  status NOT IN ('paid','cancelled','completed')
-        )
-        ORDER  BY order_id ASC, item_id ASC
-    </cfquery>
+    <cfif qOrders.recordCount gt 0>
+        <cfquery name="qAllItems" datasource="#dts#">
+            SELECT item_id, order_id, quantity,
+                   status AS kitchen_status,
+                   COALESCE(item_name, item_code) AS item_name
+            FROM   app_order_items
+            WHERE  order_id IN (
+                SELECT order_id FROM app_orders WHERE status = 'paid'
+            )
+            ORDER  BY order_id ASC, item_id ASC
+        </cfquery>
 
-    <!--- Group items by order_id --->
-    <cfset itemsByOrder = structNew()>
-    <cfloop query="qAllItems">
-        <cfset key = toString(qAllItems.order_id)>
-        <cfif NOT structKeyExists(itemsByOrder, key)>
-            <cfset itemsByOrder[key] = []>
-        </cfif>
-        <cfset arrayAppend(itemsByOrder[key], {
-            "item_id"       : val(qAllItems.item_id),
-            "item_name"     : trim(toString(qAllItems.item_name)),
-            "quantity"      : val(qAllItems.quantity),
-            "kitchen_status": trim(toString(qAllItems.kitchen_status))
-        })>
-    </cfloop>
+        <cfloop query="qAllItems">
+            <cfset key = toString(qAllItems.order_id)>
+            <cfif NOT structKeyExists(itemsByOrder, key)>
+                <cfset itemsByOrder[key] = []>
+            </cfif>
+            <cfset arrayAppend(itemsByOrder[key], {
+                "item_id"       : val(qAllItems.item_id),
+                "item_name"     : trim(toString(qAllItems.item_name)),
+                "quantity"      : val(qAllItems.quantity),
+                "kitchen_status": trim(toString(qAllItems.kitchen_status))
+            })>
+        </cfloop>
+    </cfif>
 
     <cfcatch type="any">
         <cfset pageError = "Query failed: " & left(cfcatch.message,300)>
-        <cfif structKeyExists(cfcatch, "detail") AND len(trim(cfcatch.detail))>
-            <cfset pageError = pageError & " — " & left(trim(cfcatch.detail), 200)>
-        </cfif>
     </cfcatch>
 </cftry>
 </cfif>
@@ -136,150 +127,190 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Active Orders — Waiter</title>
+<title>Kitchen Dashboard</title>
 <link rel="stylesheet" href="/latest/css/bootstrap/bootstrap.min.css">
 <style>
 body{background:#f5f7fb;font-family:'Segoe UI',Arial,sans-serif;padding:20px 16px 60px;}
-.page-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;
-           padding-bottom:12px;border-bottom:3px solid #F54900;}
-.page-title{font-size:24px;font-weight:700;margin:0;}
-.order-card{background:#fff;border:1px solid #e5e7eb;border-radius:12px;
-            padding:16px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,.04);}
-.order-card.ready{border-color:#86efac;background:#f0fdf4;}
-.order-header{display:flex;align-items:center;justify-content:space-between;
-              margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid #f0f0f0;}
-.order-num{font-size:15px;font-weight:700;color:#111;}
-.order-meta{font-size:12px;color:#9ca3af;margin-top:2px;}
+.page-head{display:flex;align-items:center;justify-content:space-between;
+           margin-bottom:20px;padding-bottom:12px;border-bottom:3px solid #F54900;}
+.page-title{font-size:22px;font-weight:700;margin:0;}
+
+/* Horizontal table button row */
+.table-row{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:20px;}
+.table-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;
+           min-width:90px;padding:12px 16px;border-radius:10px;border:2px solid #e5e7eb;
+           background:#fff;cursor:pointer;font-weight:700;font-size:14px;
+           color:#374151;transition:all .15s;line-height:1.3;}
+.table-btn:hover{border-color:#F54900;color:#F54900;}
+.table-btn.active{border-color:#F54900;background:#fff3ee;color:#F54900;}
+.table-btn .item-count{font-size:11px;font-weight:600;background:#F54900;color:#fff;
+                        border-radius:20px;padding:1px 8px;margin-top:4px;}
+.table-btn.all-ready .item-count{background:#15803d;}
+.table-btn.all-ready{border-color:#86efac;color:#15803d;}
+
+/* Detail panel */
+.order-detail{background:#fff;border:1px solid #e5e7eb;border-radius:12px;
+              margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.06);}
+.order-detail.all-ready{border-color:#86efac;background:#f0fdf4;}
+.detail-head{padding:14px 16px;border-bottom:1px solid #f0f0f0;
+             display:flex;align-items:center;justify-content:space-between;}
+.detail-order-num{font-size:14px;font-weight:700;color:#111;}
+.detail-meta{font-size:12px;color:#9ca3af;margin-top:2px;}
 .status-chip{display:inline-block;font-size:11px;font-weight:700;
              padding:3px 10px;border-radius:20px;}
-.chip-progress{background:#fef3c7;color:#92400e;}
-.chip-ready   {background:#dcfce7;color:#15803d;}
-.chip-pending {background:#f3f4f6;color:#6b7280;}
+.chip-paid   {background:#dbeafe;color:#1d4ed8;}
+.chip-ready  {background:#dcfce7;color:#15803d;}
+.detail-body{padding:12px 16px;}
+
 .item-row{display:flex;align-items:center;justify-content:space-between;
-          padding:8px 0;border-bottom:1px solid #f9fafb;}
+          padding:9px 0;border-bottom:1px solid #f9fafb;}
 .item-row:last-child{border-bottom:none;}
 .item-name{font-size:14px;font-weight:600;color:#111;}
 .item-qty {font-size:12px;color:#9ca3af;}
-.item-actions{display:flex;gap:6px;}
+.item-actions{display:flex;gap:5px;}
 .btn-status{font-size:12px;padding:5px 10px;border-radius:8px;border:1px solid;
             cursor:pointer;font-weight:600;background:#fff;}
 .btn-pending {color:#6b7280;border-color:#d1d5db;}
 .btn-progress{color:#92400e;border-color:#fcd34d;background:#fef3c7;}
-.btn-ready   {color:#15803d;border-color:#86efac;background:#dcfce7;}
+.btn-ready-item{color:#15803d;border-color:#86efac;background:#dcfce7;}
 .btn-status.active{box-shadow:0 0 0 2px currentColor;font-weight:800;}
 .btn-ready-all{width:100%;margin-top:10px;}
-.empty{text-align:center;padding:48px;color:#9ca3af;font-size:15px;}
-.auto-badge{font-size:12px;color:#F54900;font-weight:600;
-            background:#fff3ee;border:1px solid #fed7aa;border-radius:20px;
-            padding:4px 12px;display:flex;align-items:center;gap:6px;}
-.pulse{width:8px;height:8px;background:#F54900;border-radius:50%;
-       animation:pulse 1.5s ease-in-out infinite;display:inline-block;}
-@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+.empty{text-align:center;padding:60px;color:#9ca3af;font-size:15px;}
 </style>
 </head>
 <body>
 <cfoutput>
 <div class="page-head">
     <div>
-        <h1 class="page-title">Active Orders</h1>
-        <p style="margin:0;font-size:13px;color:##9ca3af;">Auto-refreshes every 20 seconds</p>
+        <h1 class="page-title">Kitchen Dashboard</h1>
+        <p style="margin:0;font-size:12px;color:##9ca3af;">Showing paid orders ready to prepare</p>
     </div>
-    <div style="display:flex;align-items:center;gap:10px;">
-        <div class="auto-badge"><span class="pulse"></span> Live</div>
-        <a href="WaiterDashboard.cfm" class="btn btn-default btn-sm">Dashboard</a>
-    </div>
+    <a href="WaiterDashboard.cfm" class="btn btn-default btn-sm">Dashboard</a>
 </div>
 
 <cfif len(flashMsg)><div class="alert alert-success">#HTMLEditFormat(flashMsg)#</div></cfif>
 <cfif len(flashErr)><div class="alert alert-danger">#HTMLEditFormat(flashErr)#</div></cfif>
 <cfif len(pageError)><div class="alert alert-warning">#HTMLEditFormat(pageError)#</div></cfif>
 
-<cfif len(pageError)>
-    <!--- error shown above --->
-<cfelseif qOrders.recordCount eq 0>
-    <div class="empty">No active orders right now.</div>
+<cfif NOT len(pageError)>
+<cfif qOrders.recordCount eq 0>
+    <div class="empty">No paid orders waiting for the kitchen.</div>
 <cfelse>
-    <cfloop query="qOrders">
-        <cfset oid     = val(qOrders.order_id)>
-        <cfset okey    = toString(oid)>
-        <cfset oStatus = lCase(trim(qOrders.status))>
-        <cfset oItems  = structKeyExists(itemsByOrder, okey) ? itemsByOrder[okey] : []>
 
-        <cfset allReady = arrayLen(oItems) gt 0>
-        <cfloop array="#oItems#" index="oi">
-            <cfif lCase(trim(oi.kitchen_status)) neq "ready"><cfset allReady = false></cfif>
+    <!--- ── Horizontal table buttons ── --->
+    <div class="table-row">
+    <cfloop query="qOrders">
+        <cfset oid2   = val(qOrders.order_id)>
+        <cfset okey2  = toString(oid2)>
+        <cfset oItems2 = structKeyExists(itemsByOrder, okey2) ? itemsByOrder[okey2] : []>
+        <cfset allReady2 = (arrayLen(oItems2) gt 0)>
+        <cfloop array="#oItems2#" index="oi2c">
+            <cfif lCase(trim(oi2c.kitchen_status)) neq "ready"><cfset allReady2 = false></cfif>
+        </cfloop>
+        <cfset readyCount2 = 0>
+        <cfloop array="#oItems2#" index="oi2r">
+            <cfif lCase(trim(oi2r.kitchen_status)) eq "ready"><cfset readyCount2 = readyCount2 + 1></cfif>
+        </cfloop>
+        <button class="table-btn#(allReady2 ? ' all-ready' : '')#"
+                data-toggle="collapse" data-target="##ord-#oid2#"
+                onclick="setActive(this)">
+            Table #HTMLEditFormat(qOrders.table_number)#
+            <span class="item-count">#readyCount2#/#arrayLen(oItems2)# ready</span>
+        </button>
+    </cfloop>
+    </div>
+
+    <!--- ── Collapse detail panels ── --->
+    <cfloop query="qOrders">
+        <cfset oid    = val(qOrders.order_id)>
+        <cfset okey   = toString(oid)>
+        <cfset oItems = structKeyExists(itemsByOrder, okey) ? itemsByOrder[okey] : []>
+
+        <cfset allReady = (arrayLen(oItems) gt 0)>
+        <cfloop array="#oItems#" index="oic">
+            <cfif lCase(trim(oic.kitchen_status)) neq "ready"><cfset allReady = false></cfif>
         </cfloop>
 
-        <div class="order-card#(allReady ? ' ready' : '')#">
-            <div class="order-header">
+        <div id="ord-#oid#" class="collapse order-detail#(allReady ? ' all-ready' : '')#">
+            <div class="detail-head">
                 <div>
-                    <div class="order-num">Table #HTMLEditFormat(qOrders.table_number)# &mdash; #HTMLEditFormat(qOrders.order_number)#</div>
-                    <div class="order-meta">
-                        #timeFormat(qOrders.created_at,'HH:mm')# &bull; RM #numberFormat(val(qOrders.total_amount),'9,990.00')#
-                        <cfif len(trim(qOrders.custno))> &bull; #HTMLEditFormat(qOrders.custno)#</cfif>
+                    <div class="detail-order-num">
+                        Table #HTMLEditFormat(qOrders.table_number)#
+                        &mdash; #HTMLEditFormat(qOrders.order_number)#
+                    </div>
+                    <div class="detail-meta">
+                        #timeFormat(qOrders.created_at,'HH:mm')#
+                        &bull; Rp #numberFormat(val(qOrders.total_amount),'9,990')#
                     </div>
                 </div>
-                <span class="status-chip #(allReady ? 'chip-ready' : (oStatus eq 'in progress' ? 'chip-progress' : 'chip-pending'))#">
-                    #(allReady ? 'All Ready' : (oStatus eq 'in progress' ? 'In Progress' : HTMLEditFormat(qOrders.status)))#
+                <span class="status-chip #(allReady ? 'chip-ready' : 'chip-paid')#">
+                    #(allReady ? 'All Ready' : 'Paid &mdash; Prepare Now')#
                 </span>
             </div>
 
-            <cfloop array="#oItems#" index="oi2">
-                <cfset ks = lCase(trim(oi2.kitchen_status))>
-                <div class="item-row">
-                    <div>
-                        <div class="item-name">#HTMLEditFormat(oi2.item_name)#</div>
-                        <div class="item-qty">x#oi2.quantity#</div>
+            <div class="detail-body">
+                <cfloop array="#oItems#" index="oi">
+                    <cfset ks = lCase(trim(oi.kitchen_status))>
+                    <div class="item-row">
+                        <div>
+                            <div class="item-name">#HTMLEditFormat(oi.item_name)#</div>
+                            <div class="item-qty">x#oi.quantity#</div>
+                        </div>
+                        <div class="item-actions">
+                            <form method="post" action="Orders.cfm" style="display:inline;">
+                                <input type="hidden" name="form_action" value="update_item">
+                                <input type="hidden" name="item_id"    value="#oi.item_id#">
+                                <input type="hidden" name="order_id"   value="#oid#">
+                                <input type="hidden" name="new_status" value="Pending">
+                                <button type="submit" class="btn-status btn-pending#(ks eq 'pending' ? ' active' : '')#">Pending</button>
+                            </form>
+                            <form method="post" action="Orders.cfm" style="display:inline;">
+                                <input type="hidden" name="form_action" value="update_item">
+                                <input type="hidden" name="item_id"    value="#oi.item_id#">
+                                <input type="hidden" name="order_id"   value="#oid#">
+                                <input type="hidden" name="new_status" value="In Progress">
+                                <button type="submit" class="btn-status btn-progress#(ks eq 'in progress' ? ' active' : '')#">Preparing</button>
+                            </form>
+                            <form method="post" action="Orders.cfm" style="display:inline;">
+                                <input type="hidden" name="form_action" value="update_item">
+                                <input type="hidden" name="item_id"    value="#oi.item_id#">
+                                <input type="hidden" name="order_id"   value="#oid#">
+                                <input type="hidden" name="new_status" value="Ready">
+                                <button type="submit" class="btn-status btn-ready-item#(ks eq 'ready' ? ' active' : '')#">Ready</button>
+                            </form>
+                        </div>
                     </div>
-                    <div class="item-actions">
-                        <form method="post" action="Orders.cfm" style="display:inline;">
-                            <input type="hidden" name="form_action" value="update_item">
-                            <input type="hidden" name="item_id"    value="#oi2.item_id#">
-                            <input type="hidden" name="order_id"   value="#oid#">
-                            <input type="hidden" name="new_status" value="Pending">
-                            <button type="submit" class="btn-status btn-pending#(ks eq 'pending' ? ' active' : '')#">Pending</button>
-                        </form>
-                        <form method="post" action="Orders.cfm" style="display:inline;">
-                            <input type="hidden" name="form_action" value="update_item">
-                            <input type="hidden" name="item_id"    value="#oi2.item_id#">
-                            <input type="hidden" name="order_id"   value="#oid#">
-                            <input type="hidden" name="new_status" value="In Progress">
-                            <button type="submit" class="btn-status btn-progress#(ks eq 'in progress' ? ' active' : '')#">Preparing</button>
-                        </form>
-                        <form method="post" action="Orders.cfm" style="display:inline;">
-                            <input type="hidden" name="form_action" value="update_item">
-                            <input type="hidden" name="item_id"    value="#oi2.item_id#">
-                            <input type="hidden" name="order_id"   value="#oid#">
-                            <input type="hidden" name="new_status" value="Ready">
-                            <button type="submit" class="btn-status btn-ready#(ks eq 'ready' ? ' active' : '')#">Ready</button>
-                        </form>
-                    </div>
-                </div>
-            </cfloop>
+                </cfloop>
 
-            <cfif NOT allReady>
-            <form method="post" action="Orders.cfm">
-                <input type="hidden" name="form_action" value="mark_order_ready">
-                <input type="hidden" name="order_id"   value="#oid#">
-                <button type="submit" class="btn btn-success btn-sm btn-ready-all">
-                    Mark All Ready
-                </button>
-            </form>
-            </cfif>
+                <cfif NOT allReady>
+                <form method="post" action="Orders.cfm">
+                    <input type="hidden" name="form_action" value="mark_order_ready">
+                    <input type="hidden" name="order_id"   value="#oid#">
+                    <button type="submit" class="btn btn-success btn-sm btn-ready-all">
+                        Mark All Ready
+                    </button>
+                </form>
+                </cfif>
+            </div>
         </div>
     </cfloop>
+
+</cfif>
 </cfif>
 </cfoutput>
 
-<script>
-/* Auto-refresh every 20 seconds */
-var t = 20;
-setInterval(function(){
-    t--;
-    if (t <= 0) { window.location.reload(); }
-}, 1000);
-</script>
 <script src="/latest/js/jquery/jquery-1.10.2.min.js"></script>
 <script src="/latest/js/bootstrap/bootstrap.min.js"></script>
+<script>
+function setActive(btn) {
+    document.querySelectorAll('.table-btn').forEach(function(b){ b.classList.remove('active'); });
+    btn.classList.add('active');
+}
+/* Open first panel by default if only one order */
+$(function(){
+    var panels = $('.order-detail');
+    if (panels.length === 1) panels.first().addClass('in');
+});
+</script>
 </body>
 </html>
