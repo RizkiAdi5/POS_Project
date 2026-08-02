@@ -134,9 +134,10 @@
                      background:#fff;color:#F54900;text-align:center;
                      font-size:15px;font-weight:700;text-decoration:none;
                      border:2px solid #F54900;}
-        .btn-pay{display:block;width:100%;padding:16px;border-radius:14px;
-                 background:##16a34a;color:#fff;text-align:center;
-                 font-size:16px;font-weight:700;text-decoration:none;margin-bottom:10px;}
+        .btn-pay{display:block;width:100%;padding:14px;border-radius:14px;
+                 background:#fff;color:#F54900;text-align:center;
+                 font-size:15px;font-weight:700;text-decoration:none;
+                 border:2px solid #F54900;margin-bottom:10px;}
         .info-box{background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;
                  padding:12px 14px;font-size:13px;color:#9a3412;margin-bottom:14px;line-height:1.45;}
         .countdown{text-align:center;font-size:12px;color:#9ca3af;margin:12px 0;}
