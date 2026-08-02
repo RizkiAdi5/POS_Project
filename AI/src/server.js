@@ -36,7 +36,7 @@ function logEvent(obj) {
 }
 
 app.get('/health', async (_req, res) => {
-  res.json({ ok: true, skills: skills.ALL.map((s) => s.name), allowed_dts: config.db.allowedDts });
+  res.json({ ok: true, skills: skills.ALL.map((s) => s.name) });
 });
 
 app.get('/skills', authMiddleware, (_req, res) => {
@@ -88,8 +88,8 @@ app.post('/dashboard/alerts', authMiddleware, async (req, res) => {
   const t0 = Date.now();
   const { dts, user, role } = req.body || {};
 
-  if (!checkDts(dts)) {
-    return res.status(400).json({ error: 'dts_not_allowed', allowed: config.db.allowedDts });
+  if (!(await checkDts(dts))) {
+    return res.status(400).json({ error: 'dts_not_allowed' });
   }
   if (!checkAdminRole(role)) {
     return res.status(403).json({ error: 'role_not_allowed' });
@@ -114,8 +114,8 @@ app.post('/dashboard/briefing', authMiddleware, async (req, res) => {
   const t0 = Date.now();
   const { dts, user, role } = req.body || {};
 
-  if (!checkDts(dts)) {
-    return res.status(400).json({ error: 'dts_not_allowed', allowed: config.db.allowedDts });
+  if (!(await checkDts(dts))) {
+    return res.status(400).json({ error: 'dts_not_allowed' });
   }
   if (!checkAdminRole(role)) {
     return res.status(403).json({ error: 'role_not_allowed' });
@@ -161,8 +161,8 @@ app.post('/dashboard/executive', authMiddleware, async (req, res) => {
   const t0 = Date.now();
   const { dts, user, role } = req.body || {};
 
-  if (!checkDts(dts)) {
-    return res.status(400).json({ error: 'dts_not_allowed', allowed: config.db.allowedDts });
+  if (!(await checkDts(dts))) {
+    return res.status(400).json({ error: 'dts_not_allowed' });
   }
   if (!checkAdminRole(role)) {
     return res.status(403).json({ error: 'role_not_allowed' });
@@ -214,8 +214,8 @@ app.post('/chat', authMiddleware, async (req, res) => {
   if (typeof question !== 'string' || !question.trim()) {
     return res.status(400).json({ error: 'question_required' });
   }
-  if (!checkDts(dts)) {
-    return res.status(400).json({ error: 'dts_not_allowed', allowed: config.db.allowedDts });
+  if (!(await checkDts(dts))) {
+    return res.status(400).json({ error: 'dts_not_allowed' });
   }
   if (!checkAdminRole(role)) {
     return res.status(403).json({ error: 'role_not_allowed' });
@@ -436,8 +436,8 @@ app.post('/chat/customer', authMiddleware, async (req, res) => {
   if (typeof question !== 'string' || !question.trim()) {
     return res.status(400).json({ error: 'question_required' });
   }
-  if (!checkDts(dts)) {
-    return res.status(400).json({ error: 'dts_not_allowed', allowed: config.db.allowedDts });
+  if (!(await checkDts(dts))) {
+    return res.status(400).json({ error: 'dts_not_allowed' });
   }
   if (!checkCustomerRole(role)) {
     return res.status(403).json({ error: 'role_not_allowed' });
@@ -534,7 +534,7 @@ app.post('/xendit/invoice', authMiddleware, async (req, res) => {
   if (!external_id || !amount || !dts) {
     return res.status(400).json({ error: 'missing_required_fields' });
   }
-  if (!checkDts(dts)) {
+  if (!(await checkDts(dts))) {
     return res.status(400).json({ error: 'dts_not_allowed' });
   }
 

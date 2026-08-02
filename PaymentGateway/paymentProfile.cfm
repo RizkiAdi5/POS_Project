@@ -169,17 +169,22 @@
                         <input type="hidden" name="action" value="save_payment_methods">
 
                         <cfif countryCode eq "ID">
+                        <!--- Codes verified directly against Xendit's Invoice API (2026-08-02) — the
+                              old *_VIRTUAL_ACCOUNT / CARDS names aren't real Xendit enum values; Xendit
+                              silently drops whichever codes it doesn't recognize instead of erroring
+                              when at least one other requested code is valid, which is why bank/card
+                              options were vanishing from checkout even though this list "looked" enabled. --->
                         <cfset allMethods = [
                             {group="QR Code",          code="QRIS",                    label="QRIS"},
-                            {group="Virtual Account",  code="BCA_VIRTUAL_ACCOUNT",     label="BCA"},
-                            {group="Virtual Account",  code="BNI_VIRTUAL_ACCOUNT",     label="BNI"},
-                            {group="Virtual Account",  code="BRI_VIRTUAL_ACCOUNT",     label="BRI"},
-                            {group="Virtual Account",  code="MANDIRI_VIRTUAL_ACCOUNT", label="Mandiri"},
-                            {group="Virtual Account",  code="PERMATA_VIRTUAL_ACCOUNT", label="Permata"},
-                            {group="Virtual Account",  code="BSI_VIRTUAL_ACCOUNT",     label="BSI"},
-                            {group="Virtual Account",  code="CIMB_VIRTUAL_ACCOUNT",    label="CIMB"},
-                            {group="Virtual Account",  code="BJB_VIRTUAL_ACCOUNT",     label="BJB"},
-                            {group="Virtual Account",  code="BNC_VIRTUAL_ACCOUNT",     label="BNC"},
+                            {group="Virtual Account",  code="BCA",                     label="BCA"},
+                            {group="Virtual Account",  code="BNI",                     label="BNI"},
+                            {group="Virtual Account",  code="BRI",                     label="BRI"},
+                            {group="Virtual Account",  code="MANDIRI",                 label="Mandiri"},
+                            {group="Virtual Account",  code="PERMATA",                 label="Permata"},
+                            {group="Virtual Account",  code="BSI",                     label="BSI"},
+                            {group="Virtual Account",  code="CIMB",                    label="CIMB"},
+                            {group="Virtual Account",  code="BJB",                     label="BJB"},
+                            {group="Virtual Account",  code="BNC",                     label="BNC"},
                             {group="E-Wallet",         code="OVO",                     label="OVO"},
                             {group="E-Wallet",         code="DANA",                    label="DANA"},
                             {group="E-Wallet",         code="SHOPEEPAY",               label="ShopeePay"},
@@ -187,7 +192,7 @@
                             {group="E-Wallet",         code="ASTRAPAY",                label="AstraPay"},
                             {group="E-Wallet",         code="GOPAY",                   label="GoPay"},
                             {group="E-Wallet",         code="JENIUSPAY",               label="Jenius Pay"},
-                            {group="Card",             code="CARDS",                   label="Credit / Debit Card"}
+                            {group="Card",             code="CREDIT_CARD",             label="Credit / Debit Card"}
                         ]>
                         <cfelseif countryCode eq "MY">
                         <cfset allMethods = [
