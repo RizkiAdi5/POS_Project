@@ -61,6 +61,15 @@
             <meta name="viewport" content="width=device-width, initial-scale=1.0" />
             <meta http-equiv="X-UA-Compatible" content="IE=edge" />
             <title>Inventory Management System</title>
+            <script type="text/javascript">
+                function wposPopup(url) {
+                    var p = 'width=' + screen.width + ',height=' + screen.height +
+                            ',top=0,left=0,status=yes,menubar=no,location=no,scrollbars=yes,fullscreen';
+                    var w = window.open(url, 'waiterpos', p);
+                    if (window.focus) { w.focus(); }
+                    return false;
+                }
+            </script>
             <cfif husergrpid EQ "super">
                 <script type="text/javascript" src="/latest/js/jquery/jquery-1.10.2.min.js"></script>
                 <script type="text/javascript" src="/latest/js/jeditable/jquery.jeditable.mini.js"></script>
@@ -156,15 +165,22 @@
                                 <cfloop query="getMenu">
                                     <!--- Table management lives in Waiter Dashboard; hide legacy Tables tile (menu_id 60004). --->
                                     <cfif trim(getMenu.menu_id) eq "60004"><cfcontinue></cfif>
+                                    <!--- Waiter POS opens as a dedicated fullscreen window, same as the legacy "new screen POS" (menuID=20500). --->
+                                    <cfif trim(getMenu.menu_id) eq "60005">
+                                        <cfset qq = chr(39)>
+                                        <cfset menuLinkAttrs = 'href="##" onclick="return wposPopup(' & qq & JSStringFormat('../' & getMenu.menu_url) & qq & ')"'>
+                                    <cfelse>
+                                        <cfset menuLinkAttrs = 'href="../' & getMenu.menu_url & '"'>
+                                    </cfif>
 									<cfif getMenu.userpin_id neq "">
                                         <cfif evaluate('getpin2.#userpin_id#') eq "T">
                                             <li>
                                                 <cfif husergrpid NEQ "super">
-                                                    <a href="../#getMenu.menu_url#">
+                                                    <a #menuLinkAttrs#>
                                                 </cfif>
                                                 <div class="submenu">
                                                     <cfif husergrpid EQ "super">
-                                                        <a href="../#getMenu.menu_url#">
+                                                        <a #menuLinkAttrs#>
                                                     </cfif>
                                                     <div class="title">#getMenu.newMenuName#</div>
                                                         <cfif husergrpid EQ "super">
@@ -180,11 +196,11 @@
                                     <cfelse>
                                         <li>
                                             <cfif husergrpid NEQ "super">
-                                                <a href="../#getMenu.menu_url#">
+                                                <a #menuLinkAttrs#>
                                             </cfif>
                                             <div class="submenu">
                                                 <cfif husergrpid EQ "super">
-                                                    <a href="../#getMenu.menu_url#">
+                                                    <a #menuLinkAttrs#>
                                                 </cfif>
                                                 <div class="title">#getMenu.newMenuName#</div>
                                                     <cfif husergrpid EQ "super">
