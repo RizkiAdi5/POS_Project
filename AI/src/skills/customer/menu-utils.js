@@ -11,19 +11,17 @@ async function getMenuColumns(dts) {
   const cols = {
     hasAllergens: false,
     hasPromoPrice: false,
-    hasDescription: true,
   };
   try {
     const rows = await db.runQuery(dts, `
       SELECT COLUMN_NAME
       FROM information_schema.COLUMNS
       WHERE TABLE_SCHEMA = DATABASE()
-        AND TABLE_NAME = 'app_menu'
+        AND TABLE_NAME = 'icitem'
     `);
     const names = new Set(rows.map((r) => String(r.COLUMN_NAME || '').toLowerCase()));
     cols.hasAllergens = names.has('allergens');
     cols.hasPromoPrice = names.has('promo_price');
-    cols.hasDescription = names.has('description');
   } catch (_) {
     /* use defaults */
   }
@@ -31,12 +29,16 @@ async function getMenuColumns(dts) {
   return cols;
 }
 
+function truthyFlag(v) {
+  return v === 'T' || v === 't' || v === 1 || v === true;
+}
+
 function effectivePriceExpr() {
   return `(
     CASE
-      WHEN COALESCE(promo_price, 0) > 0 AND COALESCE(promo_price, 0) < COALESCE(price, 0)
+      WHEN COALESCE(promo_price, 0) > 0 AND COALESCE(promo_price, 0) < COALESCE(PRICE, 0)
       THEN COALESCE(promo_price, 0)
-      ELSE COALESCE(price, 0)
+      ELSE COALESCE(PRICE, 0)
     END
   )`;
 }
@@ -113,10 +115,10 @@ function mapMenuRow(r, currency) {
     category: String(r.category || '').trim(),
     price: roundMoney(effective, currency),
     was_price: promo > 0 && promo < price ? roundMoney(price, currency) : null,
-    halal: !!r.is_halal,
-    vegetarian: !!r.is_vegetarian,
-    spicy: !!r.is_spicy,
-    featured: !!r.is_featured,
+    halal: truthyFlag(r.is_halal),
+    vegetarian: truthyFlag(r.is_vegetarian),
+    spicy: truthyFlag(r.is_spicy),
+    featured: truthyFlag(r.is_featured),
     prep_minutes: parseInt(r.prep_time, 10) || 0,
     description: String(r.description || '').trim().slice(0, 200),
   };
@@ -130,28 +132,28 @@ async function queryMenu({ dts, params, defaultLimit }) {
   const currency = await getCompanyCurrency(dts);
   const cols = await getMenuColumns(dts);
   const n = limit(params, defaultLimit || 12);
-  const clauses = ['is_available = 1'];
+  const clauses = ["is_avail = 'T'"];
   const binds = [];
 
   if (params.category && String(params.category).trim()) {
-    clauses.push('TRIM(category) = ?');
+    clauses.push('TRIM(CATEGORY) = ?');
     binds.push(String(params.category).trim());
   }
   if (params.halal_only === true || params.halal_only === 'true' || params.halal_only === 1) {
-    clauses.push('is_halal = 1');
+    clauses.push("is_halal = 'T'");
   }
   if (params.vegetarian_only === true || params.vegetarian_only === 'true' || params.vegetarian_only === 1) {
-    clauses.push('is_vegetarian = 1');
+    clauses.push("is_veg = 'T'");
   }
   if (params.spicy_only === true || params.spicy_only === 'true' || params.spicy_only === 1) {
-    clauses.push('is_spicy = 1');
+    clauses.push("is_spicy = 'T'");
   }
   if (params.featured_only === true || params.featured_only === 'true' || params.featured_only === 1) {
-    clauses.push('is_featured = 1');
+    clauses.push("is_feat = 'T'");
   }
   if (params.keyword && String(params.keyword).trim()) {
     const kw = '%' + String(params.keyword).trim().slice(0, 80) + '%';
-    clauses.push('(display_name LIKE ? OR COALESCE(description,\'\') LIKE ? OR category LIKE ?)');
+    clauses.push('(DESP LIKE ? OR COALESCE(`comment`,\'\') LIKE ? OR CATEGORY LIKE ?)');
     binds.push(kw, kw, kw);
   }
 
@@ -162,7 +164,7 @@ async function queryMenu({ dts, params, defaultLimit }) {
     if (cols.hasPromoPrice) {
       clauses.push(`${effectivePriceExpr()} <= ?`);
     } else {
-      clauses.push('COALESCE(price, 0) <= ?');
+      clauses.push('COALESCE(PRICE, 0) <= ?');
     }
     binds.push(maxPrice);
   }
@@ -170,7 +172,7 @@ async function queryMenu({ dts, params, defaultLimit }) {
     if (cols.hasPromoPrice) {
       clauses.push(`${effectivePriceExpr()} >= ?`);
     } else {
-      clauses.push('COALESCE(price, 0) >= ?');
+      clauses.push('COALESCE(PRICE, 0) >= ?');
     }
     binds.push(minPrice);
   }
@@ -193,15 +195,15 @@ async function queryMenu({ dts, params, defaultLimit }) {
   const allergenSelect = cols.hasAllergens ? 'COALESCE(allergens, \'\') AS allergens,' : '\'\' AS allergens,';
 
   const rows = await db.runQuery(dts, `
-    SELECT menu_id, display_name, category, sub_category,
-           price, ${promoSelect}
-           is_halal, is_vegetarian, is_spicy, is_featured,
+    SELECT ITEMNO AS item_code, DESP AS display_name, CATEGORY AS category, sub_cat AS sub_category,
+           PRICE AS price, ${promoSelect}
+           is_halal, is_veg AS is_vegetarian, is_spicy, is_feat AS is_featured,
            ${allergenSelect}
-           COALESCE(description, '') AS description,
+           COALESCE(\`comment\`, '') AS description,
            COALESCE(prep_time, 0) AS prep_time
-    FROM app_menu
+    FROM icitem
     WHERE ${clauses.join(' AND ')}
-    ORDER BY ${cols.hasPromoPrice ? effectivePriceExpr() : 'COALESCE(price, 0)'} ASC, display_order ASC, display_name ASC
+    ORDER BY ${cols.hasPromoPrice ? effectivePriceExpr() : 'COALESCE(PRICE, 0)'} ASC, sort_ord ASC, DESP ASC
     LIMIT ?
   `, binds);
 

@@ -87,7 +87,8 @@ Skills live in `src/skills/` and are auto-registered by `src/skills/index.js`.
    notepad .env
    ```
 
-   Fill `DEEPSEEK_API_KEY`, `DB_PASS`, `ALLOWED_DTS`, `AI_SHARED_SECRET`.
+   Fill `DEEPSEEK_API_KEY`, `DB_PASS`, `AI_SHARED_SECRET`.
+   (No `ALLOWED_DTS` needed — tenants are validated live against `main.users`.)
 
 4. Mirror `AI_SHARED_SECRET` in `latest/ai/aiproxy.cfm` (a `<cfset>` near the
    top). It is the shared secret CF sends to Node.

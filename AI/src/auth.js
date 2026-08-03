@@ -1,6 +1,7 @@
 'use strict';
 
 const config = require('./config');
+const db = require('./db');
 
 const ADMIN_ROLES = new Set(['super', 'admin']);
 const CUSTOMER_ROLES = new Set(['customer']);
@@ -20,9 +21,10 @@ function checkSharedSecret(req) {
   return timingSafeEqual(got, config.http.sharedSecret);
 }
 
-function checkDts(dts) {
-  if (typeof dts !== 'string') return false;
-  return config.db.allowedDts.includes(dts);
+// Validated against main.users (the same source CF's own login trusts) instead of a
+// static allowlist, so a new tenant works immediately without touching .env or restarting.
+async function checkDts(dts) {
+  return db.isKnownTenant(dts);
 }
 
 function checkAdminRole(role) {

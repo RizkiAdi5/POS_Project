@@ -52,7 +52,9 @@
         <cfset countryCode = (isDefined("HUserCty") AND len(trim(HUserCty))) ? uCase(trim(HUserCty)) : "ID">
         <cfif NOT listFindNoCase("ID,MY,PH,TH,VN", countryCode)><cfset countryCode = "ID"></cfif>
         <cfif countryCode eq "ID">
-            <cfset allowedCodes = "QRIS,BCA_VIRTUAL_ACCOUNT,BNI_VIRTUAL_ACCOUNT,BRI_VIRTUAL_ACCOUNT,MANDIRI_VIRTUAL_ACCOUNT,PERMATA_VIRTUAL_ACCOUNT,BSI_VIRTUAL_ACCOUNT,CIMB_VIRTUAL_ACCOUNT,BJB_VIRTUAL_ACCOUNT,BNC_VIRTUAL_ACCOUNT,OVO,DANA,SHOPEEPAY,LINKAJA,ASTRAPAY,GOPAY,JENIUSPAY,CARDS">
+            <!--- Codes verified directly against Xendit's Invoice API (2026-08-02) — must stay
+                  in sync with the ID list in paymentProfile.cfm --->
+            <cfset allowedCodes = "QRIS,BCA,BNI,BRI,MANDIRI,PERMATA,BSI,CIMB,BJB,BNC,OVO,DANA,SHOPEEPAY,LINKAJA,ASTRAPAY,GOPAY,JENIUSPAY,CREDIT_CARD">
         <cfelseif countryCode eq "MY">
             <cfset allowedCodes = "TOUCHNGO,GRABPAY,SHOPEEPAY,WECHATPAY,CARDS,MAYB2U_FPX,CIMB_FPX,PUBLIC_FPX,HLB_FPX,RHB_FPX,BSN_FPX,AFFIN_FPX,ALLIANCE_FPX,AMBANK_FPX,HSBC_FPX,OCBC_FPX,UOB_FPX,ISLAM_FPX,MUAMALAT_FPX,RAKYAT_FPX">
         <cfelseif countryCode eq "PH">
