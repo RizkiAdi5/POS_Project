@@ -99,7 +99,7 @@
         .step.active .step-label{color:#F54900;}
 
         /* Ready banner */
-        .ready-banner{background:linear-gradient(135deg,##16a34a,##15803d);
+        .ready-banner{background:linear-gradient(135deg,#16a34a,#15803d);
                       border-radius:16px;padding:20px;margin-bottom:16px;
                       text-align:center;color:#fff;display:none;}
         .ready-banner.show{display:block;}
