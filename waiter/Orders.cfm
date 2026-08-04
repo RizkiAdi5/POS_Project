@@ -329,7 +329,7 @@ body { font-family:"Segoe UI",Arial,sans-serif; background:#f3f5f8; color:#1d283
             <p class="page-sub">Paid orders ready to prepare — update item status as you cook.</p>
         </div>
         <div>
-            <a href="/Waiter/WaiterDashboard.cfm" class="btn btn-default btn-sm">Waiter Dashboard</a>
+            <a href="Orders.cfm?kitchen_logout=1" class="btn btn-default btn-sm">Sign Out</a>
         </div>
     </div>
 
