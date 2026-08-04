@@ -9,6 +9,7 @@
 --->
 <cfprocessingdirective pageencoding="UTF-8">
 <cfinclude template="/application.cfm">
+<cfinclude template="/latest/Waiter/inc_waiter_login.cfm">
 <cfinclude template="/latest/customer/inc_emenu_order.cfm">
 <cfsetting enablecfoutputonly="false">
 <cfsetting showdebugoutput="false">

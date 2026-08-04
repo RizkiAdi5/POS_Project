@@ -9,6 +9,7 @@
 --->
 <cfprocessingdirective pageencoding="UTF-8">
 <cfinclude template="/application.cfm">
+<cfinclude template="/latest/Waiter/inc_waiter_login.cfm">
 <cfinclude template="/latest/customer/inc_emenu_order.cfm">
 <cfinclude template="/latest/customer/inc_emenu_currency.cfm">
 <cfsetting showdebugoutput="false">
@@ -253,6 +254,10 @@ body{margin:0;background:var(--bg);color:var(--ink);
         </cfif>
     </div>
     <div class="topbar-right">
+        <cfif isDefined("SESSION.waiter_name") AND len(trim(SESSION.waiter_name))>
+            <span style="font-size:13px;color:var(--ink-soft);line-height:34px;padding:0 4px;">#HTMLEditFormat(SESSION.waiter_name)#</span>
+            <a href="WaiterPOS.cfm?waiter_logout=1" class="tbtn">Sign Out</a>
+        </cfif>
         <a href="WaiterDashboard.cfm" class="tbtn">Dashboard</a>
         <cfif hasOrder><a href="WaiterPOS.cfm?cancel=1" class="tbtn danger">Cancel Order</a></cfif>
     </div>
