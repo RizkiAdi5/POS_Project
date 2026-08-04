@@ -5,6 +5,8 @@
 	ORDER BY info_date desc
 	LIMIT 5;
 </cfquery>
+<!--- E-menu analytics (KPI cards, e-menu charts, AI chat bubble) are admin/super only --->
+<cfset emenuAnalyticsAllowed = (isDefined("husergrpid") AND listFindNoCase("super,admin", husergrpid))>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
@@ -40,6 +42,7 @@
 				<iframe marginwidth="5%" frameborder="0" align="middle" name="list" height="250px" width="500px" src="/latest/body/chart.cfm?type=type2" noresize scrolling="no"></iframe>
 			</div>
 		</div>
+		<cfif emenuAnalyticsAllowed>
 		<div class="chartDiv">
 			<div class="chartTitleDiv">E-Menu Peak Hours (last 7 days)</div>
 			<div class="chartContentDiv">
@@ -52,8 +55,10 @@
 				<iframe marginwidth="5%" frameborder="0" align="middle" name="emenuTopItems" height="250px" width="500px" src="/latest/body/chart.cfm?type=type4" noresize scrolling="no"></iframe>
 			</div>
 		</div>
+		</cfif>
 	</div>
 </cfoutput>
+	<cfif emenuAnalyticsAllowed>
 	<div class="emenuOverviewDiv">
 		<cftry>
 			<cfset emenuDashCompact = true>
@@ -65,6 +70,7 @@
 			</cfcatch>
 		</cftry>
 	</div>
+	</cfif>
 <cfoutput>
 	<div class="infoBoardDiv">
 		<div class="infoBoardTitleDiv">Information Board</div>

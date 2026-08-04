@@ -1,4 +1,8 @@
 <cfparam name="url.type" default="">
+<!--- E-Menu charts (type3/type4) are admin/super only --->
+<cfif listFindNoCase("type3,type4", url.type) AND NOT (isDefined("husergrpid") AND listFindNoCase("super,admin", husergrpid))>
+	<cfset url.type = "">
+</cfif>
 <cfif url.type EQ 'type1'>
 	<cfquery name="getLast5Months" datasource="#dts#">
 		SELECT custno,name, SUM(grand) AS sumgrand
