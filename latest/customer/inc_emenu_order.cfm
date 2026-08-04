@@ -552,3 +552,168 @@
     <cfset SESSION.emenu_order_number    = arguments.orderNumber>
     <cfset SESSION.emenu_cart_locked     = false>
 </cffunction>
+
+<cffunction name="emenuGetDineInTableBoard" output="false" returntype="array">
+    <!--- Read-only table status board for Waiter POS's table picker. Same status derivation
+          as Tables.cfm (available/occupied/paid/reserved) but never writes to app_tables —
+          Tables.cfm remains the single writer of auto-synced status. --->
+    <cfargument name="dsn" type="string" required="true">
+    <cfset var out = []>
+    <cfset var qTables = "">
+    <cfset var qOrders = "">
+    <cfset var qPayments = "">
+    <cfset var qItems = "">
+    <cfset var latestOrderByTable = structNew()>
+    <cfset var latestPaymentByOrder = structNew()>
+    <cfset var itemsByOrder = structNew()>
+    <cfset var orderIdList = "">
+    <cfset var tableKeyForOrderMap = "">
+    <cfset var mappedOrder = "">
+
+    <cfquery name="qTables" datasource="#arguments.dsn#">
+        SELECT table_id, table_number, seats, status AS table_status
+        FROM   app_tables
+        WHERE  is_active = 1
+        ORDER  BY table_number ASC
+    </cfquery>
+
+    <cfquery name="qOrders" datasource="#arguments.dsn#">
+        SELECT order_id, order_number, table_id, status, total_amount, created_at
+        FROM   app_orders
+        WHERE  status NOT IN ('completed','cancelled')
+          AND  table_id IS NOT NULL
+        ORDER  BY table_id ASC, created_at DESC
+    </cfquery>
+
+    <cfloop query="qOrders">
+        <cfset var tableIdKey = toString(val(qOrders.table_id))>
+        <cfif NOT structKeyExists(latestOrderByTable, tableIdKey)>
+            <cfset latestOrderByTable[tableIdKey] = {
+                "order_id" = val(qOrders.order_id),
+                "order_number" = trim(toString(qOrders.order_number)),
+                "order_status" = lCase(trim(toString(qOrders.status))),
+                "total_amount" = val(qOrders.total_amount)
+            }>
+        </cfif>
+    </cfloop>
+
+    <cfloop collection="#latestOrderByTable#" item="tableKeyForOrderMap">
+        <cfset mappedOrder = latestOrderByTable[tableKeyForOrderMap]>
+        <cfset orderIdList = listAppend(orderIdList, val(mappedOrder.order_id))>
+    </cfloop>
+
+    <cfif len(orderIdList)>
+        <cftry>
+            <cfquery name="qPayments" datasource="#arguments.dsn#">
+                SELECT payment_id, order_id, payment_method, status
+                FROM   app_payments
+                WHERE  order_id IN (<cfqueryparam cfsqltype="cf_sql_integer" value="#orderIdList#" list="true">)
+                ORDER  BY order_id ASC, payment_id DESC
+            </cfquery>
+            <cfloop query="qPayments">
+                <cfset var orderKey = toString(val(qPayments.order_id))>
+                <cfif NOT structKeyExists(latestPaymentByOrder, orderKey)>
+                    <cfset latestPaymentByOrder[orderKey] = {
+                        "payment_method" = lCase(trim(toString(qPayments.payment_method))),
+                        "payment_status" = lCase(trim(toString(qPayments.status)))
+                    }>
+                </cfif>
+            </cfloop>
+            <cfcatch type="any"></cfcatch>
+        </cftry>
+
+        <cftry>
+            <cfquery name="qItems" datasource="#arguments.dsn#">
+                SELECT order_id, COALESCE(item_name, item_code) AS item_name, quantity
+                FROM   app_order_items
+                WHERE  order_id IN (<cfqueryparam cfsqltype="cf_sql_integer" value="#orderIdList#" list="true">)
+                ORDER  BY order_id ASC, item_id ASC
+            </cfquery>
+            <cfloop query="qItems">
+                <cfset var itmKey = toString(val(qItems.order_id))>
+                <cfif NOT structKeyExists(itemsByOrder, itmKey)>
+                    <cfset itemsByOrder[itmKey] = []>
+                </cfif>
+                <cfset arrayAppend(itemsByOrder[itmKey], {
+                    "name" = trim(toString(qItems.item_name)),
+                    "qty" = val(qItems.quantity)
+                })>
+            </cfloop>
+            <cfcatch type="any"></cfcatch>
+        </cftry>
+    </cfif>
+
+    <cfloop query="qTables">
+        <cfset var tableKey = toString(val(qTables.table_id))>
+        <cfset var manualStatus = lCase(trim(toString(qTables.table_status)))>
+        <cfset var hasOrder = structKeyExists(latestOrderByTable, tableKey)>
+        <cfset var orderId = 0>
+        <cfset var orderNumber = "">
+        <cfset var orderStatus = "">
+        <cfset var totalAmount = 0>
+        <cfset var payMethod = "">
+        <cfset var payStatus = "">
+        <cfset var payTag = "">
+        <cfset var itemCount = 0>
+        <cfset var rowItems = []>
+        <cfset var displaySt = "">
+
+        <cfif hasOrder>
+            <cfset orderId = val(latestOrderByTable[tableKey].order_id)>
+            <cfset orderNumber = latestOrderByTable[tableKey].order_number>
+            <cfset orderStatus = latestOrderByTable[tableKey].order_status>
+            <cfset totalAmount = val(latestOrderByTable[tableKey].total_amount)>
+
+            <cfset var payKey = toString(orderId)>
+            <cfif structKeyExists(latestPaymentByOrder, payKey)>
+                <cfset payMethod = latestPaymentByOrder[payKey].payment_method>
+                <cfset payStatus = latestPaymentByOrder[payKey].payment_status>
+            </cfif>
+            <cfif structKeyExists(itemsByOrder, payKey)>
+                <cfset rowItems = itemsByOrder[payKey]>
+                <cfset itemCount = arrayLen(rowItems)>
+            </cfif>
+
+            <cfif (payMethod eq "online") AND (payStatus eq "success")>
+                <cfset payTag = "paid-online">
+            <cfelseif (payMethod eq "cash") AND (payStatus eq "success")>
+                <cfset payTag = "paid-cash">
+            <cfelseif (payMethod eq "cash") AND listFindNoCase("pending,processing", payStatus)>
+                <cfset payTag = "pending-cash">
+            <cfelse>
+                <cfset payTag = "unpaid">
+            </cfif>
+        </cfif>
+
+        <cfif listFindNoCase("reserved,booked", manualStatus)>
+            <cfset displaySt = "reserved">
+        <cfelse>
+            <cfset displaySt = emenuAutoTableStatus(hasOrder AND len(orderStatus) AND emenuOrderIsOpen(orderStatus), itemCount)>
+            <cfif displaySt eq "available" AND hasOrder AND orderStatus eq "paid">
+                <cfset displaySt = "paid">
+            </cfif>
+        </cfif>
+
+        <!--- Only surface the item list for statuses where staff would want to see "what's already ordered" --->
+        <cfif NOT listFindNoCase("occupied,paid", displaySt)>
+            <cfset rowItems = []>
+        </cfif>
+
+        <cfset arrayAppend(out, {
+            "table_id" = val(qTables.table_id),
+            "table_number" = trim(toString(qTables.table_number)),
+            "seats" = val(qTables.seats),
+            "status" = displaySt,
+            "has_order" = hasOrder,
+            "order_id" = orderId,
+            "order_number" = orderNumber,
+            "order_status" = orderStatus,
+            "item_count" = itemCount,
+            "total_amount" = totalAmount,
+            "payment_tag" = payTag,
+            "items" = rowItems
+        })>
+    </cfloop>
+
+    <cfreturn out>
+</cffunction>

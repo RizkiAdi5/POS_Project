@@ -52,19 +52,30 @@
 
     <cfelseif orderMode eq "dine_in">
 
-        <cfif NOT structKeyExists(form, "table_number") OR NOT len(trim(form.table_number))>
-            <cflocation url="WaiterPOS.cfm?err=#URLEncodedFormat('Enter a table number.')#" addtoken="false">
+        <cfset formTableId = (structKeyExists(form, "table_id") AND isNumeric(form.table_id)) ? val(form.table_id) : 0>
+
+        <cfif formTableId gt 0>
+            <cfquery name="qTable" datasource="#dts#">
+                SELECT table_id, table_number
+                FROM   app_tables
+                WHERE  table_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#formTableId#">
+                  AND  is_active = 1
+                LIMIT  1
+            </cfquery>
+        <cfelseif structKeyExists(form, "table_number") AND len(trim(form.table_number))>
+            <cfquery name="qTable" datasource="#dts#">
+                SELECT table_id, table_number
+                FROM   app_tables
+                WHERE  table_number = <cfqueryparam cfsqltype="cf_sql_varchar" value="#trim(form.table_number)#">
+                  AND  is_active = 1
+                LIMIT  1
+            </cfquery>
+        <cfelse>
+            <cflocation url="WaiterPOS.cfm?err=#URLEncodedFormat('Choose a table.')#" addtoken="false">
         </cfif>
 
-        <cfquery name="qTable" datasource="#dts#">
-            SELECT table_id, table_number
-            FROM   app_tables
-            WHERE  table_number = <cfqueryparam cfsqltype="cf_sql_varchar" value="#trim(form.table_number)#">
-              AND  is_active = 1
-            LIMIT  1
-        </cfquery>
         <cfif qTable.recordCount eq 0>
-            <cflocation url="WaiterPOS.cfm?err=#URLEncodedFormat('No table found with that number.')#" addtoken="false">
+            <cflocation url="WaiterPOS.cfm?err=#URLEncodedFormat('No table found. Please pick a table again.')#" addtoken="false">
         </cfif>
         <cfset tableId = val(qTable.table_id)>
 

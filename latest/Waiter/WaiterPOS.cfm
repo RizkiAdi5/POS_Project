@@ -156,6 +156,55 @@ body{margin:0;background:var(--bg);color:var(--ink);
              outline:none;transition:.15s;background:#FAFAFB;}
 .table-input:focus{border-color:var(--accent);background:#fff;}
 
+/* ── Table picker trigger + summary chip ── */
+.table-pick-btn{width:100%;padding:11px 14px;border:1.5px dashed var(--line);border-radius:10px;
+                 background:#FAFAFB;color:var(--ink-soft);font-size:14px;font-weight:600;cursor:pointer;
+                 display:flex;align-items:center;justify-content:center;gap:8px;transition:.15s;}
+.table-pick-btn:hover{border-color:var(--accent);color:var(--accent-dark);background:var(--accent-soft);}
+.table-pick-btn svg{width:16px;height:16px;}
+.table-summary{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 14px;
+                border:1.5px solid var(--line);border-radius:10px;background:#fff;}
+.table-summary .ts-info{font-size:14px;font-weight:700;color:var(--ink);}
+.table-summary .ts-sub{font-size:12px;color:var(--ink-soft);font-weight:500;margin-top:1px;}
+.table-summary .ts-change{font-size:12px;font-weight:700;color:var(--accent-dark);background:none;border:none;cursor:pointer;padding:4px 6px;}
+
+/* ── Table picker modal ── */
+.tp-overlay{display:none;position:fixed;inset:0;z-index:200;background:rgba(17,24,39,.55);
+            align-items:center;justify-content:center;padding:20px;}
+.tp-overlay.open{display:flex;}
+.tp-modal{background:#fff;border-radius:18px;max-width:720px;width:100%;max-height:85vh;
+          display:flex;flex-direction:column;box-shadow:var(--shadow-lg);}
+.tp-head{padding:18px 22px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;}
+.tp-head h3{margin:0;font-size:16px;font-weight:800;}
+.tp-close{border:none;background:#F3F4F6;width:30px;height:30px;border-radius:50%;cursor:pointer;
+          display:flex;align-items:center;justify-content:center;color:var(--ink-soft);}
+.tp-close:hover{background:#E5E7EB;color:var(--ink);}
+.tp-legend{display:flex;flex-wrap:wrap;gap:12px;padding:12px 22px 0;font-size:11.5px;color:var(--ink-soft);}
+.tp-legend span{display:inline-flex;align-items:center;gap:5px;}
+.tp-dot{width:9px;height:9px;border-radius:50%;display:inline-block;}
+.tp-body{padding:16px 22px 22px;overflow-y:auto;}
+.tp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;}
+.tp-card{border:1.5px solid var(--line);border-radius:14px;padding:12px 13px;cursor:pointer;text-align:left;
+         background:#fff;transition:.15s;}
+.tp-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);}
+.tp-card.st-available{background:#EAFBF1;border-color:#A7E8C4;}
+.tp-card.st-occupied{background:#FFF3E8;border-color:#FBCB9A;}
+.tp-card.st-paid{background:#EEF2FF;border-color:#B7C4F5;}
+.tp-card.st-reserved{background:#FEFBEA;border-color:#F3DE8A;}
+.tp-num{font-size:17px;font-weight:800;color:var(--ink);}
+.tp-seats{font-size:11.5px;color:var(--ink-soft);margin-top:1px;}
+.tp-chip{display:inline-block;margin-top:8px;font-size:10.5px;font-weight:800;letter-spacing:.02em;
+         text-transform:uppercase;padding:3px 8px;border-radius:99px;}
+.tp-card.st-available .tp-chip{background:#16A34A;color:#fff;}
+.tp-card.st-occupied .tp-chip{background:#EA7A1B;color:#fff;}
+.tp-card.st-paid .tp-chip{background:#2563EB;color:#fff;}
+.tp-card.st-reserved .tp-chip{background:#CA8A04;color:#fff;}
+.tp-order-info{margin-top:8px;font-size:11.5px;color:var(--ink-soft);border-top:1px dashed rgba(0,0,0,.12);padding-top:7px;}
+.tp-order-info .tp-total{font-weight:700;color:var(--ink);}
+.tp-items{margin-top:5px;font-size:11px;color:var(--ink-soft);max-height:70px;overflow-y:auto;}
+.tp-items div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.tp-empty{grid-column:1/-1;text-align:center;color:var(--ink-faint);padding:30px 0;font-size:13px;}
+
 .cart-body{flex:1;overflow-y:auto;padding:10px 22px;}
 .cart-empty{text-align:center;color:var(--ink-faint);padding:60px 10px;font-size:13.5px;}
 .cart-empty svg{width:40px;height:40px;margin-bottom:10px;opacity:.5;}
@@ -286,7 +335,17 @@ body{margin:0;background:var(--bg);color:var(--ink);
                     </button>
                 </div>
                 <div class="table-input-wrap" id="tableFieldWrap">
-                    <input type="text" class="table-input" id="tableNumber" placeholder="Table number">
+                    <button type="button" class="table-pick-btn" id="tablePickBtn" onclick="openTablePicker()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 3v18M21 3v18M3 8h4M3 13h4M17 8h4M17 13h4M3 3h4v5a2 2 0 01-2 2H3M17 3h4v5a2 2 0 01-2 2h-2"/></svg>
+                        Choose table
+                    </button>
+                    <div class="table-summary" id="tableSummary" style="display:none;">
+                        <div>
+                            <div class="ts-info" id="tsInfo">&nbsp;</div>
+                            <div class="ts-sub" id="tsSub">&nbsp;</div>
+                        </div>
+                        <button type="button" class="ts-change" onclick="openTablePicker()">Change</button>
+                    </div>
                 </div>
             </cfif>
         </div>
@@ -307,9 +366,30 @@ body{margin:0;background:var(--bg);color:var(--ink);
     </div>
 </div>
 
+<div class="tp-overlay" id="tpOverlay" onclick="if(event.target===this) closeTablePicker();">
+    <div class="tp-modal">
+        <div class="tp-head">
+            <h3>Choose a table</h3>
+            <button type="button" class="tp-close" onclick="closeTablePicker()">&times;</button>
+        </div>
+        <div class="tp-legend">
+            <span><i class="tp-dot" style="background:#16A34A;"></i>Available &mdash; free to seat</span>
+            <span><i class="tp-dot" style="background:#EA7A1B;"></i>Occupied &mdash; open order</span>
+            <span><i class="tp-dot" style="background:#2563EB;"></i>Paid &mdash; awaiting session close</span>
+            <span><i class="tp-dot" style="background:#CA8A04;"></i>Reserved</span>
+        </div>
+        <div class="tp-body">
+            <div class="tp-grid" id="tpGrid">
+                <div class="tp-empty">Loading tables&hellip;</div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <form id="orderForm" action="WaiterPOSOrderProcess.cfm?action=submit" method="post" style="display:none;">
     <input type="hidden" name="cart_json" id="cartJsonInput">
     <input type="hidden" name="order_mode" id="orderModeHidden" value="dine_in">
+    <input type="hidden" name="table_id" id="tableIdHidden">
     <input type="hidden" name="table_number" id="tableNumberHidden">
 </form>
 
@@ -317,6 +397,9 @@ body{margin:0;background:var(--bg);color:var(--ink);
 var cart = {};
 var hasOrder = #hasOrder ? 'true' : 'false'#;
 var selectedMode = 'dine_in';
+var selectedTableId = '';
+var selectedTableNumber = '';
+var tpTablesCache = null;
 var EMENU_CURR_SYM = '#JSStringFormat(emenuCurrSym)#';
 var EMENU_CURR_DEC = #val(REQUEST.emenu_currency_decimals)#;
 
@@ -379,19 +462,96 @@ function placeOrder() {
 
     if (!hasOrder) {
         if (selectedMode === 'dine_in') {
-            var tbl = document.getElementById('tableNumber').value.trim();
-            if (!tbl) {
-                alert('Enter a table number.');
-                document.getElementById('tableNumber').focus();
+            if (!selectedTableId) {
+                alert('Choose a table first.');
+                openTablePicker();
                 return;
             }
-            document.getElementById('tableNumberHidden').value = tbl;
+            document.getElementById('tableIdHidden').value = selectedTableId;
+            document.getElementById('tableNumberHidden').value = selectedTableNumber;
         }
         document.getElementById('orderModeHidden').value = selectedMode;
     }
 
     document.getElementById('cartJsonInput').value = JSON.stringify(Object.values(cart));
     document.getElementById('orderForm').submit();
+}
+
+function statusLabel(st) {
+    if (st === 'available') return 'Available';
+    if (st === 'occupied')  return 'Occupied';
+    if (st === 'paid')      return 'Paid';
+    if (st === 'reserved')  return 'Reserved';
+    return st;
+}
+function openTablePicker() {
+    document.getElementById('tpOverlay').classList.add('open');
+    fetch('WaiterPOSTables.cfm', { cache: 'no-store' })
+        .then(function(r){ return r.json(); })
+        .then(function(data){
+            tpTablesCache = (data && data.ok && Array.isArray(data.tables)) ? data.tables : [];
+            renderTableGrid(tpTablesCache);
+        })
+        .catch(function(){
+            document.getElementById('tpGrid').innerHTML = '<div class="tp-empty">Could not load tables. Try again.</div>';
+        });
+}
+function closeTablePicker() {
+    document.getElementById('tpOverlay').classList.remove('open');
+}
+function renderTableGrid(tables) {
+    var grid = document.getElementById('tpGrid');
+    if (!tables || !tables.length) {
+        grid.innerHTML = '<div class="tp-empty">No tables set up yet.</div>';
+        return;
+    }
+    var html = '';
+    tables.forEach(function(t){
+        html += '<button type="button" class="tp-card st-' + t.status + '" onclick="selectTable(' + t.table_id + ')">' +
+            '<div class="tp-num">Table ' + escHtml(t.table_number) + '</div>' +
+            '<div class="tp-seats">' + t.seats + ' seats</div>' +
+            '<span class="tp-chip">' + statusLabel(t.status) + '</span>';
+        if ((t.status === 'occupied' || t.status === 'paid') && t.has_order) {
+            html += '<div class="tp-order-info">' +
+                (t.status === 'paid' ? 'Paid &mdash; new order starts fresh' : (t.item_count + ' item' + (t.item_count === 1 ? '' : 's'))) +
+                ' &middot; <span class="tp-total">' + fmt(t.total_amount) + '</span></div>';
+            if (t.items && t.items.length) {
+                html += '<div class="tp-items">';
+                t.items.slice(0, 6).forEach(function(it){
+                    html += '<div>' + it.qty + '&times; ' + escHtml(it.name) + '</div>';
+                });
+                if (t.items.length > 6) html += '<div>&hellip; +' + (t.items.length - 6) + ' more</div>';
+                html += '</div>';
+            }
+        }
+        html += '</button>';
+    });
+    grid.innerHTML = html;
+}
+function selectTable(tableId) {
+    var t = (tpTablesCache || []).find(function(x){ return x.table_id === tableId; });
+    if (!t) return;
+    selectedTableId = t.table_id;
+    selectedTableNumber = t.table_number;
+
+    document.getElementById('tablePickBtn').style.display = 'none';
+    var summary = document.getElementById('tableSummary');
+    summary.style.display = 'flex';
+    document.getElementById('tsInfo').textContent = 'Table ' + t.table_number;
+
+    var sub = statusLabel(t.status);
+    if (t.status === 'occupied' && t.has_order) {
+        sub += ' — ' + t.item_count + ' item' + (t.item_count === 1 ? '' : 's') + ' already ordered, ' + fmt(t.total_amount);
+    } else if (t.status === 'paid') {
+        sub += ' — previous order settled, this starts a new order';
+    } else if (t.status === 'reserved') {
+        sub += ' — held for a booking';
+    } else {
+        sub += ' — ready to seat';
+    }
+    document.getElementById('tsSub').textContent = sub;
+
+    closeTablePicker();
 }
 function applyFilters() {
     var q   = document.getElementById('searchItem').value.toLowerCase().trim();
