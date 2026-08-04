@@ -7,6 +7,15 @@
     <cfreturn NOT listFindNoCase("paid,cancelled,completed", s)>
 </cffunction>
 
+<cffunction name="emenuOrderSessionActive" output="false" returntype="boolean">
+    <cfargument name="status" type="string" required="true">
+    <!--- Broader than emenuOrderIsOpen: "paid" is not the end of a QR session — the
+          customer should still be able to scan back in and see order_status.cfm
+          until the waiter completes the table. Only cancelled/completed truly end it. --->
+    <cfset var s = lCase(trim(arguments.status))>
+    <cfreturn NOT listFindNoCase("cancelled,completed", s)>
+</cffunction>
+
 <cffunction name="emenuGetLatestPayment" output="false" returntype="struct">
     <cfargument name="dsn" type="string" required="true">
     <cfargument name="orderId" type="numeric" required="true">
