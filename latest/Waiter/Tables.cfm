@@ -656,8 +656,11 @@ body { font-family: "Segoe UI", Arial, sans-serif; background:#f3f5f8; color:#1d
                             <div class="tbl-row">
                                 <span>Order status</span>
                                 <span>
+                                    <!--- "paid" is a payment fact, not a kitchen-prep stage — the Payment row
+                                          below already shows Paid online/Paid cash, so bucket it as New here
+                                          instead of printing the raw status and duplicating that info. --->
                                     <cfif r.is_kitchen_ready><span class="status-chip chip-order-ready">Ready</span>
-                                    <cfelseif listFindNoCase("new,pending,confirmed", r.order_status)><span class="status-chip chip-order-new">New</span>
+                                    <cfelseif listFindNoCase("new,pending,confirmed,paid", r.order_status)><span class="status-chip chip-order-new">New</span>
                                     <cfelseif listFindNoCase("preparing,cooking,in-progress,in progress", r.order_status)><span class="status-chip chip-order-progress">In progress</span>
                                     <cfelseif r.order_status eq "ready"><span class="status-chip chip-order-ready">Ready</span>
                                     <cfelse><span class="status-chip chip-order-new">#esc(r.order_status)#</span></cfif>
