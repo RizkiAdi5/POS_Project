@@ -194,6 +194,66 @@
         </cfif>
     </cfif>
 
+    <cfif form.form_action eq "edit_table" AND isNumeric(form.table_id)>
+        <cfset editTblId = val(form.table_id)>
+        <cfset tableNum = left(trim(toString(form.table_number)), 20)>
+        <cfset seatsVal = int(val(form.seats))>
+        <cfif NOT len(tableNum)>
+            <cfset flashErr = "Table number is required.">
+        <cfelseif seatsVal lte 0>
+            <cfset flashErr = "Seats must be greater than zero.">
+        <cfelse>
+            <cftry>
+                <cfquery name="qDupTable2" datasource="#dts#">
+                    SELECT COUNT(*) AS row_count FROM app_tables
+                    WHERE table_number = <cfqueryparam cfsqltype="cf_sql_varchar" value="#tableNum#">
+                      AND table_id <> <cfqueryparam cfsqltype="cf_sql_integer" value="#editTblId#">
+                </cfquery>
+                <cfif val(qDupTable2.row_count) gt 0>
+                    <cfset flashErr = "Table number already exists.">
+                <cfelse>
+                    <cfquery datasource="#dts#">
+                        UPDATE app_tables
+                        SET table_number = <cfqueryparam cfsqltype="cf_sql_varchar" value="#tableNum#">,
+                            seats = <cfqueryparam cfsqltype="cf_sql_integer" value="#seatsVal#">
+                        WHERE table_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#editTblId#">
+                    </cfquery>
+                    <cfset flashMsg = "Table " & tableNum & " updated.">
+                </cfif>
+                <cfcatch type="any">
+                    <cfset flashErr = "Update table failed: " & left(trim(cfcatch.message & " " & toString(cfcatch.detail)), 300)>
+                </cfcatch>
+            </cftry>
+        </cfif>
+    </cfif>
+
+    <cfif form.form_action eq "delete_table" AND isNumeric(form.table_id)>
+        <cfset delTblId = val(form.table_id)>
+        <cftry>
+            <cfquery name="qDelCheck" datasource="#dts#">
+                SELECT COUNT(*) AS row_count FROM app_orders
+                WHERE table_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#delTblId#">
+                  AND status NOT IN ('completed','cancelled')
+            </cfquery>
+            <cfif val(qDelCheck.row_count) gt 0>
+                <cfset flashErr = "This table still has an active order. Complete the session first before deleting it.">
+            <cfelse>
+                <!--- Soft delete: keep the row (and its order history) but drop it out of the
+                      dashboard/Waiter POS picker, matching the is_active convention used
+                      everywhere else a table is looked up. --->
+                <cfquery datasource="#dts#">
+                    UPDATE app_tables
+                    SET is_active = 0
+                    WHERE table_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#delTblId#">
+                </cfquery>
+                <cfset flashMsg = "Table deleted.">
+            </cfif>
+            <cfcatch type="any">
+                <cfset flashErr = "Delete table failed: " & left(trim(cfcatch.message), 200)>
+            </cfcatch>
+        </cftry>
+    </cfif>
+
     <cfif form.form_action eq "complete_session" AND isNumeric(form.table_id) AND isNumeric(form.order_id)>
         <cfset csTblId = val(form.table_id)>
         <cfset csOrdId = val(form.order_id)>
@@ -273,10 +333,10 @@
 
     <cfif form.form_action eq "clear_reserved" AND isNumeric(form.table_id)>
         <cfset tid = val(form.table_id)>
-        <cfset oid = val(form.order_id)>
-        <cfset ic = val(form.item_count)>
-        <cfset oOpen = (form.order_is_open eq "1")>
-        <cfset autoSt = emenuAutoTableStatus(oOpen, ic)>
+        <!--- A table can have several active orders now, so "should this become Occupied
+              or Available" is decided from the aggregate status computed for the card
+              (posted as underlying_status), not from a single order's item count. --->
+        <cfset autoSt = (structKeyExists(form, "underlying_status") AND form.underlying_status eq "occupied") ? "occupied" : "available">
         <cftry>
             <cfquery datasource="#dts#">
                 UPDATE app_tables
@@ -302,7 +362,7 @@
 <cfset queryOrders = queryNew("order_id")>
 <cfset queryPayments = queryNew("payment_id")>
 <cfset rows = []>
-<cfset latestOrderByTable = structNew()>
+<cfset ordersByTable = structNew()>
 <cfset latestPaymentByOrder = structNew()>
 <cfset itemCountByOrder = structNew()>
 <cfset summaryCounts = {
@@ -320,35 +380,44 @@
             SELECT t.table_id, t.table_number, t.seats, t.status AS table_status,
                    t.qr_token, t.current_order_id
             FROM app_tables t
+            WHERE t.is_active = 1
             ORDER BY t.table_number ASC
         </cfquery>
 
+        <!--- A table can legitimately have more than one active order at once — e.g. an
+              older order that's paid but not yet closed via Complete Session, plus a new
+              one just started (Waiter POS or e-menu). Keep every non-completed/cancelled
+              order per table, not just the latest. --->
         <cfquery name="queryOrders" datasource="#dts#">
             SELECT o.order_id, o.order_number, o.table_id, t.table_number, o.status, o.total_amount, o.created_at
             FROM app_orders o
             LEFT JOIN app_tables t ON o.table_id = t.table_id
             WHERE o.status NOT IN ('completed','cancelled')
-            ORDER BY o.table_id ASC, o.created_at DESC
+            ORDER BY o.table_id ASC, o.created_at ASC
         </cfquery>
 
         <cfloop query="queryOrders">
             <cfset tableIdKey = toString(val(queryOrders.table_id))>
-            <cfif val(queryOrders.table_id) gt 0 AND NOT structKeyExists(latestOrderByTable, tableIdKey)>
-                <cfset latestOrderByTable[tableIdKey] = {
+            <cfif val(queryOrders.table_id) gt 0>
+                <cfif NOT structKeyExists(ordersByTable, tableIdKey)>
+                    <cfset ordersByTable[tableIdKey] = []>
+                </cfif>
+                <cfset arrayAppend(ordersByTable[tableIdKey], {
                     "order_id" = val(queryOrders.order_id),
                     "order_number" = trim(toString(queryOrders.order_number)),
                     "order_status" = lCase(trim(toString(queryOrders.status))),
                     "total_amount" = val(queryOrders.total_amount)
-                }>
+                })>
             </cfif>
         </cfloop>
 
         <cfset orderIdList = "">
-        <cfloop collection="#latestOrderByTable#" item="tableKeyForOrderMap">
-            <cfset mappedOrder = latestOrderByTable[tableKeyForOrderMap]>
-            <cfif structKeyExists(mappedOrder, "order_id") AND val(mappedOrder.order_id) gt 0>
-                <cfset orderIdList = listAppend(orderIdList, val(mappedOrder.order_id))>
-            </cfif>
+        <cfloop collection="#ordersByTable#" item="tableKeyForOrderMap">
+            <cfloop array="#ordersByTable[tableKeyForOrderMap]#" index="mappedOrder">
+                <cfif val(mappedOrder.order_id) gt 0>
+                    <cfset orderIdList = listAppend(orderIdList, val(mappedOrder.order_id))>
+                </cfif>
+            </cfloop>
         </cfloop>
 
         <cfif len(orderIdList)>
@@ -392,64 +461,86 @@
                 <cfset tblQrToken = trim(queryTables.qr_token)>
             </cfif>
             <cfset tblQrUrl = len(tblQrToken) ? emenuQrUrl(tblQrToken) : "">
-            <cfset hasOrder = false>
-            <cfset orderId = 0>
-            <cfset orderNumber = "">
-            <cfset orderStatus = "">
-            <cfset totalAmount = 0>
-            <cfset payMethod = "">
-            <cfset payStatus = "">
-            <cfset payTag = "">
 
-            <cfif structKeyExists(latestOrderByTable, tableKey)>
-                <cfset hasOrder = true>
-                <cfset orderId = val(latestOrderByTable[tableKey].order_id)>
-                <cfset orderNumber = trim(toString(latestOrderByTable[tableKey].order_number))>
-                <cfset orderStatus = lCase(trim(toString(latestOrderByTable[tableKey].order_status)))>
-                <cfset totalAmount = val(latestOrderByTable[tableKey].total_amount)>
+            <cfset tableOrdersRaw = structKeyExists(ordersByTable, tableKey) ? ordersByTable[tableKey] : []>
+            <cfset enrichedOrders = []>
+            <cfset aggHasOccupied = false>
+            <cfset aggHasPaidAwaiting = false>
+            <cfset aggHasPendingCash = false>
 
-                <cfset payKey = toString(orderId)>
-                <cfif structKeyExists(latestPaymentByOrder, payKey)>
-                    <cfset payMethod = lCase(trim(toString(latestPaymentByOrder[payKey].payment_method)))>
-                    <cfset payStatus = lCase(trim(toString(latestPaymentByOrder[payKey].payment_status)))>
+            <cfloop array="#tableOrdersRaw#" index="ordRaw">
+                <cfset oOrderId = val(ordRaw.order_id)>
+                <cfset oOrderStatus = ordRaw.order_status>
+                <cfset oPayMethod = "">
+                <cfset oPayStatus = "">
+                <cfset oPayTag = "">
+                <cfset oPayKey = toString(oOrderId)>
+                <cfif structKeyExists(latestPaymentByOrder, oPayKey)>
+                    <cfset oPayMethod = lCase(trim(toString(latestPaymentByOrder[oPayKey].payment_method)))>
+                    <cfset oPayStatus = lCase(trim(toString(latestPaymentByOrder[oPayKey].payment_status)))>
                 </cfif>
-            </cfif>
-
-            <cfif hasOrder>
-                <cfif (payMethod eq "online") AND (payStatus eq "success")>
-                    <cfset payTag = "paid-online">
-                <cfelseif (payMethod eq "cash") AND (payStatus eq "success")>
-                    <cfset payTag = "paid-cash">
-                <cfelseif (payMethod eq "cash") AND listFindNoCase("pending,processing", payStatus)>
-                    <cfset payTag = "pending-cash">
+                <cfif (oPayMethod eq "online") AND (oPayStatus eq "success")>
+                    <cfset oPayTag = "paid-online">
+                <cfelseif (oPayMethod eq "cash") AND (oPayStatus eq "success")>
+                    <cfset oPayTag = "paid-cash">
+                <cfelseif (oPayMethod eq "cash") AND listFindNoCase("pending,processing", oPayStatus)>
+                    <cfset oPayTag = "pending-cash">
                 <cfelse>
-                    <cfset payTag = "unpaid">
+                    <cfset oPayTag = "unpaid">
                 </cfif>
+
+                <cfset oItemCount = 0>
+                <cfif oOrderId gt 0 AND structKeyExists(itemCountByOrder, toString(oOrderId))>
+                    <cfset oItemCount = val(itemCountByOrder[toString(oOrderId)])>
+                </cfif>
+                <cfset oOrderIsOpen = len(oOrderStatus) AND emenuOrderIsOpen(oOrderStatus)>
+                <cfset oIsPaidState = (oOrderStatus eq "paid")>
+
+                <cfif oIsPaidState>
+                    <cfset aggHasPaidAwaiting = true>
+                <cfelseif oOrderIsOpen AND oItemCount gt 0>
+                    <cfset aggHasOccupied = true>
+                </cfif>
+                <cfif oPayTag eq "pending-cash"><cfset aggHasPendingCash = true></cfif>
+
+                <cfset arrayAppend(enrichedOrders, {
+                    "order_id" = oOrderId,
+                    "order_number" = ordRaw.order_number,
+                    "order_status" = oOrderStatus,
+                    "total_amount" = val(ordRaw.total_amount),
+                    "payment_tag" = oPayTag,
+                    "item_count" = oItemCount,
+                    "order_is_open" = oOrderIsOpen,
+                    "is_paid_state" = oIsPaidState
+                })>
+            </cfloop>
+
+            <!--- Two-valued underlying status (ignoring the manual Reserved flag) — paid-but-
+                  not-yet-closed counts as occupied here, matching what the DB column would
+                  hold if it weren't being kept virtual for display. Used by Clear Reservation. --->
+            <cfset underlyingStatus = (aggHasOccupied OR aggHasPaidAwaiting) ? "occupied" : "available">
+
+            <cfif st eq "reserved">
+                <cfset displaySt = "reserved">
+            <cfelseif aggHasOccupied>
+                <cfset displaySt = "occupied">
+            <cfelseif aggHasPaidAwaiting>
+                <cfset displaySt = "paid">
+            <cfelse>
+                <cfset displaySt = "available">
             </cfif>
 
-            <cfset itemCount = 0>
-            <cfif orderId gt 0 AND structKeyExists(itemCountByOrder, toString(orderId))>
-                <cfset itemCount = val(itemCountByOrder[toString(orderId)])>
-            </cfif>
-            <cfset orderIsOpen = hasOrder AND len(orderStatus) AND emenuOrderIsOpen(orderStatus)>
-            <cfset displaySt = st>
-            <cfif st neq "reserved">
-                <cfset displaySt = emenuAutoTableStatus(orderIsOpen, itemCount)>
-                <!--- Paid orders: table still occupied until waiter completes session --->
-                <cfif displaySt eq "available" AND hasOrder AND orderStatus eq "paid">
-                    <cfset displaySt = "paid">
-                </cfif>
-                <!--- "paid" is a virtual display state — don't write it to DB --->
-                <cfif displaySt neq "paid">
-                    <cfset emenuSyncTableStatusAuto(dts, val(queryTables.table_id), displaySt)>
-                </cfif>
+            <!--- Auto-sync available/occupied to DB; "paid" is a virtual display state
+                  (stays occupied in the DB until Complete Session), reserved is manual. --->
+            <cfif listFindNoCase("available,occupied", displaySt)>
+                <cfset emenuSyncTableStatusAuto(dts, val(queryTables.table_id), displaySt)>
             </cfif>
 
             <cfset summaryCounts["all"] = summaryCounts["all"] + 1>
             <cfif structKeyExists(summaryCounts, displaySt)>
                 <cfset summaryCounts[displaySt] = summaryCounts[displaySt] + 1>
             </cfif>
-            <cfif payTag eq "pending-cash"><cfset summaryCounts["pending-cash"] = summaryCounts["pending-cash"] + 1></cfif>
+            <cfif aggHasPendingCash><cfset summaryCounts["pending-cash"] = summaryCounts["pending-cash"] + 1></cfif>
 
             <cfset includeThis = false>
             <cfif selectedTab eq "all"><cfset includeThis = true></cfif>
@@ -457,10 +548,11 @@
             <cfif selectedTab eq "occupied" AND displaySt eq "occupied"><cfset includeThis = true></cfif>
             <cfif selectedTab eq "paid" AND displaySt eq "paid"><cfset includeThis = true></cfif>
             <cfif selectedTab eq "reserved" AND displaySt eq "reserved"><cfset includeThis = true></cfif>
-            <cfif selectedTab eq "pending-cash" AND payTag eq "pending-cash"><cfset includeThis = true></cfif>
+            <cfif selectedTab eq "pending-cash" AND aggHasPendingCash><cfset includeThis = true></cfif>
 
-            <!--- Only allow regenerate when table has no order or only an empty placeholder order --->
-            <cfset canRegenQr = hasQrToken AND (NOT hasOrder OR itemCount eq 0)>
+            <!--- Only allow regenerate once the table is fully free — no open unpaid order
+                  and no paid order still awaiting Complete Session. --->
+            <cfset canRegenQr = hasQrToken AND displaySt eq "available">
 
             <cfif includeThis>
                 <cfset arrayAppend(rows, {
@@ -468,14 +560,9 @@
                     "table_number" = trim(toString(queryTables.table_number)),
                     "seats" = val(queryTables.seats),
                     "table_status" = displaySt,
-                    "item_count" = itemCount,
-                    "order_id" = orderId,
-                    "order_number" = orderNumber,
-                    "order_status" = orderStatus,
-                    "total_amount" = totalAmount,
-                    "payment_tag" = payTag,
-                    "has_order" = hasOrder,
-                    "order_is_open" = orderIsOpen,
+                    "orders" = enrichedOrders,
+                    "has_any_order" = (arrayLen(enrichedOrders) gt 0),
+                    "underlying_status" = underlyingStatus,
                     "can_regenerate_qr" = canRegenQr,
                     "is_reserved" = (displaySt eq "reserved"),
                     "qr_token" = tblQrToken,
@@ -550,7 +637,12 @@ body { font-family: "Segoe UI", Arial, sans-serif; background:#f3f5f8; color:#1d
 #qrZoomModal .qz-sub { font-size:12px; color:#6b7280; margin-bottom:16px; }
 #qrZoomModal .qz-canvas { display:inline-block; padding:10px; background:#fff; border:1px solid #e5e7eb; border-radius:8px; line-height:0; margin-bottom:14px; }
 #qrZoomModal .qz-close { width:100%; padding:10px; border:1px solid #e5e7eb; border-radius:10px; background:#f3f4f6; color:#374151; font-size:14px; font-weight:600; cursor:pointer; }
-.qr-url-input { margin-top:6px; font-size:11px; }
+.qr-copy-row { display:flex; align-items:stretch; gap:6px; margin-top:6px; }
+.qr-copy-row .qr-url-input { flex:1; min-width:0; font-size:11px; height:30px; padding:5px 8px; box-sizing:border-box; }
+/* .tbl-actions .btn forces width:100% on every button in this area (including this one,
+   since it's also a .btn) — override it explicitly or the input gets squeezed to nothing. */
+.qr-copy-row .copy-qr-btn { flex:0 0 auto; width:auto; height:30px; line-height:1; box-sizing:border-box; margin-top:0; }
+.copy-qr-btn.copied { color:#15803d; border-color:#86efac; }
 .qr-flash { display:flex; flex-wrap:wrap; align-items:flex-start; gap:12px; }
 .qr-flash .qr-canvas { flex:0 0 auto; }
 .empty-state { text-align:center; color:#6b7280; padding:34px 8px; border:1px dashed #d1d5db; border-radius:8px; background:#fff; }
@@ -574,8 +666,7 @@ body { font-family: "Segoe UI", Arial, sans-serif; background:#f3f5f8; color:#1d
                 </span>
                 <a href="WaiterDashboard.cfm?waiter_logout=1" class="btn btn-default btn-sm">Sign Out</a>
             </cfif>
-            <a href="Menu.cfm" class="btn btn-default btn-sm">Menu</a>
-            <a href="Orders.cfm" class="btn btn-default btn-sm">Orders</a>
+            <a href="#pageSelf#?tab=#URLEncodedFormat(selectedTab)#" class="btn btn-default btn-sm">&##8635; Refresh</a>
             <button type="button" class="btn btn-primary btn-sm" data-toggle="modal" data-target="##addTableModal">+ Add Table</button>
         </div>
     </div>
@@ -632,37 +723,70 @@ body { font-family: "Segoe UI", Arial, sans-serif; background:#f3f5f8; color:#1d
                             </div>
                         </div>
 
-                        <cfif r.has_order>
-                            <div class="tbl-row">
-                                <span>Items ordered</span>
-                                <span>#r.item_count#</span>
-                            </div>
-                            <div class="tbl-row">
-                                <span>Order</span>
-                                <span>## #esc(r.order_number)#</span>
-                            </div>
-                            <div class="tbl-row">
-                                <span>Order status</span>
-                                <span>
-                                    <cfif listFindNoCase("new,pending,confirmed", r.order_status)><span class="status-chip chip-order-new">New</span>
-                                    <cfelseif listFindNoCase("preparing,cooking,in-progress,in progress", r.order_status)><span class="status-chip chip-order-progress">In progress</span>
-                                    <cfelseif r.order_status eq "ready"><span class="status-chip chip-order-ready">Ready</span>
-                                    <cfelse><span class="status-chip chip-order-new">#esc(r.order_status)#</span></cfif>
-                                </span>
-                            </div>
-                            <div class="tbl-row">
-                                <span>Total</span>
-                                <span><strong>#NumberFormat(r.total_amount, "9,999.99")#</strong></span>
-                            </div>
-                            <div class="tbl-row">
-                                <span>Payment</span>
-                                <span>
-                                    <cfif r.payment_tag eq "paid-online"><span class="status-chip chip-payment-paid">Paid online</span></cfif>
-                                    <cfif r.payment_tag eq "paid-cash"><span class="status-chip chip-payment-paid">Paid cash</span></cfif>
-                                    <cfif r.payment_tag eq "pending-cash"><span class="status-chip chip-payment-pending">Cash pending</span></cfif>
-                                    <cfif r.payment_tag eq "unpaid"><span class="status-chip chip-payment-unpaid">Unpaid</span></cfif>
-                                </span>
-                            </div>
+                        <cfif r.has_any_order>
+                            <cfloop array="#r.orders#" index="ord">
+                                <div class="order-block" style="border-top:1px dashed ##e5e7eb;padding-top:8px;margin-top:8px;">
+                                    <div class="tbl-row">
+                                        <span>Order</span>
+                                        <span>## #esc(ord.order_number)#</span>
+                                    </div>
+                                    <div class="tbl-row">
+                                        <span>Items ordered</span>
+                                        <span>#ord.item_count#</span>
+                                    </div>
+                                    <div class="tbl-row">
+                                        <span>Order status</span>
+                                        <span>
+                                            <cfif listFindNoCase("new,pending,confirmed", ord.order_status)><span class="status-chip chip-order-new">New</span>
+                                            <cfelseif listFindNoCase("preparing,cooking,in-progress,in progress", ord.order_status)><span class="status-chip chip-order-progress">In progress</span>
+                                            <cfelseif ord.order_status eq "ready"><span class="status-chip chip-order-ready">Ready</span>
+                                            <cfelse><span class="status-chip chip-order-new">#esc(ord.order_status)#</span></cfif>
+                                        </span>
+                                    </div>
+                                    <div class="tbl-row">
+                                        <span>Total</span>
+                                        <span><strong>#NumberFormat(ord.total_amount, "9,999.99")#</strong></span>
+                                    </div>
+                                    <div class="tbl-row">
+                                        <span>Payment</span>
+                                        <span>
+                                            <cfif ord.payment_tag eq "paid-online"><span class="status-chip chip-payment-paid">Paid online</span></cfif>
+                                            <cfif ord.payment_tag eq "paid-cash"><span class="status-chip chip-payment-paid">Paid cash</span></cfif>
+                                            <cfif ord.payment_tag eq "pending-cash"><span class="status-chip chip-payment-pending">Cash pending</span></cfif>
+                                            <cfif ord.payment_tag eq "unpaid"><span class="status-chip chip-payment-unpaid">Unpaid</span></cfif>
+                                        </span>
+                                    </div>
+
+                                    <!--- Derive "paid" from the actual payment record (payment_tag), not app_orders.status —
+                                          that column is also written by the kitchen prep workflow and can overwrite "paid". --->
+                                    <cfset ordIsPaid = listFindNoCase("paid-online,paid-cash", ord.payment_tag) gt 0>
+                                    <cfif ord.order_is_open OR ordIsPaid>
+                                        <button type="button" class="btn <cfif ordIsPaid>btn-success<cfelse>btn-primary</cfif> btn-sm btn-block" style="margin-top:6px;"
+                                            data-toggle="modal" data-target="##completeSessionModal"
+                                            data-table-id="#r.table_id#"
+                                            data-table-number="#esc(r.table_number)#"
+                                            data-order-id="#ord.order_id#"
+                                            data-order-number="#esc(ord.order_number)#"
+                                            data-order-total="#val(ord.total_amount)#"
+                                            data-order-status="#lCase(trim(ord.order_status))#"
+                                            data-is-paid="<cfif ordIsPaid>1<cfelse>0</cfif>"
+                                        >Complete Session</button>
+                                        <cfif ordIsPaid>
+                                            <p style="font-size:11px;color:##166534;margin:6px 0 0;">Payment received. Complete session to free the table.</p>
+                                        <cfelse>
+                                            <p style="font-size:11px;color:##92400e;margin:6px 0 0;">Finish this visit before regenerating QR. Cash payment is optional.</p>
+                                        </cfif>
+                                    </cfif>
+                                    <cfif ord.payment_tag eq "pending-cash">
+                                        <form method="post" action="#pageSelf#" style="margin:6px 0 0;">
+                                            <input type="hidden" name="form_action" value="confirm_cash" />
+                                            <input type="hidden" name="order_id" value="#ord.order_id#" />
+                                            <input type="hidden" name="rt_tab" value="#selectedTab#" />
+                                            <button type="submit" class="btn btn-success btn-sm btn-block">Confirm Cash Payment</button>
+                                        </form>
+                                    </cfif>
+                                </div>
+                            </cfloop>
                         </cfif>
 
                         <div class="tbl-actions">
@@ -670,28 +794,11 @@ body { font-family: "Segoe UI", Arial, sans-serif; background:#f3f5f8; color:#1d
                                 <div class="qr-block">
                                     <span class="qr-label">Customer QR — scan to order</span>
                                     <div class="qr-canvas" id="qr-table-#r.table_id#" data-qr-url="#esc(r.qr_url)#"></div>
-                                    <input type="text" class="form-control input-sm qr-url-input" readonly="readonly" value="#esc(r.qr_url)#" onclick="this.select();" title="Click to copy link" />
+                                    <div class="qr-copy-row">
+                                        <input type="text" class="form-control qr-url-input" id="qr-url-table-#r.table_id#" readonly="readonly" value="#esc(r.qr_url)#" onclick="this.select();" />
+                                        <button type="button" class="btn btn-default btn-sm copy-qr-btn" data-copy-target="qr-url-table-#r.table_id#" title="Copy link">Copy</button>
+                                    </div>
                                 </div>
-                            </cfif>
-                            <!--- Derive "paid" from the actual payment record (payment_tag), not app_orders.status —
-                                  that column is also written by the kitchen prep workflow and can overwrite "paid". --->
-                            <cfset rIsPaid = listFindNoCase("paid-online,paid-cash", r.payment_tag) gt 0>
-                            <cfif r.has_order AND (r.order_is_open OR rIsPaid)>
-                                <button type="button" class="btn <cfif rIsPaid>btn-success<cfelse>btn-primary</cfif> btn-sm btn-block"
-                                    data-toggle="modal" data-target="##completeSessionModal"
-                                    data-table-id="#r.table_id#"
-                                    data-table-number="#esc(r.table_number)#"
-                                    data-order-id="#r.order_id#"
-                                    data-order-number="#esc(r.order_number)#"
-                                    data-order-total="#val(r.total_amount)#"
-                                    data-order-status="#lCase(trim(r.order_status))#"
-                                    data-is-paid="<cfif rIsPaid>1<cfelse>0</cfif>"
-                                >Complete Session</button>
-                                <cfif rIsPaid>
-                                    <p style="font-size:11px;color:##166534;margin:6px 0 0;">Payment received. Complete session to free the table.</p>
-                                <cfelse>
-                                    <p style="font-size:11px;color:##92400e;margin:6px 0 0;">Finish this visit before regenerating QR. Cash payment is optional.</p>
-                                </cfif>
                             </cfif>
                             <cfif r.can_regenerate_qr>
                                 <form method="post" action="#pageSelf#" style="margin:0;" onsubmit="return confirm('Create a new QR and order session for this table?');">
@@ -701,21 +808,11 @@ body { font-family: "Segoe UI", Arial, sans-serif; background:#f3f5f8; color:#1d
                                     <button type="submit" class="btn btn-warning btn-sm btn-block">Regenerate QR / New Order</button>
                                 </form>
                             </cfif>
-                            <cfif r.payment_tag eq "pending-cash">
-                                <form method="post" action="#pageSelf#" style="margin:0;">
-                                    <input type="hidden" name="form_action" value="confirm_cash" />
-                                    <input type="hidden" name="order_id" value="#r.order_id#" />
-                                    <input type="hidden" name="rt_tab" value="#selectedTab#" />
-                                    <button type="submit" class="btn btn-success btn-sm btn-block">Confirm Cash Payment</button>
-                                </form>
-                            </cfif>
                             <cfif r.is_reserved>
                                 <form method="post" action="#pageSelf#" style="margin:0;">
                                     <input type="hidden" name="form_action" value="clear_reserved" />
                                     <input type="hidden" name="table_id" value="#r.table_id#" />
-                                    <input type="hidden" name="order_id" value="#r.order_id#" />
-                                    <input type="hidden" name="item_count" value="#r.item_count#" />
-                                    <input type="hidden" name="order_is_open" value="<cfif r.order_is_open>1<cfelse>0</cfif>" />
+                                    <input type="hidden" name="underlying_status" value="#r.underlying_status#" />
                                     <input type="hidden" name="rt_tab" value="#selectedTab#" />
                                     <button type="submit" class="btn btn-default btn-sm btn-block">Clear Reservation</button>
                                 </form>
@@ -726,6 +823,22 @@ body { font-family: "Segoe UI", Arial, sans-serif; background:#f3f5f8; color:#1d
                                     <input type="hidden" name="rt_tab" value="#selectedTab#" />
                                     <button type="submit" class="btn btn-default btn-sm btn-block">Mark Reserved</button>
                                 </form>
+                            </cfif>
+                            <cfif r.table_status eq "available">
+                                <div style="display:flex;gap:6px;margin-top:6px;">
+                                    <button type="button" class="btn btn-default btn-sm" style="flex:1;"
+                                        data-toggle="modal" data-target="##editTableModal"
+                                        data-table-id="#r.table_id#"
+                                        data-table-number="#esc(r.table_number)#"
+                                        data-seats="#r.seats#"
+                                    >Edit</button>
+                                    <form method="post" action="#pageSelf#" style="margin:0;flex:1;" onsubmit="return confirm('Delete table #JSStringFormat(r.table_number)#? This cannot be undone from here.');">
+                                        <input type="hidden" name="form_action" value="delete_table" />
+                                        <input type="hidden" name="table_id" value="#r.table_id#" />
+                                        <input type="hidden" name="rt_tab" value="#selectedTab#" />
+                                        <button type="submit" class="btn btn-danger btn-sm btn-block">Delete</button>
+                                    </form>
+                                </div>
                             </cfif>
                             <p style="font-size:11px;color:##6b7280;margin:8px 0 0;">Available / Occupied updates automatically from orders.</p>
                         </div>
@@ -760,6 +873,36 @@ body { font-family: "Segoe UI", Arial, sans-serif; background:#f3f5f8; color:#1d
                 <div class="modal-footer">
                     <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
                     <button type="submit" class="btn btn-primary">Add Table</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="editTableModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <cfoutput><form method="post" action="#pageSelf#"></cfoutput>
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                    <h4 class="modal-title">Edit Table</h4>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="form_action" value="edit_table" />
+                    <input type="hidden" name="table_id" id="edit_table_id" value="" />
+                    <cfoutput><input type="hidden" name="rt_tab" value="#selectedTab#" /></cfoutput>
+                    <div class="form-group">
+                        <label for="edit_table_number">Table Number</label>
+                        <input type="text" name="table_number" id="edit_table_number" maxlength="20" class="form-control" required="required" />
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label for="edit_seats">Seats</label>
+                        <input type="number" name="seats" id="edit_seats" min="1" max="24" class="form-control" required="required" />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
                 </div>
             </form>
         </div>
@@ -845,6 +988,27 @@ body { font-family: "Segoe UI", Arial, sans-serif; background:#f3f5f8; color:#1d
         });
     }
 
+    function copyText(text) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            return navigator.clipboard.writeText(text);
+        }
+        var $tmp = $('<textarea readonly style="position:fixed;top:-1000px;">').val(text).appendTo('body');
+        $tmp[0].select();
+        try { document.execCommand('copy'); } catch (e) {}
+        $tmp.remove();
+        return $.Deferred().resolve().promise();
+    }
+    $(document).on('click', '.copy-qr-btn', function() {
+        var $btn = $(this);
+        var $input = $('#' + $btn.data('copy-target'));
+        if (!$input.length) { return; }
+        copyText($input.val()).then(function() {
+            var orig = $btn.html();
+            $btn.addClass('copied').html('&#10003;');
+            setTimeout(function() { $btn.removeClass('copied').html(orig); }, 1200);
+        });
+    });
+
     function toggleCashAmount() {
         if ($('#record_cash').is(':checked')) {
             $('#cash_amount_group').show();
@@ -853,6 +1017,14 @@ body { font-family: "Segoe UI", Arial, sans-serif; background:#f3f5f8; color:#1d
         }
     }
     $(document).on('change', '#record_cash', toggleCashAmount);
+
+    $('#editTableModal').on('show.bs.modal', function (event) {
+        var btn = $(event.relatedTarget);
+        var $modal = $(this);
+        $modal.find('#edit_table_id').val(btn.data('table-id') || '');
+        $modal.find('#edit_table_number').val(btn.data('table-number') || '');
+        $modal.find('#edit_seats').val(btn.data('seats') || '');
+    });
 
     $('#completeSessionModal').on('show.bs.modal', function (event) {
         var btn = $(event.relatedTarget);

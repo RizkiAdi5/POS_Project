@@ -9,6 +9,7 @@
 --->
 <cfprocessingdirective pageencoding="UTF-8">
 <cfinclude template="/application.cfm">
+<cfinclude template="/latest/Waiter/inc_waiter_login.cfm">
 <cfinclude template="/latest/customer/inc_emenu_order.cfm">
 <cfsetting enablecfoutputonly="false">
 <cfsetting showdebugoutput="false">
@@ -79,21 +80,24 @@
         </cfif>
         <cfset tableId = val(qTable.table_id)>
 
-        <!--- Reuse an existing open order at this table (merge), else create a fresh one --->
-        <cfquery name="qOpenOrd" datasource="#dts#">
-            SELECT order_id, order_number
-            FROM   app_orders
-            WHERE  table_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#tableId#">
-              AND  status NOT IN ('completed','cancelled','paid')
-            ORDER  BY created_at DESC
-            LIMIT  1
-        </cfquery>
+        <!--- A table with unpaid items already on it must be topped up via e-menu's "Order
+              More", not staff via Waiter POS — only reuse an empty placeholder or start a
+              fresh order once the current one is paid. --->
+        <cfset dineInDecision = emenuResolveWaiterDineInOrder(dts, tableId)>
 
-        <cfif qOpenOrd.recordCount gt 0>
-            <cfset SESSION.wpos_order_id     = val(qOpenOrd.order_id)>
-            <cfset SESSION.wpos_order_number = trim(qOpenOrd.order_number)>
+        <cfif dineInDecision.action eq "blocked">
+            <cfset blockMsg = "Table " & trim(qTable.table_number) & " still has an unpaid order (" &
+                dineInDecision.order_number & ", " & dineInDecision.item_count & " item" &
+                (dineInDecision.item_count eq 1 ? "" : "s") &
+                "). Ask the customer to use e-menu's Order More, or settle the bill first.">
+            <cflocation url="WaiterPOS.cfm?err=#URLEncodedFormat(blockMsg)#" addtoken="false">
+        </cfif>
+
+        <cfif dineInDecision.action eq "reuse">
+            <cfset SESSION.wpos_order_id     = dineInDecision.order_id>
+            <cfset SESSION.wpos_order_number = dineInDecision.order_number>
         <cfelse>
-            <cfset res = emenuCreatePlaceholderOrder(dts, tableId)>
+            <cfset res = emenuCreatePlaceholderOrder(dts, tableId, "waiter_pos")>
             <cfif NOT res.ok>
                 <cflocation url="WaiterPOS.cfm?err=#URLEncodedFormat(res.error)#" addtoken="false">
             </cfif>

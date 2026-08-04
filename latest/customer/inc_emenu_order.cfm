@@ -170,7 +170,47 @@
 </cffunction>
 
 <cffunction name="emenuNewOrderNumber" output="false" returntype="string">
-    <cfreturn "EMENU-" & dateFormat(now(), "yyyymmdd") & "-" & timeFormat(now(), "HHmmss") & "-" & right(replace(createUUID(), "-", "", "all"), 4)>
+    <!--- Short, human-readable order label: {E|W}-{MMDD}-{table or TA}-{Nth order at that
+          table today}. Source (E=e-menu, W=Waiter POS) is still one letter — the Kitchen/
+          Waiter dashboards also show a full "E-Menu"/"Waiter POS" badge, so the letter here
+          is just a quick visual anchor, not the only place the source is shown. --->
+    <cfargument name="dsn" type="string" required="true">
+    <cfargument name="source" type="string" required="false" default="qr_code">
+    <cfargument name="tableId" type="numeric" required="false" default="0">
+    <cfset var letter = (arguments.source eq "waiter_pos") ? "W" : "E">
+    <cfset var tblTag = "TA">
+    <cfset var seq = 1>
+    <cfset var qTbl = "">
+    <cfset var qSeq = "">
+    <cftry>
+        <cfif arguments.tableId gt 0>
+            <cfquery name="qTbl" datasource="#arguments.dsn#">
+                SELECT table_number FROM app_tables
+                WHERE table_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#arguments.tableId#">
+            </cfquery>
+            <cfif qTbl.recordCount AND len(trim(qTbl.table_number))>
+                <cfset tblTag = trim(toString(qTbl.table_number))>
+            </cfif>
+            <cfquery name="qSeq" datasource="#arguments.dsn#">
+                SELECT COUNT(*) AS cnt
+                FROM   app_orders
+                WHERE  table_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#arguments.tableId#">
+                  AND  DATE(created_at) = CURDATE()
+            </cfquery>
+        <cfelse>
+            <cfquery name="qSeq" datasource="#arguments.dsn#">
+                SELECT COUNT(*) AS cnt
+                FROM   app_orders
+                WHERE  order_type = 'takeaway'
+                  AND  DATE(created_at) = CURDATE()
+            </cfquery>
+        </cfif>
+        <cfset seq = val(qSeq.cnt) + 1>
+        <cfcatch type="any">
+            <cfset seq = 1>
+        </cfcatch>
+    </cftry>
+    <cfreturn letter & "-" & dateFormat(now(), "mmdd") & "-" & tblTag & "-" & seq>
 </cffunction>
 
 <cffunction name="emenuNewQrToken" output="false" returntype="string">
@@ -260,8 +300,9 @@
 <cffunction name="emenuCreatePlaceholderOrder" output="false" returntype="struct">
     <cfargument name="dsn" type="string" required="true">
     <cfargument name="tableId" type="numeric" required="true">
+    <cfargument name="source" type="string" required="false" default="qr_code">
     <cfset var out = { "ok" = false, "order_id" = 0, "order_number" = "", "error" = "" }>
-    <cfset var orderNum = emenuNewOrderNumber()>
+    <cfset var orderNum = emenuNewOrderNumber(arguments.dsn, arguments.source, arguments.tableId)>
     <cftry>
         <cfquery name="qIns" datasource="#arguments.dsn#" result="insRes">
             INSERT INTO app_orders
@@ -271,7 +312,7 @@
                 <cfqueryparam cfsqltype="cf_sql_varchar" value="-">,
                 <cfqueryparam cfsqltype="cf_sql_integer" value="#arguments.tableId#">,
                 'dine_in',
-                'qr_code',
+                <cfqueryparam cfsqltype="cf_sql_varchar" value="#arguments.source#">,
                 'pending',
                 <cfqueryparam cfsqltype="cf_sql_decimal" value="0">,
                 <cfqueryparam cfsqltype="cf_sql_timestamp" value="#now()#">
@@ -309,7 +350,7 @@
     <!--- Waiter POS: standalone order with no table, its own order_number as the pickup reference --->
     <cfargument name="dsn" type="string" required="true">
     <cfset var out = { "ok" = false, "order_id" = 0, "order_number" = "", "error" = "" }>
-    <cfset var orderNum = emenuNewOrderNumber()>
+    <cfset var orderNum = emenuNewOrderNumber(arguments.dsn, "waiter_pos", 0)>
     <cftry>
         <cfquery name="qIns" datasource="#arguments.dsn#" result="insRes">
             INSERT INTO app_orders
@@ -362,6 +403,47 @@
         <cfreturn val(qOpen.row_count) gt 0>
         <cfcatch type="any"><cfreturn false></cfcatch>
     </cftry>
+</cffunction>
+
+<cffunction name="emenuResolveWaiterDineInOrder" output="false" returntype="struct">
+    <!--- Decides what Waiter POS should do with a table: reuse an empty placeholder,
+          start a fresh order once the current one is paid, or block because the
+          current order is open and already has unpaid items on it (the customer
+          should use e-menu's "Order More" for that, not staff via Waiter POS). --->
+    <cfargument name="dsn" type="string" required="true">
+    <cfargument name="tableId" type="numeric" required="true">
+    <cfset var out = { "action" = "create", "order_id" = 0, "order_number" = "", "item_count" = 0, "total_amount" = 0 }>
+    <cfset var qLatest = "">
+    <cftry>
+        <cfquery name="qLatest" datasource="#arguments.dsn#">
+            SELECT o.order_id, o.order_number, o.status, o.total_amount,
+                   (SELECT COUNT(*) FROM app_order_items i WHERE i.order_id = o.order_id) AS item_count
+            FROM   app_orders o
+            WHERE  o.table_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#arguments.tableId#">
+              AND  o.status NOT IN ('completed','cancelled')
+            ORDER  BY o.created_at DESC
+            LIMIT  1
+        </cfquery>
+        <cfif qLatest.recordCount eq 0>
+            <cfset out.action = "create">
+        <cfelseif lCase(trim(qLatest.status)) eq "paid">
+            <cfset out.action = "create">
+        <cfelseif val(qLatest.item_count) gt 0 AND emenuOrderIsOpen(qLatest.status)>
+            <cfset out.action = "blocked">
+            <cfset out.order_id = val(qLatest.order_id)>
+            <cfset out.order_number = trim(toString(qLatest.order_number))>
+            <cfset out.item_count = val(qLatest.item_count)>
+            <cfset out.total_amount = val(qLatest.total_amount)>
+        <cfelse>
+            <cfset out.action = "reuse">
+            <cfset out.order_id = val(qLatest.order_id)>
+            <cfset out.order_number = trim(toString(qLatest.order_number))>
+        </cfif>
+        <cfcatch type="any">
+            <cfset out.action = "create">
+        </cfcatch>
+    </cftry>
+    <cfreturn out>
 </cffunction>
 
 <cffunction name="emenuCompleteTableSession" output="false" returntype="struct">

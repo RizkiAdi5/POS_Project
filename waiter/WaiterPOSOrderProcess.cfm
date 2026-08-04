@@ -52,37 +52,51 @@
 
     <cfelseif orderMode eq "dine_in">
 
-        <cfif NOT structKeyExists(form, "table_number") OR NOT len(trim(form.table_number))>
-            <cflocation url="WaiterPOS.cfm?err=#URLEncodedFormat('Enter a table number.')#" addtoken="false">
+        <cfset formTableId = (structKeyExists(form, "table_id") AND isNumeric(form.table_id)) ? val(form.table_id) : 0>
+
+        <cfif formTableId gt 0>
+            <cfquery name="qTable" datasource="#dts#">
+                SELECT table_id, table_number
+                FROM   app_tables
+                WHERE  table_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#formTableId#">
+                  AND  is_active = 1
+                LIMIT  1
+            </cfquery>
+        <cfelseif structKeyExists(form, "table_number") AND len(trim(form.table_number))>
+            <cfquery name="qTable" datasource="#dts#">
+                SELECT table_id, table_number
+                FROM   app_tables
+                WHERE  table_number = <cfqueryparam cfsqltype="cf_sql_varchar" value="#trim(form.table_number)#">
+                  AND  is_active = 1
+                LIMIT  1
+            </cfquery>
+        <cfelse>
+            <cflocation url="WaiterPOS.cfm?err=#URLEncodedFormat('Choose a table.')#" addtoken="false">
         </cfif>
 
-        <cfquery name="qTable" datasource="#dts#">
-            SELECT table_id, table_number
-            FROM   app_tables
-            WHERE  table_number = <cfqueryparam cfsqltype="cf_sql_varchar" value="#trim(form.table_number)#">
-              AND  is_active = 1
-            LIMIT  1
-        </cfquery>
         <cfif qTable.recordCount eq 0>
-            <cflocation url="WaiterPOS.cfm?err=#URLEncodedFormat('No table found with that number.')#" addtoken="false">
+            <cflocation url="WaiterPOS.cfm?err=#URLEncodedFormat('No table found. Please pick a table again.')#" addtoken="false">
         </cfif>
         <cfset tableId = val(qTable.table_id)>
 
-        <!--- Reuse an existing open order at this table (merge), else create a fresh one --->
-        <cfquery name="qOpenOrd" datasource="#dts#">
-            SELECT order_id, order_number
-            FROM   app_orders
-            WHERE  table_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#tableId#">
-              AND  status NOT IN ('completed','cancelled','paid')
-            ORDER  BY created_at DESC
-            LIMIT  1
-        </cfquery>
+        <!--- A table with unpaid items already on it must be topped up via e-menu's "Order
+              More", not staff via Waiter POS — only reuse an empty placeholder or start a
+              fresh order once the current one is paid. --->
+        <cfset dineInDecision = emenuResolveWaiterDineInOrder(dts, tableId)>
 
-        <cfif qOpenOrd.recordCount gt 0>
-            <cfset SESSION.wpos_order_id     = val(qOpenOrd.order_id)>
-            <cfset SESSION.wpos_order_number = trim(qOpenOrd.order_number)>
+        <cfif dineInDecision.action eq "blocked">
+            <cfset blockMsg = "Table " & trim(qTable.table_number) & " still has an unpaid order (" &
+                dineInDecision.order_number & ", " & dineInDecision.item_count & " item" &
+                (dineInDecision.item_count eq 1 ? "" : "s") &
+                "). Ask the customer to use e-menu's Order More, or settle the bill first.">
+            <cflocation url="WaiterPOS.cfm?err=#URLEncodedFormat(blockMsg)#" addtoken="false">
+        </cfif>
+
+        <cfif dineInDecision.action eq "reuse">
+            <cfset SESSION.wpos_order_id     = dineInDecision.order_id>
+            <cfset SESSION.wpos_order_number = dineInDecision.order_number>
         <cfelse>
-            <cfset res = emenuCreatePlaceholderOrder(dts, tableId)>
+            <cfset res = emenuCreatePlaceholderOrder(dts, tableId, "waiter_pos")>
             <cfif NOT res.ok>
                 <cflocation url="WaiterPOS.cfm?err=#URLEncodedFormat(res.error)#" addtoken="false">
             </cfif>

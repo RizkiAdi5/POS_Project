@@ -9,6 +9,7 @@
 --->
 <cfprocessingdirective pageencoding="UTF-8">
 <cfinclude template="/application.cfm">
+<cfinclude template="/latest/Waiter/inc_waiter_login.cfm">
 <cfinclude template="/latest/customer/inc_emenu_order.cfm">
 <cfinclude template="/latest/customer/inc_emenu_currency.cfm">
 <cfsetting showdebugoutput="false">
@@ -204,6 +205,9 @@ body{margin:0;background:var(--bg);color:var(--ink);
 .tp-items{margin-top:5px;font-size:11px;color:var(--ink-soft);max-height:70px;overflow-y:auto;}
 .tp-items div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .tp-empty{grid-column:1/-1;text-align:center;color:var(--ink-faint);padding:30px 0;font-size:13px;}
+.tp-card-disabled{cursor:not-allowed;}
+.tp-card-disabled:hover{transform:none;box-shadow:none;}
+.tp-blocked-note{margin-top:8px;font-size:11px;color:#9A3412;background:#FFE8D6;border-radius:8px;padding:6px 8px;line-height:1.35;}
 
 .cart-body{flex:1;overflow-y:auto;padding:10px 22px;}
 .cart-empty{text-align:center;color:var(--ink-faint);padding:60px 10px;font-size:13.5px;}
@@ -250,6 +254,10 @@ body{margin:0;background:var(--bg);color:var(--ink);
         </cfif>
     </div>
     <div class="topbar-right">
+        <cfif isDefined("SESSION.waiter_name") AND len(trim(SESSION.waiter_name))>
+            <span style="font-size:13px;color:var(--ink-soft);line-height:34px;padding:0 4px;">#HTMLEditFormat(SESSION.waiter_name)#</span>
+            <a href="WaiterPOS.cfm?waiter_logout=1" class="tbtn">Sign Out</a>
+        </cfif>
         <a href="WaiterDashboard.cfm" class="tbtn">Dashboard</a>
         <cfif hasOrder><a href="WaiterPOS.cfm?cancel=1" class="tbtn danger">Cancel Order</a></cfif>
     </div>
@@ -373,10 +381,10 @@ body{margin:0;background:var(--bg);color:var(--ink);
             <button type="button" class="tp-close" onclick="closeTablePicker()">&times;</button>
         </div>
         <div class="tp-legend">
-            <span><i class="tp-dot" style="background:#16A34A;"></i>Available &mdash; free to seat</span>
-            <span><i class="tp-dot" style="background:#EA7A1B;"></i>Occupied &mdash; open order</span>
-            <span><i class="tp-dot" style="background:#2563EB;"></i>Paid &mdash; awaiting session close</span>
-            <span><i class="tp-dot" style="background:#CA8A04;"></i>Reserved</span>
+            <span><i class="tp-dot" style="background:##16A34A;"></i>Available &mdash; free to seat</span>
+            <span><i class="tp-dot" style="background:##EA7A1B;"></i>Occupied &mdash; open order</span>
+            <span><i class="tp-dot" style="background:##2563EB;"></i>Paid &mdash; awaiting session close</span>
+            <span><i class="tp-dot" style="background:##CA8A04;"></i>Reserved</span>
         </div>
         <div class="tp-body">
             <div class="tp-grid" id="tpGrid">
@@ -507,7 +515,11 @@ function renderTableGrid(tables) {
     }
     var html = '';
     tables.forEach(function(t){
-        html += '<button type="button" class="tp-card st-' + t.status + '" onclick="selectTable(' + t.table_id + ')">' +
+        var blocked = (t.status === 'occupied');
+        var tag = blocked ? 'div' : 'button';
+        html += '<' + tag + (blocked ? '' : ' type="button"') +
+            ' class="tp-card st-' + t.status + (blocked ? ' tp-card-disabled' : '') + '"' +
+            (blocked ? '' : ' onclick="selectTable(' + t.table_id + ')"') + '>' +
             '<div class="tp-num">Table ' + escHtml(t.table_number) + '</div>' +
             '<div class="tp-seats">' + t.seats + ' seats</div>' +
             '<span class="tp-chip">' + statusLabel(t.status) + '</span>';
@@ -524,7 +536,10 @@ function renderTableGrid(tables) {
                 html += '</div>';
             }
         }
-        html += '</button>';
+        if (blocked) {
+            html += '<div class="tp-blocked-note">Unpaid &mdash; ask the customer to use e-menu\'s Order More, or settle the bill first.</div>';
+        }
+        html += '</' + tag + '>';
     });
     grid.innerHTML = html;
 }
