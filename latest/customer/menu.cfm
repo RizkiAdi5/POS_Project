@@ -53,7 +53,9 @@
 
 <!--- Load menu items --->
 <cfset menuError = "">
-<!--- Waiter uploads store files in image_bytes; admin list uses MenuImage.cfm — customer must use same path --->
+<!--- Item photos come from icitem.img_bytes, served via a customer-safe endpoint
+      (/latest/Waiter/MenuImage.cfm is staff-gated and resolves dts from the staff
+      session's own branch — wrong for a guest customer, see MenuImage.cfm's header). --->
 <cfquery name="qMenu" datasource="#dts#">
     SELECT ITEMNO AS item_code, DESP AS display_name, CATEGORY AS category,
            sub_cat AS sub_category,
@@ -334,7 +336,7 @@
         <cfif len(trim(qMenu.image_url))>
             <cfset itemImgSrc = trim(qMenu.image_url)>
         <cfelseif val(qMenu.has_img_blob) eq 1>
-            <cfset itemImgSrc = "/latest/Waiter/MenuImage.cfm?id=" & URLEncodedFormat(qMenu.item_code)>
+            <cfset itemImgSrc = "/latest/customer/MenuImage.cfm?id=" & URLEncodedFormat(qMenu.item_code)>
         </cfif>
 
         <div class="item-card"

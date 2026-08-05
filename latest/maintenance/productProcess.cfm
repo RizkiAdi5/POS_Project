@@ -10,29 +10,21 @@
   FROM gsetup
 </cfquery>
 
-<!--- The legacy picture picker (icitem_image.cfm) saves the file to disk under
-      /images/#dts#/ (resolved via ExpandPath, same as icitem_image.cfm itself — HRootPath
-      is a stale hardcoded path that does not match this deployment's actual webroot) and
-      gives back its filename in form.picture_available. Read that file's bytes here so
-      img_bytes/img_type (used by the e-menu / Waiter POS) get populated too, not just the
-      legacy photo column. --->
+<!--- icitem_image.cfm never touches disk — it hands product.cfm the uploaded image as base64,
+      which arrives here as form.pendingImgBase64/pendingImgMime and goes straight into
+      icitem.img_bytes/img_type. form.clearImage=1 means the user removed the image. --->
 <cfset itemImgBytes = "">
 <cfset itemImgMime = "">
 <cfset itemHasImgFile = false>
-<cfif IsDefined('form.picture_available') AND len(trim(form.picture_available))>
-	<cfset itemImgFilePath = ExpandPath("/images/#dts#/#form.picture_available#")>
-	<cfif FileExists(itemImgFilePath)>
-		<cftry>
-			<cfset itemImgBytes = fileReadBinary(itemImgFilePath)>
-			<cfset itemImgExt = lCase(listLast(form.picture_available, "."))>
-			<cfset itemImgMime = "image/jpeg">
-			<cfif itemImgExt eq "png"><cfset itemImgMime = "image/png"></cfif>
-			<cfif itemImgExt eq "gif"><cfset itemImgMime = "image/gif"></cfif>
-			<cfif itemImgExt eq "webp"><cfset itemImgMime = "image/webp"></cfif>
-			<cfset itemHasImgFile = true>
-			<cfcatch type="any"><cfset itemHasImgFile = false></cfcatch>
-		</cftry>
-	</cfif>
+<cfset itemClearImage = (IsDefined('form.clearImage') AND form.clearImage EQ "1")>
+<cfif IsDefined('form.pendingImgBase64') AND len(trim(form.pendingImgBase64))>
+	<cftry>
+		<cfset itemImgBytes = toBinary(form.pendingImgBase64)>
+		<cfset itemImgMime = trim(form.pendingImgMime)>
+		<cfif NOT len(itemImgMime)><cfset itemImgMime = "application/octet-stream"></cfif>
+		<cfset itemHasImgFile = true>
+		<cfcatch type="any"><cfset itemHasImgFile = false></cfcatch>
+	</cftry>
 </cfif>
 
 <cfoutput>
@@ -76,7 +68,7 @@
                         <cfelse>
                         	'F'
                         </cfif>,
-                        '#picture_available#',
+                        '',
 						'#document_available#',
                         <cfif itemHasImgFile><cfqueryparam cfsqltype="cf_sql_blob" value="#itemImgBytes#"><cfelse>NULL</cfif>,
                         <cfif itemHasImgFile><cfqueryparam cfsqltype="cf_sql_varchar" value="#itemImgMime#"><cfelse>NULL</cfif>,
@@ -238,11 +230,14 @@
                     <cfelse>
                         nonstkitem = 'F'
                     </cfif>,
-                    photo = '#picture_available#',
+                    photo = '',
                     document = '#document_available#',
                     <cfif itemHasImgFile>
                         img_bytes = <cfqueryparam cfsqltype="cf_sql_blob" value="#itemImgBytes#">,
                         img_type = <cfqueryparam cfsqltype="cf_sql_varchar" value="#itemImgMime#">,
+                    <cfelseif itemClearImage>
+                        img_bytes = NULL,
+                        img_type = NULL,
                     </cfif>
                     <!---Panel 2 --->
                     brand = <cfqueryparam cfsqltype="cf_sql_varchar" value="#trim(form.brand)#">,

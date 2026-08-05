@@ -401,9 +401,22 @@
 			}
 		}
 
-		function change_picture(picture){
-			var encode_picture = encodeURI(picture);
-			show_picture.location="/latest/uploadImage/icitem_image.cfm?pic3="+encode_picture;
+		function setPendingItemImage(base64, mime){
+			document.getElementById('pendingImgBase64').value = base64;
+			document.getElementById('pendingImgMime').value = mime;
+			document.getElementById('clearImage').value = '0';
+			var img = document.getElementById('itemImgPreview');
+			img.src = 'data:' + mime + ';base64,' + base64;
+			img.style.display = '';
+		}
+
+		function removeItemImage(){
+			document.getElementById('pendingImgBase64').value = '';
+			document.getElementById('pendingImgMime').value = '';
+			document.getElementById('clearImage').value = '1';
+			var img = document.getElementById('itemImgPreview');
+			img.removeAttribute('src');
+			img.style.display = 'none';
 		}
 
 		function downloadDocument(){
@@ -539,24 +552,24 @@
 										</div>
 									</div>
                                     <div class="form-group">
-                                    	<cfdirectory action="list" directory="#HRootPath#\images\#hcomid#\" name="picture_list">
 										<label for="itemNo" class="col-sm-4 control-label">#words[133]#</label>
 										<div class="col-sm-8">
-											<select name="picture_available" id="picture_available" class="form-control input-sm" onChange="change_picture(this.value);">
-          										<option value="">#words[134]#</option>
-                                                <cfloop query="picture_list">
-                                                	<cfif picture_list.name NEQ "Thumbs.db">
-                                                    <option value="#picture_list.name#" #iif((photo eq picture_list.name),DE("selected"),DE(""))#>#picture_list.name#</option>
-                                                    </cfif>
-                                                </cfloop>
-        									</select>
+											<img id="itemImgPreview"
+												src="<cfif len(trim(itemNo))>/latest/Waiter/MenuImage.cfm?id=#urlencodedformat(itemNo)#</cfif>"
+												align="middle" width="150" height="150"
+												style="<cfif NOT len(trim(itemNo))>display:none;</cfif>"
+												onerror="this.style.display='none';"
+												onload="this.style.display='';">
+											<input type="hidden" id="pendingImgBase64" name="pendingImgBase64" value="">
+											<input type="hidden" id="pendingImgMime" name="pendingImgMime" value="">
+											<input type="hidden" id="clearImage" name="clearImage" value="0">
 										</div>
                                         <div style="margin-top:-5px; margin-left: 500px;">
                                             <button type="button" class="btn btn-default" onclick="window.open('/latest/uploadImage/uploadItemImage.cfm','Upload Item Image','height=200,width=500');">
                                                 <span class="glyphicon glyphicon-plus"></span> #words[135]#
                                             </button>
+                                            <button type="button" class="btn btn-default" onclick="removeItemImage();">Remove</button>
                                         </div>
-                                        <iframe id="show_picture" name="show_picture" frameborder="0" marginheight="0" marginwidth="0" style="float:right;margin-top:-350px;margin-right:-500px;" height="200px" width="200px" scrolling="no" src="/latest/uploadImage/icitem_image.cfm?pic3=#urlencodedformat(photo)#"></iframe>
 
 									</div>
 
