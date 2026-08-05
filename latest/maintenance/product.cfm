@@ -96,22 +96,6 @@
         <cfset photo = "">
         <cfset document = "">
 
-        <!--- E-Menu tags (FnB panel) — defaults match icitem's own column defaults --->
-        <cfset fnb_sort_ord = 0>
-        <cfset fnb_promo_price = "">
-        <cfset fnb_is_avail = "T">
-        <cfset fnb_is_feat = "F">
-        <cfset fnb_for_dine = "T">
-        <cfset fnb_for_take = "T">
-        <cfset fnb_for_deliv = "T">
-        <cfset fnb_is_veg = "F">
-        <cfset fnb_is_halal = "F">
-        <cfset fnb_is_spicy = "F">
-        <cfset fnb_spice_lvl = 0>
-        <cfset fnb_allergens = "">
-        <cfset fnb_calories = "">
-        <cfset fnb_prep_time = "">
-
         <!--- Panel 2--->
         <cfset brandValue = "">
         <cfset commission = "">
@@ -216,22 +200,6 @@
         <cfset itemType = getProduct.itemtype>
         <cfset photo = getProduct.photo>
         <cfset document = getProduct.document>
-
-        <!--- E-Menu tags (FnB panel) --->
-        <cfset fnb_sort_ord = getProduct.sort_ord>
-        <cfset fnb_promo_price = ""><cfif isNumeric(getProduct.promo_price) AND val(getProduct.promo_price) gt 0><cfset fnb_promo_price = getProduct.promo_price></cfif>
-        <cfset fnb_is_avail = getProduct.is_avail>
-        <cfset fnb_is_feat = getProduct.is_feat>
-        <cfset fnb_for_dine = getProduct.for_dine>
-        <cfset fnb_for_take = getProduct.for_take>
-        <cfset fnb_for_deliv = getProduct.for_deliv>
-        <cfset fnb_is_veg = getProduct.is_veg>
-        <cfset fnb_is_halal = getProduct.is_halal>
-        <cfset fnb_is_spicy = getProduct.is_spicy>
-        <cfset fnb_spice_lvl = val(getProduct.spice_lvl)>
-        <cfset fnb_allergens = ""><cfif NOT isNull(getProduct.allergens)><cfset fnb_allergens = getProduct.allergens></cfif>
-        <cfset fnb_calories = ""><cfif NOT isNull(getProduct.calories)><cfset fnb_calories = getProduct.calories></cfif>
-        <cfset fnb_prep_time = ""><cfif NOT isNull(getProduct.prep_time)><cfset fnb_prep_time = getProduct.prep_time></cfif>
 
         <!--- Panel 2--->
         <cfset brandValue = getProduct.brand>
@@ -595,113 +563,6 @@
                 		</div>
                 	</div>
 				</div>
-
-				<div class="panel panel-default">
-					<div class="panel-heading" data-toggle="collapse" href="##emenuTagsCollapse">
-						<h4 class="panel-title accordion-toggle">E-Menu — Availability &amp; Tags</h4>
-					</div>
-					<div id="emenuTagsCollapse" class="panel-collapse collapse">
-						<div class="panel-body">
-							<div class="row">
-								<div class="col-sm-6">
-									<div class="form-group">
-										<label class="col-sm-4 control-label">Show in E-Menu</label>
-										<div class="col-sm-8">
-											<input type="checkbox" name="fnb_is_avail" <cfif fnb_is_avail EQ "T">checked</cfif>/>
-										</div>
-									</div>
-									<div class="form-group">
-										<label class="col-sm-4 control-label">Featured</label>
-										<div class="col-sm-8">
-											<input type="checkbox" name="fnb_is_feat" <cfif fnb_is_feat EQ "T">checked</cfif>/>
-										</div>
-									</div>
-									<div class="form-group">
-										<label class="col-sm-4 control-label">Available for Dine-in</label>
-										<div class="col-sm-8">
-											<input type="checkbox" name="fnb_for_dine" <cfif fnb_for_dine EQ "T">checked</cfif>/>
-										</div>
-									</div>
-									<div class="form-group">
-										<label class="col-sm-4 control-label">Available for Takeaway</label>
-										<div class="col-sm-8">
-											<input type="checkbox" name="fnb_for_take" <cfif fnb_for_take EQ "T">checked</cfif>/>
-										</div>
-									</div>
-									<div class="form-group">
-										<label class="col-sm-4 control-label">Available for Delivery</label>
-										<div class="col-sm-8">
-											<input type="checkbox" name="fnb_for_deliv" <cfif fnb_for_deliv EQ "T">checked</cfif>/>
-										</div>
-									</div>
-									<div class="form-group">
-										<label class="col-sm-4 control-label">Display order</label>
-										<div class="col-sm-8">
-											<input type="text" class="form-control input-sm" name="fnb_sort_ord" value="#fnb_sort_ord#" placeholder="0">
-										</div>
-									</div>
-									<div class="form-group">
-										<label class="col-sm-4 control-label">Promo price</label>
-										<div class="col-sm-8">
-											<input type="text" class="form-control input-sm" name="fnb_promo_price" value="#fnb_promo_price#" placeholder="Optional">
-										</div>
-									</div>
-								</div>
-								<div class="col-sm-6">
-									<div class="form-group">
-										<label class="col-sm-4 control-label">Vegetarian</label>
-										<div class="col-sm-8">
-											<input type="checkbox" name="fnb_is_veg" <cfif fnb_is_veg EQ "T">checked</cfif>/>
-										</div>
-									</div>
-									<div class="form-group">
-										<label class="col-sm-4 control-label">Halal</label>
-										<div class="col-sm-8">
-											<input type="checkbox" name="fnb_is_halal" <cfif fnb_is_halal EQ "T">checked</cfif>/>
-										</div>
-									</div>
-									<div class="form-group">
-										<label class="col-sm-4 control-label">Spicy</label>
-										<div class="col-sm-8">
-											<input type="checkbox" name="fnb_is_spicy" <cfif fnb_is_spicy EQ "T">checked</cfif>/>
-										</div>
-									</div>
-									<div class="form-group">
-										<label class="col-sm-4 control-label">Spice level</label>
-										<div class="col-sm-8">
-											<select class="form-control input-sm" name="fnb_spice_lvl">
-												<option value="0" <cfif fnb_spice_lvl EQ 0>selected</cfif>>0 - None</option>
-												<option value="1" <cfif fnb_spice_lvl EQ 1>selected</cfif>>1 - Mild</option>
-												<option value="2" <cfif fnb_spice_lvl EQ 2>selected</cfif>>2 - Medium</option>
-												<option value="3" <cfif fnb_spice_lvl EQ 3>selected</cfif>>3 - Hot</option>
-												<option value="4" <cfif fnb_spice_lvl EQ 4>selected</cfif>>4 - Extra hot</option>
-											</select>
-										</div>
-									</div>
-									<div class="form-group">
-										<label class="col-sm-4 control-label">Allergens</label>
-										<div class="col-sm-8">
-											<input type="text" class="form-control input-sm" name="fnb_allergens" value="#fnb_allergens#" placeholder="e.g. Peanuts, Shellfish, Dairy" maxlength="200">
-										</div>
-									</div>
-									<div class="form-group">
-										<label class="col-sm-4 control-label">Calories</label>
-										<div class="col-sm-8">
-											<input type="text" class="form-control input-sm" name="fnb_calories" value="#fnb_calories#" placeholder="kcal">
-										</div>
-									</div>
-									<div class="form-group">
-										<label class="col-sm-4 control-label">Prep time</label>
-										<div class="col-sm-8">
-											<input type="text" class="form-control input-sm" name="fnb_prep_time" value="#fnb_prep_time#" placeholder="minutes">
-										</div>
-									</div>
-								</div>
-							</div>
-						</div>
-					</div>
-				</div>
-
 				<div class="panel panel-default">
 					<div class="panel-heading" data-toggle="collapse" href="##generalInfoCollapse">
 						<h4 class="panel-title accordion-toggle">#words[141]#</h4>

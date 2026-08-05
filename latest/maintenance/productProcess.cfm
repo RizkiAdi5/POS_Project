@@ -10,31 +10,6 @@
   FROM gsetup
 </cfquery>
 
-<!--- The legacy picture picker (icitem_image.cfm) saves the file to disk under
-      /images/#dts#/ (resolved via ExpandPath, same as icitem_image.cfm itself — HRootPath
-      is a stale hardcoded path that does not match this deployment's actual webroot) and
-      gives back its filename in form.picture_available. Read that file's bytes here so
-      img_bytes/img_type (used by the e-menu / Waiter POS) get populated too, not just the
-      legacy photo column. --->
-<cfset itemImgBytes = "">
-<cfset itemImgMime = "">
-<cfset itemHasImgFile = false>
-<cfif IsDefined('form.picture_available') AND len(trim(form.picture_available))>
-	<cfset itemImgFilePath = ExpandPath("/images/#dts#/#form.picture_available#")>
-	<cfif FileExists(itemImgFilePath)>
-		<cftry>
-			<cfset itemImgBytes = fileReadBinary(itemImgFilePath)>
-			<cfset itemImgExt = lCase(listLast(form.picture_available, "."))>
-			<cfset itemImgMime = "image/jpeg">
-			<cfif itemImgExt eq "png"><cfset itemImgMime = "image/png"></cfif>
-			<cfif itemImgExt eq "gif"><cfset itemImgMime = "image/gif"></cfif>
-			<cfif itemImgExt eq "webp"><cfset itemImgMime = "image/webp"></cfif>
-			<cfset itemHasImgFile = true>
-			<cfcatch type="any"><cfset itemHasImgFile = false></cfcatch>
-		</cftry>
-	</cfif>
-</cfif>
-
 <cfoutput>
 <cfif IsDefined("url.action")>
 	<cfif url.action EQ "create">
@@ -51,7 +26,7 @@
 		<cfelse>
 			<cftry>
 				<cfquery name="createProduct" datasource="#dts#">
-					INSERT INTO icitem (itemno,desp,despa,comment,aitemno,barcode,taxcode,itemtype,nonstkitem,photo,document,img_bytes,img_type,brand,category,wos_group,colorid,shelf,costcode,sizeid,costformula,
+					INSERT INTO icitem (itemno,desp,despa,comment,aitemno,barcode,taxcode,itemtype,nonstkitem,photo,document,brand,category,wos_group,colorid,shelf,costcode,sizeid,costformula,
 										supp,wqformula,wpformula,wserialno,packing,reorder,minimum,maximum,qtybf,<cfloop index="i" from="2" to="6">qty#i#,</cfloop>graded,
                                         price,<cfloop index="i" from="2" to="6">price#i#,</cfloop>muratio,unit,ucost,price_min,<cfif IsDefined ('form.normalOfferOthers')>custprice_rate,</cfif>
                                         unit2,factor1,factor2,priceu2,<cfloop index="i" from="3" to="6">unit#i#,factoru#i#_a,factoru#i#_b,priceu#i#,</cfloop>
@@ -78,8 +53,6 @@
                         </cfif>,
                         '#picture_available#',
 						'#document_available#',
-                        <cfif itemHasImgFile><cfqueryparam cfsqltype="cf_sql_blob" value="#itemImgBytes#"><cfelse>NULL</cfif>,
-                        <cfif itemHasImgFile><cfqueryparam cfsqltype="cf_sql_varchar" value="#itemImgMime#"><cfelse>NULL</cfif>,
                         <!---Panel 2 --->
                         <cfqueryparam cfsqltype="cf_sql_varchar" value="#trim(form.brand)#">,
                         <cfqueryparam cfsqltype="cf_sql_varchar" value="#trim(form.category)#">,
@@ -158,7 +131,7 @@
                         <cfloop index="i" from="1" to="30">
                         	<cfqueryparam cfsqltype="cf_sql_varchar" value="#trim(evaluate('form.remark#i#'))#">,
                         </cfloop>
-                        <!---FnB Panel (E-Menu — Availability & Tags on product.cfm) — falls back to icitem's own column defaults if the panel wasn't submitted --->
+                        <!---FnB Panel (not yet exposed on this form — fall back to icitem's own column defaults when absent) --->
                         <cfif IsDefined('form.fnb_sort_ord')><cfqueryparam cfsqltype="cf_sql_integer" value="#val(form.fnb_sort_ord)#"><cfelse>0</cfif>,
                         <cfif IsDefined('form.fnb_promo_price') AND len(trim(form.fnb_promo_price)) AND val(replace(form.fnb_promo_price,',','','all')) GT 0><cfqueryparam cfsqltype="cf_sql_decimal" value="#val(replace(form.fnb_promo_price,',','','all'))#"><cfelse>NULL</cfif>,
                         <cfif IsDefined('form.fnb_is_avail')>'T'<cfelseif IsDefined('form.fnb_sort_ord')>'F'<cfelse>'T'</cfif>,
@@ -215,7 +188,7 @@
 		</cfif>
 	<cfelseif url.action EQ "update">
 		<cftry>
-			<!--- Existing FnB values, used as a fallback if this submission predates the E-Menu tags panel --->
+			<!--- FnB Panel is not exposed on this form yet — preserve whatever Menu Maintenance already set instead of resetting it --->
 			<cfquery name="qExistingFnb" datasource="#dts#">
 				SELECT sort_ord, promo_price, is_avail, is_feat, for_dine, for_take, for_deliv, is_veg, is_halal, is_spicy, spice_lvl, allergens, calories, prep_time
 				FROM icitem
@@ -240,10 +213,6 @@
                     </cfif>,
                     photo = '#picture_available#',
                     document = '#document_available#',
-                    <cfif itemHasImgFile>
-                        img_bytes = <cfqueryparam cfsqltype="cf_sql_blob" value="#itemImgBytes#">,
-                        img_type = <cfqueryparam cfsqltype="cf_sql_varchar" value="#itemImgMime#">,
-                    </cfif>
                     <!---Panel 2 --->
                     brand = <cfqueryparam cfsqltype="cf_sql_varchar" value="#trim(form.brand)#">,
                     category = <cfqueryparam cfsqltype="cf_sql_varchar" value="#trim(form.category)#">,
@@ -334,7 +303,7 @@
                     <cfloop index="i" from="1" to="30">
                         remark#i# = <cfqueryparam cfsqltype="cf_sql_varchar" value="#trim(evaluate('form.remark#i#'))#">,
                     </cfloop>
-                    <!---FnB Panel (E-Menu — Availability & Tags on product.cfm) — keeps Menu Maintenance's existing values if the panel wasn't submitted --->
+                    <!---FnB Panel (not yet exposed on this form — keep Menu Maintenance's existing values when absent) --->
                     sort_ord = <cfif IsDefined('form.fnb_sort_ord')><cfqueryparam cfsqltype="cf_sql_integer" value="#val(form.fnb_sort_ord)#"><cfelse><cfqueryparam cfsqltype="cf_sql_integer" value="#val(qExistingFnb.sort_ord)#"></cfif>,
                     promo_price = <cfif IsDefined('form.fnb_sort_ord')><cfif len(trim(form.fnb_promo_price)) AND val(replace(form.fnb_promo_price,',','','all')) GT 0><cfqueryparam cfsqltype="cf_sql_decimal" value="#val(replace(form.fnb_promo_price,',','','all'))#"><cfelse>NULL</cfif><cfelseif val(qExistingFnb.promo_price) GT 0><cfqueryparam cfsqltype="cf_sql_decimal" value="#val(qExistingFnb.promo_price)#"><cfelse>NULL</cfif>,
                     is_avail = <cfif IsDefined('form.fnb_sort_ord')><cfif IsDefined('form.fnb_is_avail')>'T'<cfelse>'F'</cfif><cfelse><cfqueryparam cfsqltype="cf_sql_char" value="#qExistingFnb.is_avail#"></cfif>,
