@@ -334,7 +334,6 @@ body{background:#f5f7fb;font-family:'Segoe UI',Arial,sans-serif;padding:20px 16p
         <span style="font-size:13px;color:##6b7280;">
             <cfoutput>#HTMLEditFormat(SESSION.kitchen_name)#</cfoutput>
         </span>
-        <a href="WaiterDashboard.cfm" class="btn btn-default btn-sm">Dashboard</a>
         <a href="Orders.cfm?kitchen_logout=1" class="btn btn-default btn-sm">Sign Out</a>
     </div>
 </div>
