@@ -234,6 +234,10 @@
                 SELECT COUNT(*) AS row_count FROM app_orders
                 WHERE table_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#delTblId#">
                   AND status NOT IN ('completed','cancelled')
+                  AND EXISTS (
+                      SELECT 1 FROM app_order_items
+                      WHERE app_order_items.order_id = app_orders.order_id
+                  )
             </cfquery>
             <cfif val(qDelCheck.row_count) gt 0>
                 <cfset flashErr = "This table still has an active order. Complete the session first before deleting it.">
