@@ -305,7 +305,6 @@
 <cfset latestOrderByTable = structNew()>
 <cfset latestPaymentByOrder = structNew()>
 <cfset itemCountByOrder = structNew()>
-<cfset itemReadyCountByOrder = structNew()>
 <cfset summaryCounts = {
     "all" = 0,
     "available" = 0,
@@ -373,8 +372,7 @@
             </cfloop>
 
             <cfquery name="queryItemCounts" datasource="#dts#">
-                SELECT order_id, COUNT(*) AS item_count,
-                       SUM(CASE WHEN status = 'Ready' THEN 1 ELSE 0 END) AS ready_count
+                SELECT order_id, COUNT(*) AS item_count
                 FROM app_order_items
                 WHERE order_id IN (
                     <cfqueryparam cfsqltype="cf_sql_integer" value="#orderIdList#" list="true">
@@ -383,7 +381,6 @@
             </cfquery>
             <cfloop query="queryItemCounts">
                 <cfset itemCountByOrder[toString(val(queryItemCounts.order_id))] = val(queryItemCounts.item_count)>
-                <cfset itemReadyCountByOrder[toString(val(queryItemCounts.order_id))] = val(queryItemCounts.ready_count)>
             </cfloop>
         </cfif>
 
@@ -434,14 +431,6 @@
             <cfif orderId gt 0 AND structKeyExists(itemCountByOrder, toString(orderId))>
                 <cfset itemCount = val(itemCountByOrder[toString(orderId)])>
             </cfif>
-            <!--- Derive "ready" from app_order_items directly, not app_orders.status —
-                  that column is shared with the order lifecycle and can be reset (e.g. by a
-                  later "order more" round), same reasoning as rIsPaid below. --->
-            <cfset itemReadyCount = 0>
-            <cfif orderId gt 0 AND structKeyExists(itemReadyCountByOrder, toString(orderId))>
-                <cfset itemReadyCount = val(itemReadyCountByOrder[toString(orderId)])>
-            </cfif>
-            <cfset rIsKitchenReady = (itemCount gt 0 AND itemReadyCount eq itemCount)>
             <cfset orderIsOpen = hasOrder AND len(orderStatus) AND emenuOrderIsOpen(orderStatus)>
             <cfset displaySt = st>
             <cfif st neq "reserved">
@@ -483,7 +472,6 @@
                     "order_id" = orderId,
                     "order_number" = orderNumber,
                     "order_status" = orderStatus,
-                    "is_kitchen_ready" = rIsKitchenReady,
                     "total_amount" = totalAmount,
                     "payment_tag" = payTag,
                     "has_order" = hasOrder,
@@ -656,11 +644,7 @@ body { font-family: "Segoe UI", Arial, sans-serif; background:#f3f5f8; color:#1d
                             <div class="tbl-row">
                                 <span>Order status</span>
                                 <span>
-                                    <!--- "paid" is a payment fact, not a kitchen-prep stage — the Payment row
-                                          below already shows Paid online/Paid cash, so bucket it as New here
-                                          instead of printing the raw status and duplicating that info. --->
-                                    <cfif r.is_kitchen_ready><span class="status-chip chip-order-ready">Ready</span>
-                                    <cfelseif listFindNoCase("new,pending,confirmed,paid", r.order_status)><span class="status-chip chip-order-new">New</span>
+                                    <cfif listFindNoCase("new,pending,confirmed", r.order_status)><span class="status-chip chip-order-new">New</span>
                                     <cfelseif listFindNoCase("preparing,cooking,in-progress,in progress", r.order_status)><span class="status-chip chip-order-progress">In progress</span>
                                     <cfelseif r.order_status eq "ready"><span class="status-chip chip-order-ready">Ready</span>
                                     <cfelse><span class="status-chip chip-order-new">#esc(r.order_status)#</span></cfif>
