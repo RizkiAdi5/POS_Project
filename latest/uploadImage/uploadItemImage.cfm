@@ -7,20 +7,6 @@
 		document.getElementById("picture_name").value=new_pic_name2[new_pic_name2.length-1];
 
 	}
-
-	function add_option(pic_name){
-
-			  window.opener.GetValueFromChild("Img",pic_name);
-
-		  return true;
-		  window.close('/latest/uploadImage/uploadItemImage.cfm');
-	}
-
-	function change_picture(picture){
-
-		var encode_picture = encodeURI(picture);
-		show_picture.location="/latest/uploadImage/icitem_image.cfm?pic3="+encode_picture;
-	}
 </script>
 
 
@@ -40,7 +26,7 @@
 				<input type="file" id="picture" name="picture" size="50" onChange="uploading_picture(this.value);" accept="image/gif,image/jpeg,image/tiff,image/x-ms-bmp,image/x-photo-cd,image/x-png,image/x-portable-greymap,image/x-portable-pixmap,image/x-portablebitmap">
 				<br/>
 				<input type="text" id="picture_name" name="picture_name" size="50" value="">&nbsp;
-				<input type="submit" name="Upload" value="Upload" onClick="javascript:return add_option(document.getElementById('picture_name').value);">
+				<input type="submit" name="Upload" value="Upload">
 			</td>
 		</tr>
 	</table>
