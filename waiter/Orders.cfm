@@ -198,7 +198,7 @@
                o.total_amount, o.created_at
         FROM   app_orders o
         LEFT JOIN app_tables t ON o.table_id = t.table_id
-        WHERE  o.status = 'paid'
+        WHERE  o.status IN ('paid','ready')
         ORDER  BY o.created_at ASC
     </cfquery>
 
@@ -208,7 +208,7 @@
                    status AS kitchen_status,
                    COALESCE(item_name, item_code) AS item_name
             FROM   app_order_items
-            WHERE  order_id IN (SELECT order_id FROM app_orders WHERE status = 'paid')
+            WHERE  order_id IN (SELECT order_id FROM app_orders WHERE status IN ('paid','ready'))
             ORDER  BY order_id ASC, item_id ASC
         </cfquery>
         <cfloop query="qAllItems">

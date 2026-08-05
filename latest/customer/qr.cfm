@@ -54,7 +54,7 @@
 </cfif>
 
 <!--- Fallback: latest open order on this table --->
-<cfif bindOrderId lte 0 OR NOT emenuOrderIsOpen(bindOrderStatus)>
+<cfif bindOrderId lte 0 OR NOT emenuOrderSessionActive(bindOrderStatus)>
     <cfquery name="qOpenOrd" datasource="#dts#">
         SELECT order_id, order_number, status
         FROM   app_orders
@@ -78,7 +78,7 @@
     </cfif>
 </cfif>
 
-<cfif bindOrderId lte 0 OR NOT emenuOrderIsOpen(bindOrderStatus)>
+<cfif bindOrderId lte 0 OR NOT emenuOrderSessionActive(bindOrderStatus)>
     <cfset qrError = "No active order session for this table. Please ask staff to generate a new QR code.">
     <cfinclude template="qr_error.cfm">
     <cfabort>
