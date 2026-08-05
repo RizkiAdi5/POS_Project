@@ -193,7 +193,7 @@
 <cfelse>
 <cftry>
     <cfquery name="qOrders" datasource="#dts#">
-        SELECT o.order_id, o.order_number,
+        SELECT o.order_id, o.order_number, o.table_id,
                COALESCE(t.table_number, '?') AS table_number,
                o.total_amount, o.created_at
         FROM   app_orders o
@@ -251,19 +251,47 @@
     <cfset counts[kState]++>
     <cfset includeThis = (selectedTab eq "all") OR (selectedTab eq kState)>
     <cfif includeThis>
+        <cfset rOrderNum = trim(toString(qOrders.order_number))>
+        <cfset rSourceTag = "">
+        <cfif left(uCase(rOrderNum), 2) eq "W-">
+            <cfset rSourceTag = "waiter">
+        <cfelseif left(uCase(rOrderNum), 2) eq "E-">
+            <cfset rSourceTag = "emenu">
+        </cfif>
         <cfset arrayAppend(rows, {
             "order_id"     : oid,
-            "order_number" : trim(toString(qOrders.order_number)),
+            "order_number" : rOrderNum,
+            "table_id"     : val(qOrders.table_id),
             "table_number" : trim(toString(qOrders.table_number)),
             "total_amount" : val(qOrders.total_amount),
             "created_at"   : qOrders.created_at,
             "items"        : oItems,
             "n_total"      : nTotal,
             "n_ready"      : nReady,
-            "k_state"      : kState
+            "k_state"      : kState,
+            "source_tag"   : rSourceTag
         })>
     </cfif>
 </cfloop>
+
+<!--- Group the (already tab-filtered) rows by table so two paid orders on the same table
+      show as one card with two clearly labelled sub-orders, not two near-identical cards. --->
+<cfset rowGroupsByKey = structNew()>
+<cfset rowGroupKeyOrder = []>
+<cfloop array="#rows#" index="rw">
+    <cfset rgTableId = val(rw.table_id)>
+    <cfset rgKey = (rgTableId gt 0) ? ("t" & rgTableId) : ("o" & val(rw.order_id))>
+    <cfif NOT structKeyExists(rowGroupsByKey, rgKey)>
+        <cfset rowGroupsByKey[rgKey] = {
+            "table_number" = rw.table_number,
+            "is_takeaway" = (rgTableId lte 0),
+            "orders" = []
+        }>
+        <cfset arrayAppend(rowGroupKeyOrder, rgKey)>
+    </cfif>
+    <cfset arrayAppend(rowGroupsByKey[rgKey].orders, rw)>
+</cfloop>
+
 <!DOCTYPE html>
 <html>
 <head>
@@ -290,6 +318,12 @@ body { font-family:"Segoe UI",Arial,sans-serif; background:#f3f5f8; color:#1d283
 .tabs-row .btn .badge { margin-left:6px; }
 .table-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; }
 .tbl-card { border:1px solid #e5e7eb; border-radius:10px; background:#fff; padding:12px; box-shadow:0 1px 2px rgba(0,0,0,.04); }
+.order-sub { border-top:1px dashed #e5e7eb; padding-top:8px; margin-top:8px; }
+.order-sub:first-of-type { border-top:none; padding-top:0; margin-top:0; }
+.src-tag { display:inline-block; font-size:9.5px; font-weight:800; letter-spacing:.02em; text-transform:uppercase;
+           padding:2px 7px; border-radius:20px; margin-left:5px; }
+.src-emenu  { background:#dbeafe; color:#1e3a8a; }
+.src-waiter { background:#ffedd5; color:#9a3412; }
 .tbl-card.k-pending  { background:#fff; border-color:#e5e7eb; }
 .tbl-card.k-progress { background:#fff7ed; border-color:#fdba74; }
 .tbl-card.k-ready    { background:#f0fdf4; border-color:#bbf7d0; }
@@ -328,7 +362,14 @@ body { font-family:"Segoe UI",Arial,sans-serif; background:#f3f5f8; color:#1d283
             <h1 class="page-title">Kitchen Dashboard</h1>
             <p class="page-sub">Paid orders ready to prepare — update item status as you cook.</p>
         </div>
-        <div>
+        <div style="display:flex;align-items:center;gap:8px;">
+            <cfif isDefined("SESSION.kitchen_name") AND len(trim(SESSION.kitchen_name))>
+                <span style="font-size:13px;color:##6b7280;">
+                    #HTMLEditFormat(SESSION.kitchen_name)#
+                </span>
+            </cfif>
+            <a href="Orders.cfm" class="btn btn-default btn-sm">&##8635; Refresh</a>
+            <a href="/Waiter/WaiterDashboard.cfm" class="btn btn-default btn-sm">Waiter Dashboard</a>
             <a href="Orders.cfm?kitchen_logout=1" class="btn btn-default btn-sm">Sign Out</a>
         </div>
     </div>
@@ -376,75 +417,92 @@ body { font-family:"Segoe UI",Arial,sans-serif; background:#f3f5f8; color:#1d283
             </div>
         <cfelse>
             <div class="table-grid">
-            <cfloop array="#rows#" index="r">
-                <div class="tbl-card k-#r.k_state#">
+            <cfloop array="#rowGroupKeyOrder#" index="rgk">
+                <cfset rgrp = rowGroupsByKey[rgk]>
+                <!--- Card-level state = the "worst" state among its orders, so a table with
+                      one order still pending doesn't look done just because another order
+                      on it is already ready. --->
+                <cfset rgState = "ready">
+                <cfloop array="#rgrp.orders#" index="rgo">
+                    <cfif rgo.k_state eq "pending"><cfset rgState = "pending"></cfif>
+                    <cfif rgo.k_state eq "progress" AND rgState neq "pending"><cfset rgState = "progress"></cfif>
+                </cfloop>
+                <cfset rgMulti = arrayLen(rgrp.orders) gt 1>
+                <div class="tbl-card k-#rgState#">
                     <div class="tbl-top">
                         <div>
-                            <h3 class="tbl-title">Table #HTMLEditFormat(r.table_number)#</h3>
-                            <div class="tbl-sub">#timeFormat(r.created_at,'HH:mm')#</div>
+                            <h3 class="tbl-title"><cfif rgrp.is_takeaway>Take Away<cfelse>Table #HTMLEditFormat(rgrp.table_number)#</cfif></h3>
+                            <cfif rgMulti><div class="tbl-sub">#arrayLen(rgrp.orders)# active orders</div></cfif>
                         </div>
-                        <cfif r.k_state eq "ready">
+                        <cfif rgState eq "ready">
                             <span class="status-chip chip-ready">All Ready</span>
-                        <cfelseif r.k_state eq "progress">
+                        <cfelseif rgState eq "progress">
                             <span class="status-chip chip-progress">In Progress</span>
                         <cfelse>
                             <span class="status-chip chip-pending">Pending</span>
                         </cfif>
                     </div>
 
-                    <div class="tbl-row">
-                        <span>Order</span>
-                        <span style="font-size:11px;color:##6b7280;">&##&nbsp;#HTMLEditFormat(r.order_number)#</span>
-                    </div>
-                    <div class="tbl-row">
-                        <span>Total</span>
-                        <span><strong>Rp #numberFormat(r.total_amount,'9,990')#</strong></span>
-                    </div>
-                    <div class="tbl-row">
-                        <span>Progress</span>
-                        <span>#r.n_ready# / #r.n_total# ready</span>
-                    </div>
-
-                    <div class="tbl-actions">
-                        <cfloop array="#r.items#" index="oi">
-                            <cfset ks = lCase(trim(oi.kitchen_status))>
-                            <div class="item-block">
-                                <div class="item-name">#HTMLEditFormat(oi.item_name)#</div>
-                                <div class="item-qty">x#oi.quantity#</div>
-                                <div class="item-btns">
-                                    <form method="post" action="Orders.cfm" style="display:inline">
-                                        <input type="hidden" name="form_action" value="update_item">
-                                        <input type="hidden" name="item_id"    value="#oi.item_id#">
-                                        <input type="hidden" name="order_id"   value="#r.order_id#">
-                                        <input type="hidden" name="new_status" value="Pending">
-                                        <button type="submit" class="ks-btn ks-pending#(ks eq 'pending' ? ' active' : '')#">Pending</button>
-                                    </form>
-                                    <form method="post" action="Orders.cfm" style="display:inline">
-                                        <input type="hidden" name="form_action" value="update_item">
-                                        <input type="hidden" name="item_id"    value="#oi.item_id#">
-                                        <input type="hidden" name="order_id"   value="#r.order_id#">
-                                        <input type="hidden" name="new_status" value="In Progress">
-                                        <button type="submit" class="ks-btn ks-progress#(ks eq 'in progress' ? ' active' : '')#">Preparing</button>
-                                    </form>
-                                    <form method="post" action="Orders.cfm" style="display:inline">
-                                        <input type="hidden" name="form_action" value="update_item">
-                                        <input type="hidden" name="item_id"    value="#oi.item_id#">
-                                        <input type="hidden" name="order_id"   value="#r.order_id#">
-                                        <input type="hidden" name="new_status" value="Ready">
-                                        <button type="submit" class="ks-btn ks-ready#(ks eq 'ready' ? ' active' : '')#">Ready</button>
-                                    </form>
-                                </div>
+                    <cfloop array="#rgrp.orders#" index="r">
+                        <div class="order-sub">
+                            <div class="tbl-row">
+                                <span>Order</span>
+                                <span style="font-size:11px;color:##6b7280;">##&nbsp;#HTMLEditFormat(r.order_number)#
+                                    <cfif r.source_tag eq "waiter"><span class="src-tag src-waiter">Waiter POS</span></cfif>
+                                    <cfif r.source_tag eq "emenu"><span class="src-tag src-emenu">E-Menu</span></cfif>
+                                </span>
                             </div>
-                        </cfloop>
+                            <div class="tbl-row">
+                                <span>Total</span>
+                                <span><strong>Rp #numberFormat(r.total_amount,'9,990')#</strong></span>
+                            </div>
+                            <div class="tbl-row">
+                                <span>Progress</span>
+                                <span>#r.n_ready# / #r.n_total# ready</span>
+                            </div>
 
-                        <cfif r.k_state neq "ready">
-                        <form method="post" action="Orders.cfm">
-                            <input type="hidden" name="form_action" value="mark_order_ready">
-                            <input type="hidden" name="order_id"   value="#r.order_id#">
-                            <button type="submit" class="btn btn-success btn-sm btn-ready-all">Mark All Ready</button>
-                        </form>
-                        </cfif>
-                    </div>
+                            <div class="tbl-actions">
+                                <cfloop array="#r.items#" index="oi">
+                                    <cfset ks = lCase(trim(oi.kitchen_status))>
+                                    <div class="item-block">
+                                        <div class="item-name">#HTMLEditFormat(oi.item_name)#</div>
+                                        <div class="item-qty">x#oi.quantity#</div>
+                                        <div class="item-btns">
+                                            <form method="post" action="Orders.cfm" style="display:inline">
+                                                <input type="hidden" name="form_action" value="update_item">
+                                                <input type="hidden" name="item_id"    value="#oi.item_id#">
+                                                <input type="hidden" name="order_id"   value="#r.order_id#">
+                                                <input type="hidden" name="new_status" value="Pending">
+                                                <button type="submit" class="ks-btn ks-pending#(ks eq 'pending' ? ' active' : '')#">Pending</button>
+                                            </form>
+                                            <form method="post" action="Orders.cfm" style="display:inline">
+                                                <input type="hidden" name="form_action" value="update_item">
+                                                <input type="hidden" name="item_id"    value="#oi.item_id#">
+                                                <input type="hidden" name="order_id"   value="#r.order_id#">
+                                                <input type="hidden" name="new_status" value="In Progress">
+                                                <button type="submit" class="ks-btn ks-progress#(ks eq 'in progress' ? ' active' : '')#">Preparing</button>
+                                            </form>
+                                            <form method="post" action="Orders.cfm" style="display:inline">
+                                                <input type="hidden" name="form_action" value="update_item">
+                                                <input type="hidden" name="item_id"    value="#oi.item_id#">
+                                                <input type="hidden" name="order_id"   value="#r.order_id#">
+                                                <input type="hidden" name="new_status" value="Ready">
+                                                <button type="submit" class="ks-btn ks-ready#(ks eq 'ready' ? ' active' : '')#">Ready</button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </cfloop>
+
+                                <cfif r.k_state neq "ready">
+                                <form method="post" action="Orders.cfm">
+                                    <input type="hidden" name="form_action" value="mark_order_ready">
+                                    <input type="hidden" name="order_id"   value="#r.order_id#">
+                                    <button type="submit" class="btn btn-success btn-sm btn-ready-all">Mark All Ready</button>
+                                </form>
+                                </cfif>
+                            </div>
+                        </div>
+                    </cfloop>
                 </div>
             </cfloop>
             </div>
