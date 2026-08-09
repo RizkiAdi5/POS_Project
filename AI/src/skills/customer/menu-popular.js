@@ -7,7 +7,7 @@ const { getCompanyCurrency, roundMoney, withCurrency } = require('../../util/cur
 module.exports = {
   name: 'menu_popular',
   description: 'Guest-safe popular dishes — based on recent guest orders (counts only, no business revenue totals).',
-  params: { limit: 'integer 1..15, default 8', days: 'integer 1..60, default 30' },
+  params: { limit: 'integer, always capped at 5 regardless of what is requested', days: 'integer 1..60, default 30' },
   cacheTtlSec: 180,
   followups: [
     { label: 'Halal popular', question: 'What halal dishes are popular?' },
@@ -16,8 +16,9 @@ module.exports = {
     { label: 'Vegetarian', question: 'Show me vegetarian options.' },
   ],
   async run({ dts, params }) {
+    const MAX_RESULTS = 5;
     const currency = await getCompanyCurrency(dts);
-    const n = limit(params, 8);
+    const n = Math.min(limit(params, MAX_RESULTS), MAX_RESULTS);
     const days = Math.min(60, Math.max(1, parseInt(params.days, 10) || 30));
 
     const rows = await db.runQuery(dts, `
