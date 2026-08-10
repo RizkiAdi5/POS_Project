@@ -1,6 +1,7 @@
 'use strict';
 
 const { queryMenu } = require('./menu-utils');
+const { limit } = require('../../util/dates');
 
 module.exports = {
   name: 'menu_search',
@@ -8,16 +9,16 @@ module.exports = {
     'Browse or search the menu by category, keyword, or dietary flags (halal, vegetarian, spicy). ' +
     'For price limits or allergen avoidance, use menu_recommend instead.',
   params: {
-    category: 'optional string — exact category name',
-    keyword: 'optional string — search in name/description',
-    halal_only: 'optional boolean',
-    vegetarian_only: 'optional boolean',
-    spicy_only: 'optional boolean',
+    category: 'optional string — must exactly match one of MENU_CATEGORIES from the router prompt (e.g. "Main", "Drinks"). Omit if the guest\'s wording does not clearly match a real category.',
+    keyword: 'optional string or array of strings — search terms, matched against dish name/description/category (any term may match). For a food TYPE rather than one dish (e.g. "bread", "seafood"), pass an array including a few concrete related words (e.g. ["bread","pastry","croissant","baguette"]) since this is a plain substring match with no built-in synonyms. Fix obvious typos before searching.',
+    halal_only: 'optional boolean, tri-state: true = only halal, false = only NON-halal (e.g. "what is not halal"), omit = no filter.',
+    vegetarian_only: 'optional boolean, tri-state: true = only vegetarian, false = only non-vegetarian, omit = no filter.',
+    spicy_only: 'optional boolean, tri-state: true = only spicy, false = only non-spicy/mild, omit = no filter.',
     featured_only: 'optional boolean',
     max_price: 'optional number — max item price in company currency',
     min_price: 'optional number — min item price',
     exclude_allergens: 'optional string — allergens to avoid',
-    limit: 'integer 1..30, default 12',
+    limit: 'integer, always capped at 5 regardless of what is requested',
   },
   cacheTtlSec: 120,
   followups: [
@@ -27,6 +28,8 @@ module.exports = {
     { label: 'Popular dishes', question: 'What are the most popular dishes right now?' },
   ],
   async run({ dts, params }) {
-    return queryMenu({ dts, params, defaultLimit: 12 });
+    const MAX_RESULTS = 5;
+    const p = { ...params, limit: Math.min(limit(params, MAX_RESULTS), MAX_RESULTS) };
+    return queryMenu({ dts, params: p, defaultLimit: MAX_RESULTS });
   },
 };
