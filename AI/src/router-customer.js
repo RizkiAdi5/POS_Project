@@ -4,6 +4,7 @@ const customerSkills = require('./skills/customer');
 const { chat } = require('./deepseek');
 const { buildCustomerRouterMessages } = require('./prompts-customer');
 const { getCompanyCurrency } = require('./util/currency');
+const { getAvailableCategories } = require('./skills/customer/menu-utils');
 
 function safeParse(jsonText) {
   try {
@@ -15,17 +16,24 @@ function safeParse(jsonText) {
 
 async function pickCustomerSkill({ question, dts }) {
   let currency = null;
+  let categories = [];
   if (dts) {
     try {
       currency = await getCompanyCurrency(dts);
     } catch (_) {
       currency = null;
     }
+    try {
+      categories = await getAvailableCategories(dts);
+    } catch (_) {
+      categories = [];
+    }
   }
   const messages = buildCustomerRouterMessages({
     skillCatalog: customerSkills.listForRouter(),
     question,
     currency,
+    categories,
   });
   const { content } = await chat({ messages, jsonMode: true, temperature: 0, maxTokens: 300 });
   const parsed = safeParse(content);

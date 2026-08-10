@@ -1,7 +1,7 @@
 'use strict';
 
 const db = require('../../db');
-const { limit } = require('../../util/dates');
+const { limit, days: clampDays } = require('../../util/dates');
 const { getCompanyCurrency, roundMoney, withCurrency } = require('../../util/currency');
 
 const columnCache = new Map();
@@ -31,6 +31,37 @@ async function getMenuColumns(dts) {
 
 function truthyFlag(v) {
   return v === 'T' || v === 't' || v === 1 || v === true;
+}
+
+const categoryCache = new Map();
+
+/** Distinct e-menu category names for this branch, used to steer the router's category param onto a real value. */
+async function getAvailableCategories(dts) {
+  if (categoryCache.has(dts)) return categoryCache.get(dts);
+  let categories = [];
+  try {
+    const rows = await db.runQuery(dts, `
+      SELECT DISTINCT TRIM(CATEGORY) AS category
+      FROM icitem
+      WHERE is_avail = 'T' AND CATEGORY IS NOT NULL AND TRIM(CATEGORY) <> ''
+      ORDER BY category
+    `);
+    categories = rows.map((r) => String(r.category || '').trim()).filter(Boolean);
+  } catch (_) {
+    /* use empty list */
+  }
+  categoryCache.set(dts, categories);
+  return categories;
+}
+
+/**
+ * Tri-state dietary flag: true = only matching items, false = only NON-matching
+ * items (explicit negation, e.g. "not halal"), null/undefined = no filter.
+ */
+function triState(v) {
+  if (v === true || v === 'true' || v === 1 || v === '1') return true;
+  if (v === false || v === 'false' || v === 0 || v === '0') return false;
+  return null;
 }
 
 function effectivePriceExpr() {
@@ -67,6 +98,23 @@ function sanitizeMaxPrice(maxPrice, currency) {
     return { maxPrice: null, ignored: true, ignored_value: maxPrice };
   }
   return { maxPrice, ignored: false };
+}
+
+/**
+ * Splits a keyword ask into individual search terms so "bread or pastry" /
+ * "bread, pastry" matches EITHER word instead of being LIKE'd as one literal
+ * phrase that appears nowhere in the menu text. Accepts a string or an array
+ * (the router is encouraged to send an array of expanded terms directly).
+ */
+function parseKeywordTerms(raw) {
+  if (!raw) return [];
+  const items = Array.isArray(raw)
+    ? raw
+    : String(raw).split(/\s*(?:,|\/|;|\bor\b|\band\b)\s*/i);
+  return items
+    .map((s) => String(s).trim())
+    .filter(Boolean)
+    .slice(0, 6);
 }
 
 function parseAllergenList(raw) {
@@ -106,6 +154,46 @@ function expandAllergenTokens(tokens) {
   return [...out];
 }
 
+function normalizeSort(raw) {
+  const v = String(raw || '').toLowerCase().trim();
+  if (['popularity_high', 'popular', 'best_selling', 'most_ordered'].includes(v)) return 'popularity_high';
+  if (['popularity_low', 'least_popular', 'not_recommended', 'low_demand', 'rarely_ordered'].includes(v)) return 'popularity_low';
+  if (['price_desc', 'price_high', 'most_expensive', 'expensive', 'priciest', 'highest_price'].includes(v)) return 'price_desc';
+  return 'price_asc';
+}
+
+/**
+ * Order counts per item over a trailing window, keyed both by item_code and
+ * lowercased item name — icitem/app_order_items linkage is inconsistent across
+ * branches so callers should try item_code first and fall back to name.
+ */
+async function getOrderCounts(dts, days) {
+  const rows = await db.runQuery(dts, `
+    SELECT i.item_code AS item_code, i.item_name AS item_name, COUNT(*) AS times_ordered
+    FROM app_order_items i
+    INNER JOIN app_orders o ON o.order_id = i.order_id
+    WHERE o.status NOT IN ('cancelled')
+      AND o.created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
+    GROUP BY i.item_code, i.item_name
+  `, [days]);
+  const byCode = new Map();
+  const byName = new Map();
+  rows.forEach((r) => {
+    const count = parseInt(r.times_ordered, 10) || 0;
+    if (r.item_code != null && String(r.item_code).trim()) byCode.set(String(r.item_code).trim(), count);
+    if (r.item_name != null && String(r.item_name).trim()) byName.set(String(r.item_name).trim().toLowerCase(), count);
+  });
+  return { byCode, byName };
+}
+
+function lookupOrderCount(counts, itemCode, itemName) {
+  const code = itemCode != null ? String(itemCode).trim() : '';
+  if (code && counts.byCode.has(code)) return counts.byCode.get(code);
+  const name = String(itemName || '').trim().toLowerCase();
+  if (name && counts.byName.has(name)) return counts.byName.get(name);
+  return 0;
+}
+
 function mapMenuRow(r, currency) {
   const price = parseFloat(r.price) || 0;
   const promo = parseFloat(r.promo_price) || 0;
@@ -136,25 +224,40 @@ async function queryMenu({ dts, params, defaultLimit }) {
   const binds = [];
 
   if (params.category && String(params.category).trim()) {
-    clauses.push('TRIM(CATEGORY) = ?');
+    clauses.push('LOWER(TRIM(CATEGORY)) = LOWER(?)');
     binds.push(String(params.category).trim());
   }
-  if (params.halal_only === true || params.halal_only === 'true' || params.halal_only === 1) {
-    clauses.push("is_halal = 'T'");
-  }
-  if (params.vegetarian_only === true || params.vegetarian_only === 'true' || params.vegetarian_only === 1) {
-    clauses.push("is_veg = 'T'");
-  }
-  if (params.spicy_only === true || params.spicy_only === 'true' || params.spicy_only === 1) {
-    clauses.push("is_spicy = 'T'");
-  }
+  const halalState = triState(params.halal_only);
+  if (halalState === true) clauses.push("is_halal = 'T'");
+  else if (halalState === false) clauses.push("COALESCE(is_halal, '') <> 'T'");
+
+  const vegState = triState(params.vegetarian_only);
+  if (vegState === true) clauses.push("is_veg = 'T'");
+  else if (vegState === false) clauses.push("COALESCE(is_veg, '') <> 'T'");
+
+  const spicyState = triState(params.spicy_only);
+  if (spicyState === true) clauses.push("is_spicy = 'T'");
+  else if (spicyState === false) clauses.push("COALESCE(is_spicy, '') <> 'T'");
+
   if (params.featured_only === true || params.featured_only === 'true' || params.featured_only === 1) {
     clauses.push("is_feat = 'T'");
   }
-  if (params.keyword && String(params.keyword).trim()) {
-    const kw = '%' + String(params.keyword).trim().slice(0, 80) + '%';
-    clauses.push('(DESP LIKE ? OR COALESCE(`comment`,\'\') LIKE ? OR CATEGORY LIKE ?)');
-    binds.push(kw, kw, kw);
+  const keywordTerms = parseKeywordTerms(params.keyword);
+  if (keywordTerms.length) {
+    const orParts = [];
+    keywordTerms.forEach((term) => {
+      const clean = term.slice(0, 80).replace(/[%_]/g, '');
+      const kw = '%' + clean + '%';
+      orParts.push('DESP LIKE ?', 'COALESCE(`comment`,\'\') LIKE ?', 'CATEGORY LIKE ?');
+      binds.push(kw, kw, kw);
+      // SOUNDEX catches common misspellings (e.g. "bred" -> same code as "bread")
+      // that a plain LIKE substring match would miss.
+      if (clean.length >= 3) {
+        orParts.push('SOUNDEX(DESP) = SOUNDEX(?)');
+        binds.push(clean);
+      }
+    });
+    clauses.push(`(${orParts.join(' OR ')})`);
   }
 
   const rawMaxPrice = parsePriceParam(params, ['max_price', 'max_price_rm'], currency);
@@ -189,10 +292,35 @@ async function queryMenu({ dts, params, defaultLimit }) {
     });
   }
 
-  binds.push(n);
+  // Positive lookup — guest is asking which dishes DO contain an allergen
+  // (e.g. "what has nuts in it"), the opposite intent of exclude_allergens.
+  const containsAllergens = expandAllergenTokens(
+    parseAllergenList(params.contains_allergens || params.include_allergens)
+  );
+  if (containsAllergens.length && cols.hasAllergens) {
+    const orParts = containsAllergens.map(() => 'LOWER(allergens) LIKE ?');
+    clauses.push(`(${orParts.join(' OR ')})`);
+    containsAllergens.forEach((token) => {
+      binds.push('%' + token.replace(/[%_]/g, '') + '%');
+    });
+  } else if (containsAllergens.length && !cols.hasAllergens) {
+    // No allergen data on this menu — force an empty result rather than
+    // silently returning unrelated items that look like a safety answer.
+    clauses.push('1 = 0');
+  }
+
+  const sortMode = normalizeSort(params.sort);
+  const days = clampDays(params, 30);
+  const isPopularitySort = sortMode === 'popularity_high' || sortMode === 'popularity_low';
+  // Popularity sorting happens in JS after fetching a wider candidate set,
+  // since it depends on order-history counts the SQL ORDER BY can't see.
+  // Price sorting (either direction) is done directly in SQL below.
+  const fetchCap = isPopularitySort ? Math.max(n, 200) : n;
+  binds.push(fetchCap);
 
   const promoSelect = cols.hasPromoPrice ? 'COALESCE(promo_price, 0) AS promo_price,' : '0 AS promo_price,';
   const allergenSelect = cols.hasAllergens ? 'COALESCE(allergens, \'\') AS allergens,' : '\'\' AS allergens,';
+  const priceDir = sortMode === 'price_desc' ? 'DESC' : 'ASC';
 
   const rows = await db.runQuery(dts, `
     SELECT ITEMNO AS item_code, DESP AS display_name, CATEGORY AS category, sub_cat AS sub_category,
@@ -203,34 +331,54 @@ async function queryMenu({ dts, params, defaultLimit }) {
            COALESCE(prep_time, 0) AS prep_time
     FROM icitem
     WHERE ${clauses.join(' AND ')}
-    ORDER BY ${cols.hasPromoPrice ? effectivePriceExpr() : 'COALESCE(PRICE, 0)'} ASC, sort_ord ASC, DESP ASC
+    ORDER BY ${cols.hasPromoPrice ? effectivePriceExpr() : 'COALESCE(PRICE, 0)'} ${priceDir}, sort_ord ASC, DESP ASC
     LIMIT ?
   `, binds);
 
-  const items = rows.map((r) => mapMenuRow(r, currency));
+  let items = rows.map((r) => mapMenuRow(r, currency));
+
+  if (isPopularitySort) {
+    const counts = await getOrderCounts(dts, days);
+    items = items.map((it, idx) => ({
+      ...it,
+      times_ordered: lookupOrderCount(counts, rows[idx].item_code, rows[idx].display_name),
+    }));
+    items.sort((a, b) => (sortMode === 'popularity_low' ? a.times_ordered - b.times_ordered : b.times_ordered - a.times_ordered));
+    items = items.slice(0, n);
+  }
 
   const notes = [];
   if (excludeAllergens.length && !cols.hasAllergens) {
     notes.push('Allergen column not available on menu; only dietary flags (halal/vegetarian) were applied.');
+  }
+  if (containsAllergens.length && !cols.hasAllergens) {
+    notes.push('Allergen data is not recorded on this menu, so I cannot confirm which dishes contain it — please check with staff.');
   }
   if (maxPriceIgnored) {
     notes.push(
       `Price cap ${ignoredMaxPrice} is unrealistically low for ${currency.code || 'this currency'}; showing lowest-priced dishes instead.`
     );
   }
+  if (sortMode === 'popularity_low') {
+    notes.push(`Ranked by fewest orders in the last ${days} days — includes items that may simply be new or niche, not necessarily poor quality.`);
+  }
 
   return withCurrency(dts, {
     filter: {
       category: params.category || null,
       keyword: params.keyword || null,
+      keyword_terms: keywordTerms,
       max_price: maxPrice,
       min_price: minPrice,
       exclude_allergens: excludeAllergens,
-      halal_only: !!params.halal_only,
-      vegetarian_only: !!params.vegetarian_only,
-      spicy_only: !!params.spicy_only,
+      contains_allergens: containsAllergens,
+      halal_only: halalState,
+      vegetarian_only: vegState,
+      spicy_only: spicyState,
       featured_only: !!params.featured_only,
       budget_mode: !!maxPriceIgnored,
+      sort: sortMode,
+      window_days: isPopularitySort ? days : null,
     },
     count: items.length,
     items,
@@ -241,10 +389,15 @@ async function queryMenu({ dts, params, defaultLimit }) {
 
 module.exports = {
   getMenuColumns,
+  getAvailableCategories,
   queryMenu,
   parsePriceParam,
   sanitizeMaxPrice,
   parseAllergenList,
+  parseKeywordTerms,
   expandAllergenTokens,
   mapMenuRow,
+  normalizeSort,
+  getOrderCounts,
+  lookupOrderCount,
 };
