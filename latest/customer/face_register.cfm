@@ -86,10 +86,10 @@
         <div style="background:#fef3c7; border:1.5px solid #fbbf24; border-radius:10px;
                     padding:10px 12px; margin-bottom:16px; font-size:13px; color:#92400e;
                     text-align:left; line-height:1.5;">
-            <strong>DEBUG MODE</strong><br>
-            Readings are uploaded for review and <strong>nothing is saved</strong>.
-            To actually register your face, open this page without
-            <code>?debug=1</code>.
+            <strong>DEBUG PANEL ON</strong><br>
+            Gate readings are shown on screen during capture. Your face
+            <strong>is still saved normally</strong> — readings upload on every
+            enrolment now, with or without this flag.
         </div>
     </cfif>
 
@@ -177,20 +177,29 @@ var POSES = [
    your lowest impostor reading. */
 var SAME_PERSON_MAX = 0.45;
 
-var FACE_DEBUG = <cfoutput>#(val(url.debug) gt 0) ? "true" : "false"#</cfoutput>;
+/* Diagnostics are collected and uploaded on EVERY enrolment while the gate
+   thresholds are being tuned, so an ordinary QR-scan run produces readings
+   without anyone needing a special URL. Enrolment saves exactly as normal.
+   ?debug=1 only adds the on-screen panel.
+   TEMPORARY — drop DIAG_ON to false (and delete face_debug_log.cfm) once the
+   thresholds are settled. */
+var DIAG_ON    = true;
+var SHOW_PANEL = <cfoutput>#(val(url.debug) gt 0) ? "true" : "false"#</cfoutput>;
 
 var lastDiagAt = 0;
 var diagBuffer = [];
 var uploadedLines = 0;
 
 function setUploadStatus(msg) {
+    if (!SHOW_PANEL) { return; }
     var el = document.getElementById('cap-upload');
     if (el) { el.style.display = 'block'; el.textContent = 'debug log: ' + msg; }
 }
 
 function debugLog(line) {
-    if (!FACE_DEBUG) { return; }
+    if (!DIAG_ON) { return; }
     diagBuffer.push(line);
+    if (!SHOW_PANEL) { return; }
     var el = document.getElementById('cap-debug');
     if (!el) { return; }
     el.style.display = 'block';
@@ -201,7 +210,7 @@ function debugLog(line) {
 /* The readings scroll past faster than anyone can read while posing, so
    they are also shipped to face_debug_log.cfm for review afterwards. */
 function flushDiag() {
-    if (!FACE_DEBUG || diagBuffer.length === 0) { return; }
+    if (!DIAG_ON || diagBuffer.length === 0) { return; }
     var count = diagBuffer.length;
     var body = 'lines=' + encodeURIComponent(diagBuffer.join('\n'));
     diagBuffer = [];
@@ -297,7 +306,7 @@ function runPose() {
         },
         onDiag: function (g, wantPose, streak) {
             /* Throttled so the panel stays readable at ~5 fps of detection. */
-            if (!FACE_DEBUG) { return; }
+            if (!DIAG_ON) { return; }
             var now = Date.now();
             if (now - lastDiagAt < 700) { return; }
             lastDiagAt = now;
@@ -364,7 +373,7 @@ function finishCapture() {
     var yaws = capTemplates.map(function (t) { return t.yaw; });
     var spread = Math.max.apply(null, yaws) - Math.min.apply(null, yaws);
 
-    if (FACE_DEBUG) {
+    if (DIAG_ON) {
         debugLog('--- all pairwise distances ---');
         for (var x = 0; x < capTemplates.length; x++) {
             for (var y = x + 1; y < capTemplates.length; y++) {
@@ -384,13 +393,7 @@ function finishCapture() {
         return;
     }
 
-    if (FACE_DEBUG) {
-        flushDiag();
-        setTitle('Debug run complete');
-        setSub('Readings are above — nothing was saved. Reload without ?debug=1 to enrol.');
-        setStatus('');
-        return;
-    }
+    flushDiag();
 
     setTitle('All done');
     setSub('Saving your face profile…');
