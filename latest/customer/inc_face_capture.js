@@ -234,7 +234,20 @@ var FaceCapture = (function () {
         for (i = 0; i < 128; i++) {
             var acc = 0;
             for (k = 0; k < n; k++) { acc += list[k][i]; }
-            out[i] = acc / n;
+            /* Rounded to 5 decimals, which is a transport fix, not cosmetic.
+               Full double precision serialises each value as ~18 characters,
+               making a 3-template payload ~8000 bytes of JSON and ~8800 once
+               form-encoded. The AJP connector in front of ColdFusion has no
+               packetSize set, so it uses the 8192-byte default, and a body
+               over that resets the connection — which surfaced as an
+               intermittent "network connection error" right after capture,
+               succeeding for one enrolment and failing for the next.
+
+               5 decimals holds precision to 1e-5 per element, at most ~6e-5
+               over the whole 128-value distance, against a 0.5 threshold.
+               Descriptors stored and compared both pass through here, so
+               enrolment and login stay on identical values. */
+            out[i] = Math.round((acc / n) * 100000) / 100000;
         }
         return out;
     }
