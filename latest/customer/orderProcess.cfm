@@ -11,6 +11,29 @@
 <cfif NOT len(trim(SESSION.emenu_table_id))>
     <cflocation url="/latest/customer/qr_error.cfm" addtoken="false">
 </cfif>
+<!--- Recover the table's open order if the session lost it. The order is a
+      property of the table's QR session, so as long as table context is
+      intact it can be re-resolved rather than failing the customer. Without
+      this, anything that drops emenu_order_id mid-visit silently costs the
+      customer their cart. --->
+<cfif val(SESSION.emenu_order_id) lte 0>
+    <cftry>
+        <cfquery name="qRebind" datasource="#dts#">
+            SELECT order_id, order_number
+            FROM   app_orders
+            WHERE  table_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#val(SESSION.emenu_table_id)#">
+              AND  status NOT IN ('paid','cancelled','completed')
+            ORDER  BY created_at DESC
+            LIMIT  1
+        </cfquery>
+        <cfif qRebind.recordCount>
+            <cfset SESSION.emenu_order_id     = val(qRebind.order_id)>
+            <cfset SESSION.emenu_order_number = trim(qRebind.order_number)>
+        </cfif>
+        <cfcatch type="any"></cfcatch>
+    </cftry>
+</cfif>
+
 <cfif SESSION.emenu_cart_locked eq true OR val(SESSION.emenu_order_id) lte 0>
     <cflocation url="/latest/customer/menu.cfm?msg=order_already_submitted" addtoken="false">
 </cfif>
