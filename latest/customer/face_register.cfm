@@ -168,14 +168,19 @@ var POSES = [
 /* Max distance a later pose may sit from the first pose and still be
    accepted as the same person.
 
-   PROVISIONAL. 0.55 was set from frontal-to-frontal impostor readings, but
-   these are cross-pose comparisons (centre vs turned), where genuine
-   distance is larger and the impostor gap is correspondingly narrower — a
-   real impostor cleared 0.55 in testing. Load this page with ?debug=1 to
-   read the measured distance for each pose, then set this from your own
-   numbers: comfortably above your own worst solo pose, comfortably below
-   your lowest impostor reading. */
-var SAME_PERSON_MAX = 0.45;
+   Set from measurement, not inference. Across three completed enrolments
+   the worst genuine cross-pose distance was 0.3238:
+
+     run 1   0.2923 / 0.3238 / 0.2656
+     run 2   0.1949 / 0.2523 / 0.2761
+     run 3   0.1183 / 0.1732 / 0.1868
+
+   0.40 leaves 0.076 of headroom above that worst case. On the other side,
+   an impostor cleared the earlier 0.55 setting, and the five original
+   enrolments sat 0.61 to 0.88 apart frontally, so 0.40 rejects a different
+   face with room to spare. Raise it only if an honest enrolment is ever
+   bounced — the diagnostic log records every pose distance. */
+var SAME_PERSON_MAX = 0.40;
 
 /* Diagnostics are collected and uploaded on EVERY enrolment while the gate
    thresholds are being tuned, so an ordinary QR-scan run produces readings

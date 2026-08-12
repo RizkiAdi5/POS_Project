@@ -292,6 +292,17 @@
         </cftry>
     </cfloop>
 
+    <!--- TEMPORARY — records what an actual login attempt measured. The
+          enrolment side is well covered by readings now, but nothing has
+          ever captured a real login distance, which is what the 0.5
+          threshold should be set from. Remove with face_debug_log.cfm. --->
+    <cftry>
+        <cfset traceStamp = dateFormat(now(), "yyyy-mm-dd") & " " & timeFormat(now(), "HH:mm:ss")>
+        <cffile action="append" file="#getTempDirectory()#face_debug.log" charset="utf-8"
+                output="[#traceStamp#] FACE_LOGIN enrolled=#qFaceUsers.recordCount# best=#numberFormat(bestDist, '0.0000')# second=#numberFormat(secondDist, '0.0000')# matched=#matchedCustNo# (#matchedName#) threshold=#threshold# margin=#matchMargin# verdict=#((bestDist lte threshold AND len(matchedCustNo)) ? 'PASS' : 'REJECT-distance')#">
+        <cfcatch type="any"></cfcatch>
+    </cftry>
+
     <cfif bestDist gt threshold OR NOT len(matchedCustNo)>
         <cfset loginError("Face not recognised. Please try again or use email login.")>
     </cfif>
