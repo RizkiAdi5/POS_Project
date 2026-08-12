@@ -90,6 +90,122 @@
     <cfreturn out>
 </cffunction>
 
+<cffunction name="emenuCheckStockSufficient" output="false" returntype="struct">
+    <!--- Sums required raw-material qty across all cart lines (via app_menu_recipes) and
+          compares against live app_raw_materials.stock_qty. Cart items with no recipe rows
+          are unrestricted (backward compatible with menu items that have no BOM defined). --->
+    <cfargument name="dsn" type="string" required="true">
+    <cfargument name="cartItems" type="array" required="true">
+    <cfargument name="dbPrices" type="struct" required="true">
+    <cfset var out = { "ok" = true, "shortages" = [] }>
+    <cfset var required = StructNew()>
+    <cfset var ci = "">
+    <cfset var midKey = "">
+    <cfset var itemCode = "">
+    <cfset var qty = 0>
+    <cfset var qRecipe = "">
+    <cfset var matId = "">
+    <cfset var qStock = "">
+    <cfset var neededQty = 0>
+    <cfset var shortage = "">
+    <cftry>
+        <cfloop array="#arguments.cartItems#" index="ci">
+            <cfset midKey = trim(ci.id)>
+            <cfif NOT structKeyExists(arguments.dbPrices, midKey)><cfcontinue></cfif>
+            <cfset itemCode = arguments.dbPrices[midKey].item_code>
+            <cfset qty = val(ci.qty)>
+            <cfif qty lte 0><cfcontinue></cfif>
+
+            <cfquery name="qRecipe" datasource="#arguments.dsn#">
+                SELECT material_id, qty_per_unit
+                FROM   app_menu_recipes
+                WHERE  item_code = <cfqueryparam cfsqltype="cf_sql_varchar" value="#itemCode#">
+            </cfquery>
+            <cfloop query="qRecipe">
+                <cfset matId = qRecipe.material_id>
+                <cfset required[matId] = (structKeyExists(required, matId) ? required[matId] : 0) + (qRecipe.qty_per_unit * qty)>
+            </cfloop>
+        </cfloop>
+
+        <cfif structCount(required) eq 0><cfreturn out></cfif>
+
+        <cfquery name="qStock" datasource="#arguments.dsn#">
+            SELECT material_id, material_name, stock_qty
+            FROM   app_raw_materials
+            WHERE  material_id IN (<cfqueryparam cfsqltype="cf_sql_integer" value="#structKeyList(required)#" list="true">)
+        </cfquery>
+        <cfloop query="qStock">
+            <cfset neededQty = required[qStock.material_id]>
+            <cfif val(qStock.stock_qty) lt neededQty>
+                <cfset shortage = { "material_name" = qStock.material_name, "needed" = neededQty, "available" = val(qStock.stock_qty) }>
+                <cfset arrayAppend(out.shortages, shortage)>
+            </cfif>
+        </cfloop>
+        <cfif arrayLen(out.shortages)><cfset out.ok = false></cfif>
+        <!--- Fail open on unexpected errors (e.g. tables not yet migrated) so a bug in
+              stock-checking never blocks the whole order flow. --->
+        <cfcatch type="any"><cfset out.ok = true><cfset out.shortages = []></cfcatch>
+    </cftry>
+    <cfreturn out>
+</cffunction>
+
+<cffunction name="emenuDeductMaterialsForOrderItem" output="false" returntype="struct">
+    <!--- Called when the kitchen/waiter marks an order-item as being prepared. Expands the
+          item's recipe (app_menu_recipes) and decrements app_raw_materials.stock_qty,
+          logging each deduction to app_material_usage_log. Guarded by
+          app_order_items.materials_deducted so re-clicking a status (or the item moving
+          Pending -> In Progress -> Pending -> In Progress) never double-deducts. --->
+    <cfargument name="dsn" type="string" required="true">
+    <cfargument name="itemId" type="numeric" required="true">
+    <cfset var out = { "ok" = true }>
+    <cfset var qItem = "">
+    <cfset var qRecipe = "">
+    <cfset var useQty = 0>
+    <cfif arguments.itemId lte 0><cfreturn out></cfif>
+    <cftry>
+        <cfquery name="qItem" datasource="#arguments.dsn#">
+            SELECT order_id, item_code, quantity, materials_deducted
+            FROM   app_order_items
+            WHERE  item_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#arguments.itemId#">
+        </cfquery>
+        <cfif qItem.recordCount eq 0 OR lCase(trim(qItem.materials_deducted)) eq "y">
+            <cfreturn out>
+        </cfif>
+
+        <cfquery name="qRecipe" datasource="#arguments.dsn#">
+            SELECT material_id, qty_per_unit
+            FROM   app_menu_recipes
+            WHERE  item_code = <cfqueryparam cfsqltype="cf_sql_varchar" value="#trim(qItem.item_code)#">
+        </cfquery>
+
+        <cfloop query="qRecipe">
+            <cfset useQty = qRecipe.qty_per_unit * val(qItem.quantity)>
+            <cfquery datasource="#arguments.dsn#">
+                UPDATE app_raw_materials
+                SET    stock_qty = GREATEST(stock_qty - <cfqueryparam cfsqltype="cf_sql_decimal" scale="3" value="#useQty#">, 0)
+                WHERE  material_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#qRecipe.material_id#">
+            </cfquery>
+            <cfquery datasource="#arguments.dsn#">
+                INSERT INTO app_material_usage_log (order_id, item_id, material_id, qty_used)
+                VALUES (
+                    <cfqueryparam cfsqltype="cf_sql_integer" value="#val(qItem.order_id)#">,
+                    <cfqueryparam cfsqltype="cf_sql_integer" value="#arguments.itemId#">,
+                    <cfqueryparam cfsqltype="cf_sql_integer" value="#qRecipe.material_id#">,
+                    <cfqueryparam cfsqltype="cf_sql_decimal" scale="3" value="#useQty#">
+                )
+            </cfquery>
+        </cfloop>
+
+        <cfquery datasource="#arguments.dsn#">
+            UPDATE app_order_items
+            SET    materials_deducted = 'Y'
+            WHERE  item_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#arguments.itemId#">
+        </cfquery>
+        <cfcatch type="any"><cfset out.ok = false></cfcatch>
+    </cftry>
+    <cfreturn out>
+</cffunction>
+
 <cffunction name="emenuAwardLoyaltyPoints" output="false" returntype="numeric">
     <cfargument name="dsn" type="string" required="true">
     <cfargument name="custno" type="string" required="true">

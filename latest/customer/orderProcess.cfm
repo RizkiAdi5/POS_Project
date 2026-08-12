@@ -99,6 +99,14 @@
 <cfset isLoyalty = (SESSION.emenu_loggedin eq "Yes" AND len(trim(SESSION.emenu_custno)))>
 <cfset custno    = isLoyalty ? trim(SESSION.emenu_custno) : "">
 
+<!--- ── Block the order if a required raw material doesn't have enough stock ──
+      Runs before any DB write below, so a rejected order leaves no partial state. --->
+<cfset stockCheck = emenuCheckStockSufficient(dts, cartItems, dbPrices)>
+<cfif NOT stockCheck.ok>
+    <cfset SESSION.emenu_stock_shortages = stockCheck.shortages>
+    <cflocation url="/latest/customer/menu.cfm?stockErr=1" addtoken="false">
+</cfif>
+
 <!--- ── UPDATE session app_orders (placeholder -> real cart) ── --->
 <cftry>
     <cfquery datasource="#dts#">

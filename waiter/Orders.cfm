@@ -1,5 +1,6 @@
 <cfprocessingdirective pageencoding="UTF-8">
 <cfinclude template="../application.cfm">
+<cfinclude template="../latest/customer/inc_emenu_order.cfm">
 <cfsetting enablecfoutputonly="false">
 <cfsetting showdebugoutput="false">
 
@@ -147,6 +148,13 @@
                     <cfif form.new_status eq "Ready">, prepared_at = NOW()</cfif>
                     WHERE  item_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#form.item_id#">
                 </cfquery>
+
+                <!--- Deduct recipe raw materials once prep starts (idempotent: guarded by
+                      app_order_items.materials_deducted, so re-clicking never double-deducts). --->
+                <cfif listFindNoCase("In Progress,Ready", form.new_status)>
+                    <cfset emenuDeductMaterialsForOrderItem(dts, val(form.item_id))>
+                </cfif>
+
                 <cfquery name="qCheck" datasource="#dts#">
                     SELECT COUNT(*) AS total,
                            SUM(CASE WHEN status = 'Ready' THEN 1 ELSE 0 END) AS ready_count
@@ -176,6 +184,17 @@
                 UPDATE app_orders SET status = 'ready'
                 WHERE  order_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#form.order_id#">
             </cfquery>
+
+            <!--- Deduct recipe raw materials for any item that skipped "In Progress"
+                  (idempotent: guarded by app_order_items.materials_deducted). --->
+            <cfquery name="qReadyItems" datasource="#dts#">
+                SELECT item_id FROM app_order_items
+                WHERE  order_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#form.order_id#">
+            </cfquery>
+            <cfloop query="qReadyItems">
+                <cfset emenuDeductMaterialsForOrderItem(dts, val(qReadyItems.item_id))>
+            </cfloop>
+
             <cfset flashMsg = "Order marked as Ready.">
             <cfcatch type="any"><cfset flashErr = left(cfcatch.message,200)></cfcatch>
         </cftry>

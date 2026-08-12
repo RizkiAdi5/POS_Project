@@ -267,6 +267,25 @@
 </head>
 <body>
 
+<cfif IsDefined("url.stockErr") AND url.stockErr EQ "1">
+    <cfoutput>
+    <div style="background:##fee2e2;color:##991b1b;padding:12px 16px;margin:0 0 8px;font-size:14px;">
+        <strong>Sorry, we're out of stock for:</strong>
+        <cfif isDefined("SESSION.emenu_stock_shortages") AND isArray(SESSION.emenu_stock_shortages) AND arrayLen(SESSION.emenu_stock_shortages)>
+            <ul style="margin:6px 0 0 18px;padding:0;">
+                <cfloop array="#SESSION.emenu_stock_shortages#" index="shortage">
+                    <li>#HTMLEditFormat(shortage.material_name)# (need #NumberFormat(shortage.needed,"0.000")#, #NumberFormat(shortage.available,"0.000")# available)</li>
+                </cfloop>
+            </ul>
+        <cfelse>
+            One or more items in your order.
+        </cfif>
+        Please adjust your cart quantity.
+    </div>
+    </cfoutput>
+    <cfset structDelete(SESSION, "emenu_stock_shortages")>
+</cfif>
+
 <!--- ===== HEADER ===== --->
 <div class="top-header">
     <div class="header-row">
