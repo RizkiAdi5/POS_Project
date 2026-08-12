@@ -208,16 +208,36 @@ function debugLog(line) {
 }
 
 /* The readings scroll past faster than anyone can read while posing, so
-   they are also shipped to face_debug_log.cfm for review afterwards. */
-function flushDiag() {
+   they are also shipped to face_debug_log.cfm for review afterwards.
+
+   final=true is used when the page is about to navigate. It sends via
+   sendBeacon, which the browser hands off and forgets. A fetch() started
+   as the page unloads is not guaranteed to be delivered, and over a
+   tunnel with few concurrent connections it can leave the navigation
+   queued behind it — which showed up as registration appearing to hang
+   until the page was refreshed by hand. */
+var DIAG_URL = '/latest/customer/face_debug_log.cfm';
+
+function flushDiag(final) {
     if (!DIAG_ON || diagBuffer.length === 0) { return; }
     var count = diagBuffer.length;
     var body = 'lines=' + encodeURIComponent(diagBuffer.join('\n'));
     diagBuffer = [];
+
+    if (final) {
+        try {
+            if (navigator.sendBeacon) {
+                navigator.sendBeacon(DIAG_URL, new Blob([body],
+                    { type: 'application/x-www-form-urlencoded' }));
+            }
+        } catch (e) { /* diagnostics must never hold up navigation */ }
+        return;
+    }
+
     /* Report the upload result on screen — otherwise a silently failing
        fetch looks identical to never having run at all. */
     try {
-        fetch('/latest/customer/face_debug_log.cfm', {
+        fetch(DIAG_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: body,
@@ -236,8 +256,9 @@ function flushDiag() {
         setUploadStatus('UPLOAD FAILED: ' + e.message);
     }
 }
-setInterval(flushDiag, 2000);
-window.addEventListener('beforeunload', flushDiag);
+
+var diagTimer = setInterval(flushDiag, 2000);
+window.addEventListener('beforeunload', function () { flushDiag(true); });
 
 /* Set from the centre pose; the turned poses are judged relative to it. */
 var neutralYaw  = null;
@@ -406,7 +427,11 @@ function finishCapture() {
         return;
     }
 
-    flushDiag();
+    /* Stop the periodic upload and hand the remaining lines to sendBeacon
+       before navigating, so no diagnostic request is competing with the
+       form POST or with the redirect that follows it. */
+    clearInterval(diagTimer);
+    flushDiag(true);
 
     setTitle('All done');
     setSub('Saving your face profile…');
