@@ -8,6 +8,11 @@
 <cfif SESSION.emenu_loggedin neq "Yes">
     <cflocation url="/latest/customer/login.cfm" addtoken="false">
 </cfif>
+
+<!--- ?debug=1 shows the measured distance for every pose, so the
+      same-person threshold can be set from real readings rather than
+      guessed. Off unless explicitly requested. --->
+<cfparam name="url.debug" default="0">
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -119,6 +124,11 @@
             <div class="cap-status" id="cap-status"></div>
         </div>
 
+        <div id="cap-debug" style="display:none; text-align:left; font-family:monospace;
+             font-size:11px; line-height:1.5; background:#111827; color:#a7f3d0;
+             border-radius:8px; padding:8px 10px; margin-bottom:12px;
+             max-height:150px; overflow-y:auto;"></div>
+
         <button type="button" class="cap-cancel" onclick="closeFaceModal()">Cancel</button>
     </div>
 </div>
@@ -142,8 +152,27 @@ var POSES = [
 ];
 
 /* Max distance a later pose may sit from the first pose and still be
-   accepted as the same person. Tune here if legitimate users get bounced. */
-var SAME_PERSON_MAX = 0.55;
+   accepted as the same person.
+
+   PROVISIONAL. 0.55 was set from frontal-to-frontal impostor readings, but
+   these are cross-pose comparisons (centre vs turned), where genuine
+   distance is larger and the impostor gap is correspondingly narrower — a
+   real impostor cleared 0.55 in testing. Load this page with ?debug=1 to
+   read the measured distance for each pose, then set this from your own
+   numbers: comfortably above your own worst solo pose, comfortably below
+   your lowest impostor reading. */
+var SAME_PERSON_MAX = 0.45;
+
+var FACE_DEBUG = <cfoutput>#(val(url.debug) gt 0) ? "true" : "false"#</cfoutput>;
+
+function debugLog(line) {
+    if (!FACE_DEBUG) { return; }
+    var el = document.getElementById('cap-debug');
+    if (!el) { return; }
+    el.style.display = 'block';
+    el.innerHTML += line + '<br>';
+    el.scrollTop = el.scrollHeight;
+}
 
 var capStream   = null;
 var capActive   = false;
@@ -217,6 +246,9 @@ function runPose() {
                so 0.55 separates them with room to spare. */
             if (capTemplates.length > 0) {
                 var d = FaceCapture.distance(capTemplates[0].d, result.descriptor);
+                debugLog('pose ' + (capIndex + 1) + ' (' + step.pose + ') vs pose 1 = ' +
+                         d.toFixed(4) + (d > SAME_PERSON_MAX ? '  REJECT' : '  accept') +
+                         '  [limit ' + SAME_PERSON_MAX + ']');
                 if (d > SAME_PERSON_MAX) {
                     setRing(0);
                     setStatus('');
@@ -254,9 +286,28 @@ function finishCapture() {
        right poses. A printed photo or a face on a screen cannot do this. */
     var yaws = capTemplates.map(function (t) { return t.yaw; });
     var spread = Math.max.apply(null, yaws) - Math.min.apply(null, yaws);
+
+    if (FACE_DEBUG) {
+        debugLog('--- all pairwise distances ---');
+        for (var x = 0; x < capTemplates.length; x++) {
+            for (var y = x + 1; y < capTemplates.length; y++) {
+                debugLog(capTemplates[x].pose + ' vs ' + capTemplates[y].pose + ' = ' +
+                    FaceCapture.distance(capTemplates[x].d, capTemplates[y].d).toFixed(4));
+            }
+        }
+        debugLog('yaw spread = ' + spread.toFixed(4) + '  [min 0.18]');
+        debugLog('yaws: ' + yaws.map(function (v) { return v.toFixed(3); }).join(', '));
+    }
     if (spread < 0.18) {
         setTitle('Could not verify');
         setSub('We could not detect real head movement. Please try again in good light.');
+        setStatus('');
+        return;
+    }
+
+    if (FACE_DEBUG) {
+        setTitle('Debug run complete');
+        setSub('Readings are above — nothing was saved. Reload without ?debug=1 to enrol.');
         setStatus('');
         return;
     }
