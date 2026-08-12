@@ -165,6 +165,8 @@ var SAME_PERSON_MAX = 0.45;
 
 var FACE_DEBUG = <cfoutput>#(val(url.debug) gt 0) ? "true" : "false"#</cfoutput>;
 
+var lastDiagAt = 0;
+
 function debugLog(line) {
     if (!FACE_DEBUG) { return; }
     var el = document.getElementById('cap-debug');
@@ -237,6 +239,25 @@ function runPose() {
             setRing(Math.round((done / needed) * 100));
             setStatus(message);
         },
+        onDiag: function (g, wantPose, streak) {
+            /* Throttled so the panel stays readable at ~5 fps of detection. */
+            if (!FACE_DEBUG) { return; }
+            var now = Date.now();
+            if (now - lastDiagAt < 700) { return; }
+            lastDiagAt = now;
+            if (!g.m) { debugLog('want ' + wantPose + ' | no face detected'); return; }
+            var m = g.m;
+            debugLog(
+                'want ' + wantPose + ' | got ' + m.pose +
+                ' yaw ' + m.yaw.toFixed(3) +
+                ' | score ' + m.score.toFixed(2) + '/' + m.needScore +
+                ' size ' + m.ratio.toFixed(2) +
+                ' cx ' + m.cx.toFixed(2) + ' cy ' + m.cy.toFixed(2) +
+                ' lum ' + Math.round(m.luma) +
+                (m.drift === null ? '' : ' drift ' + m.drift.toFixed(3)) +
+                ' | ' + (g.ok ? 'OK ' + streak + '/5' : g.reason)
+            );
+        },
         onDone: function (result) {
             /* Every pose must be the SAME person as the first one. Without
                this, poses could be captured from different faces, producing
@@ -295,10 +316,12 @@ function finishCapture() {
                     FaceCapture.distance(capTemplates[x].d, capTemplates[y].d).toFixed(4));
             }
         }
-        debugLog('yaw spread = ' + spread.toFixed(4) + '  [min 0.18]');
+        debugLog('yaw spread = ' + spread.toFixed(4) + '  [min 0.12]');
         debugLog('yaws: ' + yaws.map(function (v) { return v.toFixed(3); }).join(', '));
     }
-    if (spread < 0.18) {
+    /* Left and right bands are 0.16 apart at minimum, so this must sit below
+       that or an honest enrolment would be rejected as a spoof. */
+    if (spread < 0.12) {
         setTitle('Could not verify');
         setSub('We could not detect real head movement. Please try again in good light.');
         setStatus('');
