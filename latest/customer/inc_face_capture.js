@@ -254,11 +254,23 @@ var FaceCapture = (function () {
         tick();
     }
 
+    /* Euclidean distance between two raw 128-float descriptors. Same scale
+       the server matcher uses — descriptors are not unit-normalised. */
+    function distance(a, b) {
+        var s = 0;
+        for (var i = 0; i < 128; i++) {
+            var d = a[i] - b[i];
+            s += d * d;
+        }
+        return Math.sqrt(s);
+    }
+
     return {
         ensureReady:      ensureReady,
         startCamera:      startCamera,
         stopStream:       stopStream,
         collectTemplate:  collectTemplate,
+        distance:         distance,
         YAW:              YAW
     };
 })();

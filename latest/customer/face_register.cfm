@@ -141,6 +141,10 @@ var POSES = [
       hint:  'Turn your head a little further to your right' }
 ];
 
+/* Max distance a later pose may sit from the first pose and still be
+   accepted as the same person. Tune here if legitimate users get bounced. */
+var SAME_PERSON_MAX = 0.55;
+
 var capStream   = null;
 var capActive   = false;
 var capIndex    = 0;
@@ -205,6 +209,28 @@ function runPose() {
             setStatus(message);
         },
         onDone: function (result) {
+            /* Every pose must be the SAME person as the first one. Without
+               this, poses could be captured from different faces, producing
+               an account that holds two identities — which then matches
+               neither of them cleanly at login. Same person at a different
+               angle lands around 0.35-0.45; two different people sit at 0.6+,
+               so 0.55 separates them with room to spare. */
+            if (capTemplates.length > 0) {
+                var d = FaceCapture.distance(capTemplates[0].d, result.descriptor);
+                if (d > SAME_PERSON_MAX) {
+                    setRing(0);
+                    setStatus('');
+                    setTitle('Different face detected');
+                    setSub('That does not look like the same person as the first pose. ' +
+                           'Registration restarted — please capture all three poses yourself.');
+                    capIndex = 0;
+                    capTemplates = [];
+                    setDots();
+                    setTimeout(runPose, 2600);
+                    return;
+                }
+            }
+
             capTemplates.push({ pose: step.pose, d: result.descriptor, yaw: result.yaw });
             setRing(100);
             setStatus('Captured');
