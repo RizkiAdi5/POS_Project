@@ -82,6 +82,17 @@
 </head>
 <body>
 <div class="card">
+    <cfif val(url.debug) gt 0>
+        <div style="background:#fef3c7; border:1.5px solid #fbbf24; border-radius:10px;
+                    padding:10px 12px; margin-bottom:16px; font-size:13px; color:#92400e;
+                    text-align:left; line-height:1.5;">
+            <strong>DEBUG MODE</strong><br>
+            Readings are uploaded for review and <strong>nothing is saved</strong>.
+            To actually register your face, open this page without
+            <code>?debug=1</code>.
+        </div>
+    </cfif>
+
     <div class="icon">&#x1F9EC;</div>
     <h2>Register Your Face</h2>
     <p>
@@ -129,6 +140,9 @@
              border-radius:8px; padding:8px 10px; margin-bottom:12px;
              max-height:150px; overflow-y:auto;"></div>
 
+        <div id="cap-upload" style="display:none; font-family:monospace; font-size:11px;
+             color:#6b7280; margin-bottom:10px; text-align:left;"></div>
+
         <button type="button" class="cap-cancel" onclick="closeFaceModal()">Cancel</button>
     </div>
 </div>
@@ -167,6 +181,12 @@ var FACE_DEBUG = <cfoutput>#(val(url.debug) gt 0) ? "true" : "false"#</cfoutput>
 
 var lastDiagAt = 0;
 var diagBuffer = [];
+var uploadedLines = 0;
+
+function setUploadStatus(msg) {
+    var el = document.getElementById('cap-upload');
+    if (el) { el.style.display = 'block'; el.textContent = 'debug log: ' + msg; }
+}
 
 function debugLog(line) {
     if (!FACE_DEBUG) { return; }
@@ -182,16 +202,30 @@ function debugLog(line) {
    they are also shipped to face_debug_log.cfm for review afterwards. */
 function flushDiag() {
     if (!FACE_DEBUG || diagBuffer.length === 0) { return; }
+    var count = diagBuffer.length;
     var body = 'lines=' + encodeURIComponent(diagBuffer.join('\n'));
     diagBuffer = [];
+    /* Report the upload result on screen — otherwise a silently failing
+       fetch looks identical to never having run at all. */
     try {
         fetch('/latest/customer/face_debug_log.cfm', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: body,
             credentials: 'same-origin'
-        }).catch(function () {});
-    } catch (e) { /* diagnostics must never break enrolment */ }
+        }).then(function (r) {
+            return r.text();
+        }).then(function (txt) {
+            uploadedLines += count;
+            setUploadStatus(txt.indexOf('ok') > -1
+                ? 'uploaded ' + uploadedLines + ' lines'
+                : 'UPLOAD REJECTED: ' + txt);
+        }).catch(function (e) {
+            setUploadStatus('UPLOAD FAILED: ' + e.message);
+        });
+    } catch (e) {
+        setUploadStatus('UPLOAD FAILED: ' + e.message);
+    }
 }
 setInterval(flushDiag, 2000);
 window.addEventListener('beforeunload', flushDiag);
