@@ -8,6 +8,21 @@
 
 <cfparam name="form.descriptor" default="">
 
+<!--- TEMPORARY breadcrumb — records that this page was actually reached and
+      what it decided, so a silent non-save can be told apart from the form
+      never submitting at all. Remove with face_debug_log.cfm. --->
+<cffunction name="faceTrace" output="false" returntype="void">
+    <cfargument name="msg" type="string" required="true">
+    <cftry>
+        <cfset var stamp = dateFormat(now(), "yyyy-mm-dd") & " " & timeFormat(now(), "HH:mm:ss")>
+        <cffile action="append" file="#getTempDirectory()#face_debug.log" charset="utf-8"
+                output="[#stamp#] FACE_SAVE #trim(SESSION.emenu_custno)# — #arguments.msg#">
+        <cfcatch type="any"></cfcatch>
+    </cftry>
+</cffunction>
+
+<cfset faceTrace("entered, descriptor bytes=" & len(trim(form.descriptor)))>
+
 <!---
     Accepts two shapes:
       v2 (current)  {"v":2,"templates":[{"pose":"center","d":[128 floats]}, ...]}
@@ -62,19 +77,24 @@
         </cfcatch>
     </cftry>
 
+    <cfset faceTrace("parsed, descriptorValid=" & descriptorValid)>
+
     <cfif descriptorValid>
         <cftry>
-            <cfquery datasource="#dts#">
+            <cfquery result="rSave" datasource="#dts#">
                 UPDATE arcust
                 SET    face_token  = <cfqueryparam cfsqltype="cf_sql_longvarchar" value="#trim(form.descriptor)#">,
                        UPDATED_ON  = <cfqueryparam cfsqltype="cf_sql_timestamp"   value="#now()#">
                 WHERE  CUSTNO      = <cfqueryparam cfsqltype="cf_sql_varchar"     value="#SESSION.emenu_custno#">
             </cfquery>
+            <cfset faceTrace("UPDATE ok, rows affected=" & rSave.recordCount)>
             <cfcatch type="any">
-                <!--- Non-fatal — just skip to menu --->
+                <cfset faceTrace("UPDATE FAILED: " & cfcatch.message)>
             </cfcatch>
         </cftry>
     </cfif>
+<cfelse>
+    <cfset faceTrace("no descriptor posted")>
 </cfif>
 
 <cflocation url="/latest/customer/menu.cfm?face=#descriptorValid ? 'saved' : 'failed'#" addtoken="false">
