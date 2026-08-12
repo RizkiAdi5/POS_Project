@@ -37,16 +37,16 @@ var FaceCapture = (function () {
         secondFaceMax:  0.60  /* reject if another face is >60% of primary's area */
     };
 
-    /* Yaw bands from 68-landmark geometry (see estimateYaw).
+    /* Yaw handling (see estimateYaw / poseOf).
 
-       The nose-between-jaw-edges ratio is a compressed measure — a natural
-       20-30 degree turn only moves it to roughly 0.40 / 0.60, nowhere near
-       the 0.38 / 0.62 this used to demand. Asking for more turn than that
-       also pushes the face past the point where the landmark model can
-       align it. Bands are set to what a comfortable turn actually produces;
-       left and right stay far enough apart to keep the liveness check
-       meaningful (guaranteed spread >= 0.16). */
-    var YAW = { centerLo: 0.44, centerHi: 0.56, rightMax: 0.42, leftMin: 0.58 };
+       centerLo/centerHi is a broad absolute window used only for the first
+       pose, wide enough to accept any normal face's neutral. delta is how
+       far a turned pose must move from THAT person's own neutral, which
+       makes the turn requirement identical for everyone regardless of where
+       their neutral happens to sit. A delta of 0.08 each way guarantees a
+       left-to-right spread of at least 0.16, keeping the liveness check
+       (min 0.12) satisfiable by an honest enrolment. */
+    var YAW = { centerLo: 0.35, centerHi: 0.65, delta: 0.08 };
 
     var lumaCanvas = null;
 
@@ -107,28 +107,50 @@ var FaceCapture = (function () {
         }
     }
 
-    /* Approximate yaw from the 68 landmarks: where the nose tip sits
-       between the two jaw edges. 0.5 = facing straight at the camera.
-       Video is NOT mirrored, so a lower ratio = turned to their own right. */
+    /* Approximate yaw from the 68 landmarks. 0.5 = facing the camera; the
+       video is NOT mirrored, so a lower value = turned to their own right.
+
+       Measured as the nose tip's position BETWEEN THE EYE CORNERS, expressed
+       as a share of the total: dLeft / (dLeft + dRight). Two deliberate
+       choices, both from readings that broke the previous version:
+
+       - Eye corners (36, 45) instead of jaw edges (0, 16). The far jaw edge
+         becomes occluded as the head turns and the model misplaces it, which
+         is what produced readings of 1.019, 1.374 and 1.427 on a scale that
+         only runs 0 to 1. Eye corners stay visible far longer.
+       - A share of the sum rather than a span ratio, which is mathematically
+         bounded to [0,1] and cannot run off the scale even if a landmark is
+         placed badly. */
     function estimateYaw(landmarks) {
         var p = landmarks.positions;
-        var leftEdge = p[0].x, rightEdge = p[16].x, nose = p[30].x;
-        var span = rightEdge - leftEdge;
-        if (span <= 0) { return 0.5; }
-        return (nose - leftEdge) / span;
+        var nose = p[30].x;
+        var dLeft  = Math.abs(nose - p[36].x);
+        var dRight = Math.abs(p[45].x - nose);
+        var total  = dLeft + dRight;
+        if (total <= 0) { return 0.5; }
+        return dLeft / total;
     }
 
-    function poseOf(yaw) {
-        if (yaw >= YAW.centerLo && yaw <= YAW.centerHi) { return 'center'; }
-        if (yaw <= YAW.rightMax) { return 'right'; }
-        if (yaw >= YAW.leftMin)  { return 'left'; }
-        return 'between';
+    /* Pose classification is calibrated to the person, not to absolute
+       numbers. Everyone's neutral sits somewhere slightly different — the
+       first real enrolment logged a dead-centre pose at 0.553, not 0.50 —
+       so fixed bands penalise anyone whose face is not symmetric about the
+       nose. The centre pose is accepted from a broad absolute window, and
+       its own reading then becomes the neutral that the turned poses are
+       measured against. */
+    function poseOf(yaw, neutral) {
+        if (neutral === null || neutral === undefined) {
+            return (yaw >= YAW.centerLo && yaw <= YAW.centerHi) ? 'center' : 'between';
+        }
+        if (yaw >= neutral + YAW.delta) { return 'left'; }
+        if (yaw <= neutral - YAW.delta) { return 'right'; }
+        return 'center';
     }
 
     /* Returns { ok, reason, det, box, yaw, pose, m } where m carries every
        measured value so a caller can report exactly which gate is blocking
        rather than guessing at thresholds. */
-    function gradeFrame(video, dets, prevBox, minScore) {
+    function gradeFrame(video, dets, prevBox, minScore, neutral) {
         if (!dets || dets.length === 0) {
             return { ok: false, reason: 'No face detected — look at the camera', m: null };
         }
@@ -163,7 +185,8 @@ var FaceCapture = (function () {
         var m = {
             score: primary.detection.score, needScore: need,
             ratio: ratio, cx: cx, cy: cy, luma: luma, yaw: yaw,
-            pose: poseOf(yaw), faces: dets.length, drift: null
+            pose: poseOf(yaw, neutral), neutral: neutral,
+            faces: dets.length, drift: null
         };
 
         if (prevBox) {
@@ -233,6 +256,9 @@ var FaceCapture = (function () {
         var isActive   = opts.isActive || function () { return true; };
 
         var onDiag = opts.onDiag || function () {};
+        /* null for the first pose — the centre reading becomes the neutral
+           that the caller then passes back in for the turned poses. */
+        var neutral = (typeof opts.neutral === 'number') ? opts.neutral : null;
         /* A turned head scores lower on a frontal-biased detector, so the
            confidence bar is relaxed for the left/right poses. */
         var minScore = (wantPose && wantPose !== 'center')
@@ -250,7 +276,7 @@ var FaceCapture = (function () {
                 .withFaceDescriptors()
                 .then(function (dets) {
                     if (!isActive()) { return; }
-                    var g = gradeFrame(video, dets, prevBox, minScore);
+                    var g = gradeFrame(video, dets, prevBox, minScore, neutral);
 
                     if (!g.ok) {
                         buf = []; prevBox = null; yawSum = 0;   /* must be CONSECUTIVE */

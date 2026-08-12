@@ -239,6 +239,9 @@ function flushDiag() {
 setInterval(flushDiag, 2000);
 window.addEventListener('beforeunload', flushDiag);
 
+/* Set from the centre pose; the turned poses are judged relative to it. */
+var neutralYaw  = null;
+
 var capStream   = null;
 var capActive   = false;
 var capIndex    = 0;
@@ -264,7 +267,7 @@ function setDots() {
 
 function startFaceReg() {
     document.getElementById('face-modal').style.display = 'flex';
-    capIndex = 0; capTemplates = []; capActive = false;
+    capIndex = 0; capTemplates = []; capActive = false; neutralYaw = null;
     debugLog('===== run started ' + new Date().toISOString() +
              ' | SAME_PERSON_MAX ' + SAME_PERSON_MAX + ' =====');
     setDots(); setRing(0);
@@ -296,6 +299,7 @@ function runPose() {
     FaceCapture.collectTemplate({
         video:     document.getElementById('face-video'),
         pose:      step.pose,
+        neutral:   neutralYaw,
         frames:    5,
         isActive:  isActive,
         poseHint:  step.hint,
@@ -315,6 +319,8 @@ function runPose() {
             debugLog(
                 'want ' + wantPose + ' | got ' + m.pose +
                 ' yaw ' + m.yaw.toFixed(3) +
+                (m.neutral === null || m.neutral === undefined
+                    ? '' : ' (neutral ' + m.neutral.toFixed(3) + ')') +
                 ' | score ' + m.score.toFixed(2) + '/' + m.needScore +
                 ' size ' + m.ratio.toFixed(2) +
                 ' cx ' + m.cx.toFixed(2) + ' cy ' + m.cy.toFixed(2) +
@@ -343,10 +349,17 @@ function runPose() {
                            'Registration restarted — please capture all three poses yourself.');
                     capIndex = 0;
                     capTemplates = [];
+                    neutralYaw = null;
                     setDots();
                     setTimeout(runPose, 2600);
                     return;
                 }
+            }
+
+            if (capTemplates.length === 0) {
+                neutralYaw = result.yaw;
+                debugLog('neutral yaw calibrated to ' + neutralYaw.toFixed(3) +
+                         ' (turn target +/-' + FaceCapture.YAW.delta + ')');
             }
 
             capTemplates.push({ pose: step.pose, d: result.descriptor, yaw: result.yaw });

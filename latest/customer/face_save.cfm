@@ -2,10 +2,6 @@
 <cfinclude template="../../application.cfm">
 <cfsetting showdebugoutput="false">
 
-<cfif SESSION.emenu_loggedin neq "Yes" OR NOT len(SESSION.emenu_custno)>
-    <cflocation url="/latest/customer/login.cfm" addtoken="false">
-</cfif>
-
 <cfparam name="form.descriptor" default="">
 
 <!--- TEMPORARY breadcrumb — records that this page was actually reached and
@@ -21,7 +17,16 @@
     </cftry>
 </cffunction>
 
-<cfset faceTrace("entered, descriptor bytes=" & len(trim(form.descriptor)))>
+<!--- Trace BEFORE the session guard. The guard redirects, so tracing after it
+      would make a session bounce look identical to the form never submitting. --->
+<cfset faceTrace("entered, descriptor bytes=" & len(trim(form.descriptor))
+                 & ", loggedin=" & SESSION.emenu_loggedin
+                 & ", custno=[" & trim(SESSION.emenu_custno) & "]")>
+
+<cfif SESSION.emenu_loggedin neq "Yes" OR NOT len(SESSION.emenu_custno)>
+    <cfset faceTrace("REJECTED by session guard — redirecting to login")>
+    <cflocation url="/latest/customer/login.cfm" addtoken="false">
+</cfif>
 
 <!---
     Accepts two shapes:
