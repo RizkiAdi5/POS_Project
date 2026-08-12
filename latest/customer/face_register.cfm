@@ -166,15 +166,35 @@ var SAME_PERSON_MAX = 0.45;
 var FACE_DEBUG = <cfoutput>#(val(url.debug) gt 0) ? "true" : "false"#</cfoutput>;
 
 var lastDiagAt = 0;
+var diagBuffer = [];
 
 function debugLog(line) {
     if (!FACE_DEBUG) { return; }
+    diagBuffer.push(line);
     var el = document.getElementById('cap-debug');
     if (!el) { return; }
     el.style.display = 'block';
     el.innerHTML += line + '<br>';
     el.scrollTop = el.scrollHeight;
 }
+
+/* The readings scroll past faster than anyone can read while posing, so
+   they are also shipped to face_debug_log.cfm for review afterwards. */
+function flushDiag() {
+    if (!FACE_DEBUG || diagBuffer.length === 0) { return; }
+    var body = 'lines=' + encodeURIComponent(diagBuffer.join('\n'));
+    diagBuffer = [];
+    try {
+        fetch('/latest/customer/face_debug_log.cfm', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: body,
+            credentials: 'same-origin'
+        }).catch(function () {});
+    } catch (e) { /* diagnostics must never break enrolment */ }
+}
+setInterval(flushDiag, 2000);
+window.addEventListener('beforeunload', flushDiag);
 
 var capStream   = null;
 var capActive   = false;
@@ -202,6 +222,8 @@ function setDots() {
 function startFaceReg() {
     document.getElementById('face-modal').style.display = 'flex';
     capIndex = 0; capTemplates = []; capActive = false;
+    debugLog('===== run started ' + new Date().toISOString() +
+             ' | SAME_PERSON_MAX ' + SAME_PERSON_MAX + ' =====');
     setDots(); setRing(0);
     setTitle('Getting ready…'); setSub('Loading face models'); setStatus('');
 
@@ -329,6 +351,7 @@ function finishCapture() {
     }
 
     if (FACE_DEBUG) {
+        flushDiag();
         setTitle('Debug run complete');
         setSub('Readings are above — nothing was saved. Reload without ?debug=1 to enrol.');
         setStatus('');
