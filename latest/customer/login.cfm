@@ -405,13 +405,24 @@
             Look directly at the camera and hold still
         </p>
 
-        <div style="position:relative; border-radius:16px; overflow:hidden; background:#000; margin-bottom:16px;">
+        <div style="position:relative; border-radius:16px; overflow:hidden; background:#000;
+                    margin-bottom:16px; aspect-ratio:4/3;">
             <video id="face-video" autoplay playsinline muted
-                   style="width:100%; display:block; border-radius:16px;"></video>
-            <canvas id="face-canvas" style="position:absolute; top:0; left:0; width:100%; height:100%;"></canvas>
-            <div id="face-status" style="position:absolute; bottom:12px; left:0; right:0;
+                   style="width:100%; height:100%; object-fit:cover; display:block;"></video>
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none"
+                 style="position:absolute; inset:0; width:100%; height:100%;">
+                <ellipse cx="50" cy="48" rx="27" ry="36" fill="none"
+                         stroke="rgba(255,255,255,.45)" stroke-width="1.2"
+                         stroke-dasharray="3 3" vector-effect="non-scaling-stroke"></ellipse>
+                <ellipse id="guide-fill" cx="50" cy="48" rx="27" ry="36" pathLength="100"
+                         fill="none" stroke="#22c55e" stroke-width="2.4"
+                         stroke-dasharray="100" stroke-dashoffset="100"
+                         transform="rotate(-90 50 48)" vector-effect="non-scaling-stroke"
+                         style="transition:stroke-dashoffset .15s linear"></ellipse>
+            </svg>
+            <div id="face-status" style="position:absolute; bottom:10px; left:0; right:0;
                  text-align:center; color:#fff; font-size:13px; font-weight:600;
-                 text-shadow:0 1px 4px rgba(0,0,0,.6);">
+                 text-shadow:0 1px 5px rgba(0,0,0,.8); padding:0 12px;">
                 Initialising camera&hellip;
             </div>
         </div>
@@ -432,6 +443,7 @@
     <input type="hidden" name="descriptor"  id="face-descriptor-input" value="">
 </form>
 
+<script src="/latest/customer/inc_face_capture.js"></script>
 <script>
 /* ---- Tab switching ---- */
 function switchTab(tab) {
@@ -445,30 +457,8 @@ function switchTab(tab) {
    FACE RECOGNITION — face-api.js (CDN)
    Models loaded from jsDelivr CDN weights
 ================================================================ */
-var faceApiReady   = false;
-var faceStream     = null;
-var faceDetecting  = false;
-
-/* Load face-api.js lazily when modal opens */
-function ensureFaceApi(callback) {
-    if (window.faceapi) { callback(); return; }
-    var s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js';
-    s.onload = function() {
-        var MODEL_URL = '/latest/customer/models';
-        Promise.all([
-            faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-            faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-            faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
-        ]).then(function() {
-            faceApiReady = true;
-            setTimeout(callback, 0);
-        }).catch(function(err) {
-            setFaceStatus('Failed to load models: ' + err.message, '#ef4444');
-        });
-    };
-    document.head.appendChild(s);
-}
+var faceStream = null;
+var faceActive = false;
 
 function setFaceStatus(msg, color) {
     var el = document.getElementById('face-status');
@@ -478,72 +468,52 @@ function setFaceStatus(msg, color) {
 function startFaceLogin() {
     document.getElementById('face-modal').style.display = 'flex';
     setFaceStatus('Loading face models\u2026');
-    ensureFaceApi(function() {
-        startCamera(function() {
-            setFaceStatus('Look at the camera\u2026');
-            faceDetecting = true;
-            detectFaceLoop();
-        });
-    });
-}
+    setFaceRing(0);
 
-function startCamera(onReady) {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        setFaceStatus('Camera unavailable — site must be opened over HTTPS', '#ef4444');
-        return;
-    }
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } })
-        .then(function(stream) {
+    FaceCapture.ensureReady(function() {
+        FaceCapture.startCamera(document.getElementById('face-video'), function(stream) {
             faceStream = stream;
-            var video = document.getElementById('face-video');
-            video.srcObject = stream;
-            video.onloadedmetadata = function() { video.play(); onReady(); };
-        })
-        .catch(function(err) {
-            setFaceStatus('Camera error: ' + err.message, '#ef4444');
-        });
+            faceActive = true;
+            setFaceStatus('Line your face up inside the oval');
+
+            FaceCapture.collectTemplate({
+                video:    document.getElementById('face-video'),
+                pose:     'center',
+                frames:   3,
+                isActive: function() { return faceActive; },
+                poseHint: 'Look straight at the camera',
+                holdHint: 'Hold still\u2026',
+                onProgress: function(done, needed, message) {
+                    setFaceRing(Math.round((done / needed) * 100));
+                    setFaceStatus(message, done > 0 ? '#86efac' : '#fff');
+                },
+                onDone: function(result) {
+                    faceActive = false;
+                    FaceCapture.stopStream(faceStream);
+                    faceStream = null;
+                    setFaceRing(100);
+                    setFaceStatus('Verifying\u2026', '#86efac');
+                    document.getElementById('face-descriptor-input').value =
+                        JSON.stringify(result.descriptor);
+                    document.getElementById('face-login-form').submit();
+                }
+            });
+        }, function(msg) { setFaceStatus(msg, '#ef4444'); });
+    }, function(msg) { setFaceStatus(msg, '#ef4444'); });
 }
 
-function stopCamera() {
-    faceDetecting = false;
-    if (faceStream) {
-        faceStream.getTracks().forEach(function(t) { t.stop(); });
-        faceStream = null;
-    }
+function setFaceRing(pct) {
+    var el = document.getElementById('guide-fill');
+    if (el) { el.setAttribute('stroke-dashoffset', String(100 - pct)); }
 }
 
 function closeFaceModal() {
-    stopCamera();
+    faceActive = false;
+    FaceCapture.stopStream(faceStream);
+    faceStream = null;
     document.getElementById('face-modal').style.display = 'none';
 }
 
-var detectLoopCount = 0;
-function detectFaceLoop() {
-    if (!faceDetecting) return;
-    var video = document.getElementById('face-video');
-    faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
-        .withFaceLandmarks()
-        .withFaceDescriptor()
-        .then(function(detection) {
-            detectLoopCount++;
-            if (!detection) {
-                setFaceStatus('No face detected \u2014 look at the camera');
-                if (faceDetecting) setTimeout(detectFaceLoop, 600);
-                return;
-            }
-            /* Got a descriptor — send to server for matching */
-            setFaceStatus('Face detected! Verifying\u2026', '#86efac');
-            faceDetecting = false;
-            stopCamera();
-
-            var descriptor = Array.from(detection.descriptor);
-            document.getElementById('face-descriptor-input').value = JSON.stringify(descriptor);
-            document.getElementById('face-login-form').submit();
-        })
-        .catch(function() {
-            if (faceDetecting) setTimeout(detectFaceLoop, 600);
-        });
-}
 </script>
 
 </body>
