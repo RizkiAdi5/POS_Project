@@ -192,13 +192,16 @@
         <cfset loginError("No face data received. Please try again.")>
     </cfif>
 
-    <!--- Parse the incoming descriptor --->
+    <!--- Parse the incoming descriptor — must be a 128-float array --->
     <cftry>
         <cfset inDesc = deserializeJSON(form.descriptor)>
         <cfcatch type="any">
             <cfset loginError("Invalid face data. Please try again.")>
         </cfcatch>
     </cftry>
+    <cfif NOT (isArray(inDesc) AND arrayLen(inDesc) eq 128)>
+        <cfset loginError("Invalid face data. Please try again.")>
+    </cfif>
 
     <!--- Load all customers who have a face_token registered --->
     <cftry>
@@ -219,35 +222,70 @@
         <cfset loginError("No face registered accounts found. Please login with email and password.")>
     </cfif>
 
-    <!--- Compare descriptors — euclidean distance threshold 0.5 --->
+    <!---
+        Match against every stored template, nearest neighbour wins.
+
+        A customer enrolled with multi-pose capture has several templates
+        (centre / slight left / slight right); the one closest to the incoming
+        frame is the one that counts, which is what makes matching tolerant of
+        head angle. Enrolments made before multi-pose capture are a bare
+        128-float array and are treated as a single template.
+    --->
     <cfset matchedCustNo = "">
     <cfset matchedName   = "">
     <cfset matchedEmail  = "">
     <cfset matchedPoints = 0>
     <cfset matchedTier   = "">
-    <cfset bestDist      = 1>
+    <cfset bestDist      = 99>
+    <cfset secondDist    = 99>
     <cfset threshold     = 0.5>
+    <!--- The winner must also beat the runner-up by this much. Without it, two
+          people who both sit near the threshold could flip between logins. --->
+    <cfset matchMargin   = 0.05>
 
     <cfloop query="qFaceUsers">
         <cftry>
-            <cfset storedDesc = deserializeJSON(qFaceUsers.face_token)>
+            <cfset stored    = deserializeJSON(qFaceUsers.face_token)>
+            <cfset templates = arrayNew(1)>
 
-            <!--- Euclidean distance between two 128-float arrays --->
-            <cfset sumSq = 0>
-            <cfloop from="1" to="128" index="i">
-                <cfset diff  = val(inDesc[i]) - val(storedDesc[i])>
-                <cfset sumSq = sumSq + (diff * diff)>
-            </cfloop>
-            <cfset dist = sqr(sumSq)>
-
-            <cfif dist lt bestDist>
-                <cfset bestDist      = dist>
-                <cfset matchedCustNo = trim(qFaceUsers.CUSTNO)>
-                <cfset matchedName   = trim(qFaceUsers.NAME)>
-                <cfset matchedEmail  = trim(qFaceUsers.E_MAIL)>
-                <cfset matchedPoints = val(qFaceUsers.POINT_BF)>
-                <cfset matchedTier   = trim(qFaceUsers.member_tier)>
+            <cfif isArray(stored) AND arrayLen(stored) eq 128>
+                <cfset arrayAppend(templates, stored)>
+            <cfelseif isStruct(stored) AND structKeyExists(stored, "templates")
+                      AND isArray(stored.templates)>
+                <cfloop array="#stored.templates#" index="tpl">
+                    <cfif isStruct(tpl) AND structKeyExists(tpl, "d")
+                          AND isArray(tpl.d) AND arrayLen(tpl.d) eq 128>
+                        <cfset arrayAppend(templates, tpl.d)>
+                    </cfif>
+                </cfloop>
             </cfif>
+
+            <!--- Closest template for THIS customer --->
+            <cfset custDist = 99>
+            <cfloop array="#templates#" index="storedDesc">
+                <cfset sumSq = 0>
+                <cfloop from="1" to="128" index="i">
+                    <cfset diff  = val(inDesc[i]) - val(storedDesc[i])>
+                    <cfset sumSq = sumSq + (diff * diff)>
+                </cfloop>
+                <cfset dist = sqr(sumSq)>
+                <cfif dist lt custDist><cfset custDist = dist></cfif>
+            </cfloop>
+
+            <cfif arrayLen(templates)>
+                <cfif custDist lt bestDist>
+                    <cfset secondDist    = bestDist>
+                    <cfset bestDist      = custDist>
+                    <cfset matchedCustNo = trim(qFaceUsers.CUSTNO)>
+                    <cfset matchedName   = trim(qFaceUsers.NAME)>
+                    <cfset matchedEmail  = trim(qFaceUsers.E_MAIL)>
+                    <cfset matchedPoints = val(qFaceUsers.POINT_BF)>
+                    <cfset matchedTier   = trim(qFaceUsers.member_tier)>
+                <cfelseif custDist lt secondDist>
+                    <cfset secondDist = custDist>
+                </cfif>
+            </cfif>
+
             <cfcatch type="any">
                 <!--- Skip malformed descriptor rows --->
             </cfcatch>
@@ -256,6 +294,9 @@
 
     <cfif bestDist gt threshold OR NOT len(matchedCustNo)>
         <cfset loginError("Face not recognised. Please try again or use email login.")>
+    </cfif>
+    <cfif secondDist lt 99 AND (secondDist - bestDist) lt matchMargin>
+        <cfset loginError("Could not confirm your identity. Please use email login.")>
     </cfif>
 
     <!--- Match found — set session --->

@@ -8,15 +8,58 @@
 
 <cfparam name="form.descriptor" default="">
 
-<cfif len(trim(form.descriptor))>
-    <!--- Validate it is a JSON array of 128 numbers before persisting --->
-    <cfset descriptorValid = false>
-    <cftry>
-        <cfset parsedDesc = deserializeJSON(trim(form.descriptor))>
-        <cfif isArray(parsedDesc) AND arrayLen(parsedDesc) eq 128>
-            <cfset descriptorValid = true>
+<!---
+    Accepts two shapes:
+      v2 (current)  {"v":2,"templates":[{"pose":"center","d":[128 floats]}, ...]}
+      legacy        [128 floats]   — single frontal descriptor
+    Legacy is still accepted so the enrolments made before multi-pose
+    capture keep working until those customers re-register.
+--->
+<cfset descriptorValid = false>
+
+<!---
+    A well-formed face-api descriptor is 128 numbers with a norm around
+    1.4; every element sits well inside +/-1. An enrolment already in this
+    database had a single element of -8.29, which pushed that customer's
+    distance to everyone (including themselves) past any usable threshold
+    and made face login permanently impossible for them. Range-check each
+    element so a corrupt capture can never be persisted again.
+--->
+<cffunction name="isValidDescriptor" returntype="boolean" output="false">
+    <cfargument name="d" type="any" required="true">
+    <cfif NOT (isArray(arguments.d) AND arrayLen(arguments.d) eq 128)>
+        <cfreturn false>
+    </cfif>
+    <cfloop from="1" to="128" index="i">
+        <cfif NOT isNumeric(arguments.d[i]) OR abs(val(arguments.d[i])) gt 2>
+            <cfreturn false>
         </cfif>
-        <cfcatch type="any"></cfcatch>
+    </cfloop>
+    <cfreturn true>
+</cffunction>
+
+<cfif len(trim(form.descriptor))>
+    <cftry>
+        <cfset parsed = deserializeJSON(trim(form.descriptor))>
+
+        <cfif isArray(parsed)>
+            <!--- legacy single descriptor --->
+            <cfset descriptorValid = isValidDescriptor(parsed)>
+
+        <cfelseif isStruct(parsed) AND structKeyExists(parsed, "templates")
+                  AND isArray(parsed.templates) AND arrayLen(parsed.templates) gt 0>
+            <cfset descriptorValid = true>
+            <cfloop array="#parsed.templates#" index="tpl">
+                <cfif NOT (isStruct(tpl) AND structKeyExists(tpl, "d")
+                           AND isValidDescriptor(tpl.d))>
+                    <cfset descriptorValid = false>
+                </cfif>
+            </cfloop>
+        </cfif>
+
+        <cfcatch type="any">
+            <cfset descriptorValid = false>
+        </cfcatch>
     </cftry>
 
     <cfif descriptorValid>
@@ -34,4 +77,4 @@
     </cfif>
 </cfif>
 
-<cflocation url="/latest/customer/menu.cfm" addtoken="false">
+<cflocation url="/latest/customer/menu.cfm?face=#descriptorValid ? 'saved' : 'failed'#" addtoken="false">
