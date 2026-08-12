@@ -203,6 +203,23 @@
         <cfset loginError("Invalid face data. Please try again.")>
     </cfif>
 
+    <!--- A corrupt capture must not be matched against. One element far out
+          of range makes the descriptor roughly equidistant from everyone —
+          a real attempt measured 7.96 against every enrolled face when the
+          meaningful maximum is about 2 — which would surface to the customer
+          as "face not recognised" and send them hunting a threshold problem
+          that does not exist. --->
+    <cfset descCorrupt = false>
+    <cfloop from="1" to="128" index="i">
+        <cfif NOT isNumeric(inDesc[i]) OR abs(val(inDesc[i])) gt 2>
+            <cfset descCorrupt = true>
+            <cfbreak>
+        </cfif>
+    </cfloop>
+    <cfif descCorrupt>
+        <cfset loginError("Face capture failed. Please hold still and try again.")>
+    </cfif>
+
     <!--- Load all customers who have a face_token registered --->
     <cftry>
         <cfquery name="qFaceUsers" datasource="#dts#">

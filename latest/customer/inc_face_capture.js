@@ -308,9 +308,32 @@ var FaceCapture = (function () {
                         return;
                     }
 
+                    /* face-api intermittently returns a corrupt descriptor —
+                       one element orders of magnitude out of range while the
+                       rest look normal. Unfiltered, such a frame poisons the
+                       averaged template: it produced a stored enrolment with
+                       an element of -8.2955, and a login measuring 7.96 from
+                       every face when the real range tops out near 2. Drop
+                       the frame and restart the streak. */
+                    var desc = Array.from(g.det.descriptor), corrupt = false;
+                    for (var di = 0; di < 128; di++) {
+                        if (!isFinite(desc[di]) || Math.abs(desc[di]) > 2) {
+                            corrupt = true;
+                            break;
+                        }
+                    }
+                    if (corrupt) {
+                        buf = []; prevBox = null; yawSum = 0;
+                        onDiag({ ok: false, m: g.m,
+                                 reason: 'corrupt descriptor discarded' }, wantPose, 0);
+                        onProgress(0, needed, 'Hold still — retrying');
+                        setTimeout(tick, 200);
+                        return;
+                    }
+
                     onDiag(g, wantPose, buf.length + 1);
 
-                    buf.push(Array.from(g.det.descriptor));
+                    buf.push(desc);
                     yawSum += g.yaw;
                     prevBox = g.box;
                     onProgress(buf.length, needed, opts.holdHint || 'Hold still…');
